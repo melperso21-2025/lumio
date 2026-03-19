@@ -1,12 +1,72 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
-import Topbar from '@/components/layout/Topbar'
 import KpiCard from '@/components/ui/KpiCard'
 import AiInsightBox from '@/components/ui/AiInsightBox'
 import RegisterSaleButton from '@/components/dashboard/RegisterSaleButton'
+import PeriodSelector from '@/components/dashboard/PeriodSelector'
 
-export default async function DashboardPage() {
+// ── Componente interno BlockHeader ──────────────────────────
+function BlockHeader({
+  title,
+  dotColor,
+  href,
+  link,
+}: {
+  title: string
+  dotColor: string
+  href: string
+  link: string
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 10,
+        paddingBottom: 8,
+        borderBottom: '2px solid var(--border)',
+      }}
+    >
+      <div
+        style={{
+          fontFamily: 'var(--font-syne)',
+          fontWeight: 700,
+          fontSize: 14,
+          color: 'var(--text)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        <div
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: dotColor,
+            flexShrink: 0,
+          }}
+        />
+        {title}
+      </div>
+      <Link href={href} style={{ fontSize: 11, color: 'var(--muted)', textDecoration: 'none' }}>
+        {link}
+      </Link>
+    </div>
+  )
+}
+
+interface DashboardPageProps {
+  searchParams: Promise<{ period?: string }>
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+  const params = await searchParams
+  const period = params.period ?? 'week'
+
   const supabase = await createClient()
   const {
     data: { user },
@@ -18,13 +78,26 @@ export default async function DashboardPage() {
     .select('company_id')
     .eq('id', user.id)
     .single()
-
   const companyId = userData?.company_id
 
   if (!companyId) {
     return (
       <>
-        <Topbar pageTitle="Dashboard" pageSubtitle="Sin empresa asignada" />
+        <div
+          style={{
+            background: 'var(--topbar-bg, var(--surface))',
+            borderBottom: '1px solid var(--border)',
+            padding: '0 22px',
+            height: 50,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div className="font-syne font-bold" style={{ fontSize: 15, color: 'var(--text)' }}>
+            Dashboard
+          </div>
+        </div>
         <div style={{ padding: 20 }}>
           <p
             style={{
@@ -40,41 +113,150 @@ export default async function DashboardPage() {
     )
   }
 
-  // ── Semana y año actual ──────────────────────────────────
+  // ── Calcular rango de fechas según período ───────────────
   const now = new Date()
   const currentYear = now.getFullYear()
   const startOfYear = new Date(currentYear, 0, 1)
-  const weekNumber = Math.ceil(
+  const currentWeek = Math.ceil(
     ((now.getTime() - startOfYear.getTime()) / 86400000 +
       startOfYear.getDay() +
       1) /
       7
   )
+  const currentMonth = now.getMonth() + 1
 
-  // ── Snapshot semana actual ───────────────────────────────
-  const { data: snap } = await supabase
+  let weekNumbers: number[] = []
+  if (period === 'week') {
+    weekNumbers = [currentWeek]
+  } else if (period === 'month') {
+    const firstWeekOfMonth = Math.ceil(
+      ((new Date(currentYear, currentMonth - 1, 1).getTime() -
+        startOfYear.getTime()) /
+        86400000 +
+        startOfYear.getDay() +
+        1) /
+        7
+    )
+    weekNumbers = Array.from({ length: 4 }, (_, i) => firstWeekOfMonth + i)
+      .filter((w) => w <= currentWeek && w > 0 && w <= 52)
+  } else {
+    weekNumbers = Array.from({ length: 5 }, (_, i) => currentWeek - i).filter(
+      (w) => w > 0
+    )
+  }
+
+  const prevWeekNumbers = weekNumbers
+    .map((w) => w - weekNumbers.length)
+    .filter((w) => w > 0)
+
+  // Snapshot período actual
+  const { data: currentSnaps } = await supabase
     .from('weekly_snapshots')
     .select('*')
     .eq('company_id', companyId)
-    .order('year', { ascending: false })
+    .eq('year', currentYear)
+    .in('week_number', weekNumbers.length > 0 ? weekNumbers : [0])
     .order('week_number', { ascending: false })
-    .limit(1)
-    .single()
 
-  // ── Snapshot semana anterior (para deltas) ───────────────
-  const { data: prevSnap } = await supabase
+  const snaps = currentSnaps ?? []
+
+  // Snapshot período anterior — para deltas
+  const { data: prevSnaps } = await supabase
     .from('weekly_snapshots')
     .select(
-      'total_sales, total_transactions, avg_lpp, total_ad_spend, avg_roas, total_leads, cash_days, net_margin_pct'
+      'total_sales, total_transactions, avg_lpp, total_ad_spend, avg_roas, total_leads, cash_days, net_margin_pct, avg_effectiveness'
     )
+    .eq('company_id', companyId)
+    .eq('year', currentYear)
+    .in('week_number', prevWeekNumbers.length > 0 ? prevWeekNumbers : [0])
+
+  const prevSnapsData = prevSnaps ?? []
+
+  // ── Agregar valores del período actual ───────────────────
+  const totalSales = snaps.reduce((s, r) => s + (r.total_sales ?? 0), 0)
+  const totalTransactions = snaps.reduce(
+    (s, r) => s + (r.total_transactions ?? 0),
+    0
+  )
+  const avgLpp =
+    snaps.length > 0
+      ? snaps.reduce((s, r) => s + (r.avg_lpp ?? 0), 0) / snaps.length
+      : 0
+  const totalDiscounts = snaps.reduce((s, r) => s + (r.total_discounts ?? 0), 0)
+  const totalAdSpend = snaps.reduce((s, r) => s + (r.total_ad_spend ?? 0), 0)
+  const avgRoas =
+    snaps.length > 0
+      ? snaps.reduce((s, r) => s + (r.avg_roas ?? 0), 0) / snaps.length
+      : 0
+  const totalLeads = snaps.reduce((s, r) => s + (r.total_leads ?? 0), 0)
+  const avgEffectiveness =
+    snaps.length > 0
+      ? snaps.reduce((s, r) => s + (r.avg_effectiveness ?? 0), 0) / snaps.length
+      : 0
+  const avgCashDays =
+    snaps.length > 0
+      ? snaps.reduce((s, r) => s + (r.cash_days ?? 0), 0) / snaps.length
+      : 0
+  const avgNetMargin =
+    snaps.length > 0
+      ? snaps.reduce((s, r) => s + (r.net_margin_pct ?? 0), 0) / snaps.length
+      : 0
+  const avgGrossMargin =
+    snaps.length > 0
+      ? snaps.reduce((s, r) => s + (r.gross_margin_pct ?? 0), 0) / snaps.length
+      : 0
+  const overdueRec =
+    snaps.length > 0 ? snaps[0].overdue_receivables ?? 0 : 0
+
+  // ── Agregar valores del período anterior ─────────────────
+  const prevTotalSales = prevSnapsData.reduce(
+    (s, r) => s + (r.total_sales ?? 0),
+    0
+  )
+  const prevTotalTransactions = prevSnapsData.reduce(
+    (s, r) => s + (r.total_transactions ?? 0),
+    0
+  )
+  const prevAvgLpp =
+    prevSnapsData.length > 0
+      ? prevSnapsData.reduce((s, r) => s + (r.avg_lpp ?? 0), 0) /
+        prevSnapsData.length
+      : 0
+  const prevTotalAdSpend = prevSnapsData.reduce(
+    (s, r) => s + (r.total_ad_spend ?? 0),
+    0
+  )
+  const prevAvgRoas =
+    prevSnapsData.length > 0
+      ? prevSnapsData.reduce((s, r) => s + (r.avg_roas ?? 0), 0) /
+        prevSnapsData.length
+      : 0
+  const prevAvgNetMargin =
+    prevSnapsData.length > 0
+      ? prevSnapsData.reduce((s, r) => s + (r.net_margin_pct ?? 0), 0) /
+        prevSnapsData.length
+      : 0
+
+  function calcDelta(
+    current: number,
+    previous: number
+  ): number | undefined {
+    if (!previous || previous === 0) return undefined
+    return Math.round(((current - previous) / previous) * 100)
+  }
+
+  // ── Últimas 10 semanas para gráfica (SIEMPRE) ────────────
+  const { data: historySnaps } = await supabase
+    .from('weekly_snapshots')
+    .select('week_number, year, total_sales')
     .eq('company_id', companyId)
     .order('year', { ascending: false })
     .order('week_number', { ascending: false })
-    .limit(1)
-    .range(1, 1)
-    .single()
+    .limit(10)
+  const history = (historySnaps ?? []).reverse()
+  const maxSales = Math.max(...history.map((h) => h.total_sales ?? 0), 1)
 
-  // ── Insight más reciente ─────────────────────────────────
+  // ── Insight ──────────────────────────────────────────────
   const { data: insight } = await supabase
     .from('ai_insights')
     .select('executive_summary, week_number, year')
@@ -84,23 +266,25 @@ export default async function DashboardPage() {
     .limit(1)
     .single()
 
-  // ── Últimas 10 semanas para gráfica ─────────────────────
-  const { data: snapshotsHistory } = await supabase
-    .from('weekly_snapshots')
-    .select('week_number, year, total_sales')
-    .eq('company_id', companyId)
-    .order('year', { ascending: false })
-    .order('week_number', { ascending: false })
-    .limit(10)
-  const history = (snapshotsHistory ?? []).reverse()
-
   // ── Ventas por canal ─────────────────────────────────────
+  const dateFrom =
+    period === 'week'
+      ? new Date(
+          now.getTime() - 7 * 24 * 60 * 60 * 1000
+        ).toISOString().slice(0, 10)
+      : period === 'month'
+        ? `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`
+        : new Date(
+            now.getTime() - 30 * 24 * 60 * 60 * 1000
+          ).toISOString().slice(0, 10)
+
   const { data: salesByChanData } = await supabase
     .from('sales')
     .select('gross_total, channel_id, sales_channels(name)')
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .neq('status', 'cancelled')
+    .gte('sale_date', dateFrom)
 
   const channelMap: Record<string, { name: string; total: number }> = {}
   const totalAllSales =
@@ -108,7 +292,10 @@ export default async function DashboardPage() {
   salesByChanData?.forEach((r) => {
     const sc = (r as Record<string, unknown>).sales_channels
     const chanName =
-      (sc && typeof sc === 'object' && sc !== null && 'name' in sc
+      (sc &&
+      typeof sc === 'object' &&
+      sc !== null &&
+      'name' in sc
         ? (sc as { name: string }).name
         : null) ?? 'Sin canal'
     const id = r.channel_id ?? 'none'
@@ -119,21 +306,19 @@ export default async function DashboardPage() {
     .sort((a, b) => b.total - a.total)
     .slice(0, 5)
 
-  // ── Inventario: productos sin movimiento ─────────────────
+  // ── Inventario ───────────────────────────────────────────
   const { data: productsData } = await supabase
     .from('products')
-    .select('id, name, current_stock, min_stock_alert, unit_cost, sale_price')
+    .select('id, name, current_stock, min_stock_alert, unit_cost')
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .eq('is_active', true)
 
   const products = productsData ?? []
-
   const frozenCapital = products.reduce(
     (s, p) => s + (p.current_stock ?? 0) * (p.unit_cost ?? 0),
     0
   )
-
   const slowMovers = products
     .filter(
       (p) =>
@@ -142,7 +327,6 @@ export default async function DashboardPage() {
     )
     .sort((a, b) => (b.current_stock ?? 0) - (a.current_stock ?? 0))
     .slice(0, 3)
-
   const totalStock = products.reduce(
     (s, p) => s + (p.current_stock ?? 0),
     0
@@ -156,13 +340,12 @@ export default async function DashboardPage() {
       : 0
   const inventoryDaysPct = Math.min(Math.round((inventoryDays / 45) * 100), 100)
 
-  // ── Datos financieros del mes ────────────────────────────
-  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  // ── Finanzas ─────────────────────────────────────────────
   const { data: txData } = await supabase
     .from('bank_transactions')
     .select('type, amount, is_fixed')
     .eq('company_id', companyId)
-    .gte('tx_date', monthStart)
+    .gte('tx_date', dateFrom)
 
   const totalIncome = (txData ?? [])
     .filter((t) => t.type === 'income')
@@ -177,29 +360,68 @@ export default async function DashboardPage() {
   const fixedExpensesPct =
     totalExpenses > 0 ? Math.round((fixedExpenses / totalExpenses) * 100) : 0
 
-  // ── Calcular deltas (% cambio vs semana anterior) ────────
-  function calcDelta(
-    current: number | null | undefined,
-    previous: number | null | undefined
-  ): number | undefined {
-    if (!current || !previous || previous === 0) return undefined
-    return Math.round(((current - previous) / previous) * 100)
-  }
-
-  const weekLabel =
-    snap?.week_number != null
-      ? `Semana ${snap.week_number} · ${snap.year}`
-      : `Semana ${weekNumber} · ${currentYear}`
-
-  const maxSales = Math.max(...history.map((h) => h.total_sales ?? 0), 1)
-
-  // total_cost no existe en weekly_snapshots — usar 0 como fallback
-  const totalCost = 0
+  // ── Label del período ─────────────────────────────────────
+  const periodLabel =
+    period === 'week'
+      ? `Semana ${currentWeek} · ${currentYear}`
+      : period === 'month'
+        ? `${['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][currentMonth - 1]} ${currentYear}`
+        : 'Últimos 30 días'
 
   return (
     <>
-      <Topbar pageTitle="Dashboard" pageSubtitle={weekLabel} />
-      <RegisterSaleButton companyId={companyId} />
+      <div
+        style={{
+          background: 'var(--topbar-bg, var(--surface))',
+          borderBottom: '1px solid var(--border)',
+          padding: '0 22px',
+          height: 50,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexShrink: 0,
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
+        }}
+      >
+        <div>
+          <div
+            className="font-syne font-bold"
+            style={{ fontSize: 15, color: 'var(--text)' }}
+          >
+            Dashboard
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>
+            {periodLabel}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Suspense fallback={null}>
+            <PeriodSelector />
+          </Suspense>
+          <button
+            type="button"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '6px 12px',
+              borderRadius: 6,
+              fontSize: 11,
+              border: '1px solid var(--border2)',
+              background: 'transparent',
+              color: 'var(--text2)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-jakarta)',
+            }}
+          >
+            ⬇ Exportar
+          </button>
+          <RegisterSaleButton companyId={companyId} />
+        </div>
+      </div>
 
       <div
         style={{
@@ -209,62 +431,27 @@ export default async function DashboardPage() {
           gap: 0,
         }}
       >
-        {/* AI Insight Central */}
         <div style={{ marginBottom: 20 }}>
           <AiInsightBox
             variant="gold"
-            title={`lumio IA · Resumen ejecutivo — Semana ${insight?.week_number ?? weekNumber}`}
+            title={`lumio IA · Resumen ejecutivo — Semana ${insight?.week_number ?? currentWeek}`}
             text={
               insight?.executive_summary ??
-              'Aún no hay suficientes datos para generar un análisis. Registra ventas y pautas para ver tus primeros insights.'
+              'Registra ventas y pautas para ver tus primeros insights.'
             }
           />
         </div>
 
-        {/* BLOQUE 1 — VENTAS */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 10,
-            paddingBottom: 8,
-            borderBottom: '2px solid var(--border)',
-          }}
-        >
-          <div
-            style={{
-              fontFamily: 'var(--font-syne)',
-              fontWeight: 700,
-              fontSize: 14,
-              color: 'var(--text)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}
-          >
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: '#E8A500',
-                flexShrink: 0,
-              }}
-            />
-            Ventas
-          </div>
-          <Link
-            href="/sales"
-            style={{ fontSize: 11, color: 'var(--muted)', textDecoration: 'none' }}
-          >
-            Ver detalle →
-          </Link>
-        </div>
+        <BlockHeader
+          title="Ventas"
+          dotColor="#E8A500"
+          href="/sales"
+          link="Ver detalle →"
+        />
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(6, 1fr)',
+            gridTemplateColumns: 'repeat(6,1fr)',
             gap: 10,
             marginBottom: 20,
           }}
@@ -272,111 +459,62 @@ export default async function DashboardPage() {
           <KpiCard
             label="Ventas $"
             prefix="$"
-            value={snap?.total_sales ?? 0}
+            value={totalSales.toFixed(2)}
             isGold
-            delta={calcDelta(snap?.total_sales, prevSnap?.total_sales)}
+            delta={calcDelta(totalSales, prevTotalSales)}
             compare={
-              prevSnap?.total_sales
-                ? `Ant: $${prevSnap.total_sales}`
-                : undefined
+              prevTotalSales > 0 ? `Ant: $${prevTotalSales.toFixed(0)}` : undefined
             }
           />
           <KpiCard
             label="Transacciones"
-            value={snap?.total_transactions ?? 0}
-            delta={calcDelta(
-              snap?.total_transactions,
-              prevSnap?.total_transactions
-            )}
+            value={totalTransactions}
+            delta={calcDelta(totalTransactions, prevTotalTransactions)}
             compare={
-              prevSnap?.total_transactions
-                ? `Ant: ${prevSnap.total_transactions}`
+              prevTotalTransactions > 0
+                ? `Ant: ${prevTotalTransactions}`
                 : undefined
             }
           />
           <KpiCard
             label="LPP"
-            value={snap?.avg_lpp ?? 0}
-            delta={calcDelta(snap?.avg_lpp, prevSnap?.avg_lpp)}
+            value={avgLpp.toFixed(1)}
+            delta={calcDelta(avgLpp, prevAvgLpp)}
             compare="líneas por pedido"
           />
           <KpiCard
-            label="Costo $"
-            prefix="$"
-            value={totalCost}
-            compare={
-              snap?.gross_margin_pct
-                ? `Margen: ${snap.gross_margin_pct}%`
-                : undefined
-            }
+            label="Margen bruto"
+            suffix="%"
+            value={avgGrossMargin.toFixed(1)}
+            compare="del período"
           />
           <KpiCard
             label="Contribución"
             prefix="$"
-            value={
-              snap
-                ? (snap.total_sales ?? 0) -
-                  totalCost -
-                  (snap.total_discounts ?? 0)
-                : 0
-            }
+            value={(totalSales - totalDiscounts).toFixed(0)}
           />
           <KpiCard
             label="Descuentos"
             prefix="$"
-            value={snap?.total_discounts ?? 0}
+            value={totalDiscounts.toFixed(2)}
             compare={
-              snap?.total_sales && snap.total_discounts
-                ? `${Math.round((snap.total_discounts / snap.total_sales) * 100)}% de ventas`
+              totalSales > 0
+                ? `${Math.round((totalDiscounts / totalSales) * 100)}% de ventas`
                 : undefined
             }
           />
         </div>
 
-        {/* BLOQUE 2 — INVENTARIO */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 10,
-            paddingBottom: 8,
-            borderBottom: '2px solid var(--border)',
-          }}
-        >
-          <div
-            style={{
-              fontFamily: 'var(--font-syne)',
-              fontWeight: 700,
-              fontSize: 14,
-              color: 'var(--text)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}
-          >
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: '#2563EB',
-                flexShrink: 0,
-              }}
-            />
-            Inventario
-          </div>
-          <Link
-            href="/inventory"
-            style={{ fontSize: 11, color: 'var(--muted)', textDecoration: 'none' }}
-          >
-            Ver detalle →
-          </Link>
-        </div>
+        <BlockHeader
+          title="Inventario"
+          dotColor="#2563EB"
+          href="/inventory"
+          link="Ver detalle →"
+        />
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
+            gridTemplateColumns: 'repeat(3,1fr)',
             gap: 10,
             marginBottom: 20,
           }}
@@ -387,8 +525,6 @@ export default async function DashboardPage() {
               border: '1px solid var(--border)',
               borderRadius: 10,
               padding: '13px 15px',
-              position: 'relative',
-              overflow: 'hidden',
             }}
           >
             <div
@@ -412,9 +548,7 @@ export default async function DashboardPage() {
               }}
             >
               {slowMovers.length === 0 ? (
-                <div
-                  style={{ fontSize: 11, color: 'var(--muted)' }}
-                >
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>
                   Sin productos estancados ✓
                 </div>
               ) : (
@@ -457,7 +591,7 @@ export default async function DashboardPage() {
               background: 'var(--card)',
               border: '1px solid var(--border)',
               borderRadius: 10,
-              padding: '14px 16px',
+              padding: '13px 15px',
             }}
           >
             <div
@@ -470,7 +604,7 @@ export default async function DashboardPage() {
                 fontWeight: 600,
               }}
             >
-              Capital paralizado en stock
+              Capital paralizado
             </div>
             <div
               className="font-syne font-bold"
@@ -504,7 +638,7 @@ export default async function DashboardPage() {
                 fontWeight: 600,
               }}
             >
-              Días de inventario general
+              Días de inventario
             </div>
             <div
               className="font-syne font-bold"
@@ -517,7 +651,7 @@ export default async function DashboardPage() {
             >
               {inventoryDays} días
             </div>
-            <div style={{ fontSize: 9, color: 'var(--muted)', marginTop: 2 }}>
+            <div style={{ fontSize: 9, color: 'var(--muted)' }}>
               Óptimo: 20–45 días
             </div>
             <div
@@ -534,59 +668,24 @@ export default async function DashboardPage() {
                   height: '100%',
                   borderRadius: 2,
                   background:
-                    'linear-gradient(90deg, #F5C842, #F09A1A)',
+                    'linear-gradient(90deg,#F5C842,#F09A1A)',
                   width: `${inventoryDaysPct}%`,
-                  transition: 'width 0.3s ease',
                 }}
               />
             </div>
           </div>
         </div>
 
-        {/* BLOQUE 3 — PAUTAS PUBLICITARIAS */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 10,
-            paddingBottom: 8,
-            borderBottom: '2px solid var(--border)',
-          }}
-        >
-          <div
-            style={{
-              fontFamily: 'var(--font-syne)',
-              fontWeight: 700,
-              fontSize: 14,
-              color: 'var(--text)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}
-          >
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: '#E8A500',
-                flexShrink: 0,
-              }}
-            />
-            Pautas Publicitarias
-          </div>
-          <Link
-            href="/ad-campaigns"
-            style={{ fontSize: 11, color: 'var(--muted)', textDecoration: 'none' }}
-          >
-            Ver detalle →
-          </Link>
-        </div>
+        <BlockHeader
+          title="Pautas Publicitarias"
+          dotColor="#E8A500"
+          href="/ad-campaigns"
+          link="Ver detalle →"
+        />
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(6, 1fr)',
+            gridTemplateColumns: 'repeat(6,1fr)',
             gap: 10,
             marginBottom: 20,
           }}
@@ -594,87 +693,60 @@ export default async function DashboardPage() {
           <KpiCard
             label="Inversión"
             prefix="$"
-            value={snap?.total_ad_spend ?? 0}
-            delta={calcDelta(snap?.total_ad_spend, prevSnap?.total_ad_spend)}
+            value={totalAdSpend.toFixed(2)}
+            delta={calcDelta(totalAdSpend, prevTotalAdSpend)}
             compare={
-              prevSnap?.total_ad_spend
-                ? `Ant: $${prevSnap.total_ad_spend}`
+              prevTotalAdSpend > 0
+                ? `Ant: $${prevTotalAdSpend.toFixed(0)}`
                 : undefined
             }
           />
           <KpiCard
             label="ROAS"
-            value={snap?.avg_roas ?? 0}
+            value={avgRoas.toFixed(2)}
             isGold
-            delta={calcDelta(snap?.avg_roas, prevSnap?.avg_roas)}
+            delta={calcDelta(avgRoas, prevAvgRoas)}
             compare={
-              prevSnap?.avg_roas ? `Ant: ${prevSnap.avg_roas}` : undefined
+              prevAvgRoas > 0 ? `Ant: ${prevAvgRoas.toFixed(2)}` : undefined
             }
           />
           <KpiCard
             label="Trans. digitales"
-            value={0}
+            value={snaps.reduce(
+              (s, r) => s + (r.total_transactions ?? 0),
+              0
+            )}
           />
-          <KpiCard
-            label="Leads generados"
-            value={snap?.total_leads ?? 0}
-          />
-          <KpiCard
-            label="Calidad contactos"
-            suffix="%"
-            value={0}
-          />
+          <KpiCard label="Leads generados" value={totalLeads} />
           <KpiCard
             label="Efectividad"
             suffix="%"
-            value={snap?.avg_effectiveness ?? 0}
+            value={avgEffectiveness.toFixed(1)}
+          />
+          <KpiCard
+            label="CTR"
+            suffix="%"
+            value={
+              snaps.length > 0
+                ? (
+                    snaps.reduce((s, r) => s + (r.avg_ctr ?? 0), 0) /
+                    snaps.length
+                  ).toFixed(2)
+                : '0'
+            }
           />
         </div>
 
-        {/* BLOQUE 4 — FINANCIERO */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 10,
-            paddingBottom: 8,
-            borderBottom: '2px solid var(--border)',
-          }}
-        >
-          <div
-            style={{
-              fontFamily: 'var(--font-syne)',
-              fontWeight: 700,
-              fontSize: 14,
-              color: 'var(--text)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}
-          >
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: '#059669',
-                flexShrink: 0,
-              }}
-            />
-            Financiero
-          </div>
-          <Link
-            href="/profit-loss"
-            style={{ fontSize: 11, color: 'var(--muted)', textDecoration: 'none' }}
-          >
-            Ver P&G →
-          </Link>
-        </div>
+        <BlockHeader
+          title="Financiero"
+          dotColor="#059669"
+          href="/profit-loss"
+          link="Ver P&G →"
+        />
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(5, 1fr)',
+            gridTemplateColumns: 'repeat(5,1fr)',
             gap: 10,
             marginBottom: 20,
           }}
@@ -688,29 +760,28 @@ export default async function DashboardPage() {
           <KpiCard
             label="CxC vencidas"
             prefix="$"
-            value={snap?.overdue_receivables ?? 0}
+            value={overdueRec}
             compare="facturas >30 días"
           />
           <KpiCard
             label="Días de caja"
-            value={snap?.cash_days ?? 0}
+            value={avgCashDays.toFixed(0)}
             compare="Óptimo: >30 días"
           />
           <KpiCard
-            label="Margen neto mes"
+            label="Margen neto"
             suffix="%"
-            value={snap?.net_margin_pct ?? 0}
-            delta={calcDelta(snap?.net_margin_pct, prevSnap?.net_margin_pct)}
+            value={avgNetMargin.toFixed(1)}
+            delta={calcDelta(avgNetMargin, prevAvgNetMargin)}
           />
           <KpiCard
-            label="Gastos fijos / Egresos"
+            label="Gastos fijos / Egr"
             suffix="%"
             value={fixedExpensesPct}
             compare="Benchmark: <55%"
           />
         </div>
 
-        {/* SECCIÓN FINAL — GRÁFICAS */}
         <div
           style={{
             display: 'grid',
@@ -719,7 +790,6 @@ export default async function DashboardPage() {
             marginTop: 20,
           }}
         >
-          {/* Card izquierda — Gráfica de barras */}
           <div
             style={{
               background: 'var(--card)',
@@ -729,19 +799,14 @@ export default async function DashboardPage() {
             }}
           >
             <div
+              className="font-syne font-bold"
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
+                fontSize: 12,
+                color: 'var(--text)',
                 marginBottom: 14,
               }}
             >
-              <div
-                className="font-syne font-bold"
-                style={{ fontSize: 12, color: 'var(--text)' }}
-              >
-                Ventas — últimas {history.length} semanas
-              </div>
+              Ventas — últimas {history.length} semanas
             </div>
             {history.length === 0 ? (
               <div
@@ -752,9 +817,7 @@ export default async function DashboardPage() {
                   justifyContent: 'center',
                 }}
               >
-                <span
-                  style={{ fontSize: 12, color: 'var(--muted)' }}
-                >
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>
                   Sin datos históricos
                 </span>
               </div>
@@ -768,13 +831,10 @@ export default async function DashboardPage() {
                 }}
               >
                 {history.map((h, i) => {
-                  const heightPct =
-                    maxSales > 0
-                      ? Math.max(
-                          ((h.total_sales ?? 0) / maxSales) * 100,
-                          4
-                        )
-                      : 4
+                  const heightPct = Math.max(
+                    ((h.total_sales ?? 0) / maxSales) * 100,
+                    4
+                  )
                   const isLast = i === history.length - 1
                   return (
                     <div
@@ -793,7 +853,7 @@ export default async function DashboardPage() {
                           height: `${heightPct}%`,
                           borderRadius: '3px 3px 0 0',
                           background: isLast
-                            ? 'linear-gradient(180deg, #F5C842, #F09A1A)'
+                            ? 'linear-gradient(180deg,#F5C842,#F09A1A)'
                             : 'rgba(232,165,0,0.12)',
                           border: isLast
                             ? 'none'
@@ -802,14 +862,12 @@ export default async function DashboardPage() {
                             ? '0 0 10px rgba(232,165,0,0.25)'
                             : 'none',
                           minHeight: 4,
-                          transition: 'height 0.3s ease',
                         }}
                       />
                       <div
                         style={{
                           fontSize: 8,
                           color: isLast ? 'var(--gold)' : 'var(--muted)',
-                          textAlign: 'center',
                           fontWeight: isLast ? 600 : 400,
                         }}
                       >
@@ -822,7 +880,6 @@ export default async function DashboardPage() {
             )}
           </div>
 
-          {/* Card derecha — Ventas por canal */}
           <div
             style={{
               background: 'var(--card)',
@@ -905,7 +962,7 @@ export default async function DashboardPage() {
                             height: '100%',
                             borderRadius: 2,
                             background:
-                              'linear-gradient(90deg, #F5C842, #F09A1A)',
+                              'linear-gradient(90deg,#F5C842,#F09A1A)',
                             width: `${pct}%`,
                           }}
                         />

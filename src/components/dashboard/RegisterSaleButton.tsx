@@ -25,7 +25,6 @@ const inputStyle: React.CSSProperties = {
   fontSize: 14,
   outline: 'none',
 }
-
 const labelStyle: React.CSSProperties = {
   display: 'block',
   fontSize: 9,
@@ -35,19 +34,21 @@ const labelStyle: React.CSSProperties = {
   fontWeight: 600,
   marginBottom: 4,
 }
-
-function onFocus(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
+function onFocus(
+  e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+) {
   e.target.style.borderColor = 'var(--gold)'
   e.target.style.boxShadow = '0 0 0 3px var(--gold-bg)'
 }
-function onBlur(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
+function onBlur(
+  e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+) {
   e.target.style.borderColor = 'var(--border2)'
   e.target.style.boxShadow = 'none'
 }
 
 export default function RegisterSaleButton({ companyId }: RegisterSaleButtonProps) {
   const router = useRouter()
-
   const [open, setOpen] = useState(false)
   const [channels, setChannels] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(false)
@@ -93,40 +94,33 @@ export default function RegisterSaleButton({ companyId }: RegisterSaleButtonProp
     e.preventDefault()
     setError(null)
     setSuccess(false)
-
     const total = parseFloat(gross_total)
     if (Number.isNaN(total) || total < 0) {
       setError('El total debe ser un número válido mayor a 0.')
       return
     }
-
     setLoading(true)
     const supabase = createClient()
-
     const {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) {
-      setError('Sesión expirada. Vuelve a iniciar sesión.')
+      setError('Sesión expirada.')
       setLoading(false)
       return
     }
-
     const { data: userRow } = await supabase
       .from('users')
       .select('company_id')
       .eq('id', user.id)
       .single()
-
     const company_id = userRow?.company_id
     if (!company_id) {
-      setError('No tienes una empresa asignada. Contacta a tu administrador.')
+      setError('Sin empresa asignada.')
       setLoading(false)
       return
     }
-
     const today = new Date().toISOString().slice(0, 10)
-
     const { error: insertError } = await supabase.from('sales').insert({
       company_id,
       sale_date: today,
@@ -136,18 +130,15 @@ export default function RegisterSaleButton({ companyId }: RegisterSaleButtonProp
       status: status || 'closed',
       notes: notes.trim() || null,
     })
-
     if (insertError) {
       setError(insertError.message)
       setLoading(false)
       return
     }
-
     setSuccess(true)
     setLoading(false)
     resetForm()
     router.refresh()
-
     setTimeout(() => {
       setOpen(false)
       setSuccess(false)
@@ -156,45 +147,32 @@ export default function RegisterSaleButton({ companyId }: RegisterSaleButtonProp
 
   return (
     <>
-      <div
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="font-syne font-bold"
         style={{
-          position: 'fixed',
-          top: 12,
-          right: 20,
-          zIndex: 100,
-          display: 'flex',
-          gap: 8,
-          alignItems: 'center',
+          background: 'linear-gradient(135deg, #F5C842, #F09A1A)',
+          color: '#1A1B2E',
+          padding: '6px 13px',
+          borderRadius: 7,
+          fontSize: 12,
+          border: 'none',
+          cursor: 'pointer',
+          boxShadow: '0 2px 8px rgba(232,165,0,0.3)',
         }}
       >
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="font-syne font-bold"
-          style={{
-            background: 'linear-gradient(135deg, #F5C842, #F09A1A)',
-            color: '#1A1B2E',
-            padding: '6px 13px',
-            borderRadius: 7,
-            fontSize: 12,
-            border: 'none',
-            cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(232,165,0,0.3)',
-          }}
-        >
-          + Registrar venta
-        </button>
-      </div>
+        + Registrar venta
+      </button>
 
       {open && (
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Registrar venta"
           style={{
             position: 'fixed',
             inset: 0,
-            zIndex: 50,
+            zIndex: 200,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -234,7 +212,6 @@ export default function RegisterSaleButton({ companyId }: RegisterSaleButtonProp
                 style={{
                   color: 'var(--muted)',
                   fontSize: 18,
-                  lineHeight: 1,
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
@@ -354,7 +331,7 @@ export default function RegisterSaleButton({ companyId }: RegisterSaleButtonProp
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Observaciones sobre la venta"
+                  placeholder="Observaciones"
                   style={{ ...inputStyle, resize: 'vertical' }}
                   onFocus={onFocus}
                   onBlur={onBlur}
