@@ -1,12 +1,15 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Topbar from '@/components/layout/Topbar'
-import KpiCard from '@/components/ui/KpiCard'
-import AiInsightBox from '@/components/ui/AiInsightBox'
-import NewProductForm from '@/components/inventory/NewProductForm'
-import AddMovementForm from '@/components/inventory/AddMovementForm'
+import InventoryOverview from '@/components/inventory/InventoryOverview'
+import { getDefaultDateRange } from '@/lib/dateUtils'
 
-export default async function InventoryPage() {
+export default async function InventoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; to?: string }>
+}) {
+  const params = await searchParams
   const supabase = await createClient()
 
   const {
@@ -24,11 +27,43 @@ export default async function InventoryPage() {
     .single()
 
   const companyId = userData?.company_id
+  const defaults = getDefaultDateRange()
+  const from = params.from ?? defaults.from
+  const to = params.to ?? defaults.to
+
+  // Período anterior: YTD si from es 1 ene, sino rolling
+  const fromDate = new Date(from + 'T12:00:00')
+  const toDate = new Date(to + 'T12:00:00')
+  const isYTD = fromDate.getMonth() === 0 && fromDate.getDate() === 1
+
+  let prevFrom: string
+  let prevTo: string
+
+  if (isYTD) {
+    prevFrom = `${fromDate.getFullYear() - 1}-01-01`
+    const prevToDate = new Date(toDate)
+    prevToDate.setFullYear(fromDate.getFullYear() - 1)
+    prevTo = prevToDate.toISOString().slice(0, 10)
+  } else {
+    const daysDiff =
+      Math.round((toDate.getTime() - fromDate.getTime()) / 86400000) + 1
+    const prevToDate = new Date(fromDate)
+    prevToDate.setDate(prevToDate.getDate() - 1)
+    const prevFromDate = new Date(prevToDate)
+    prevFromDate.setDate(prevFromDate.getDate() - daysDiff + 1)
+    prevFrom = prevFromDate.toISOString().slice(0, 10)
+    prevTo = prevToDate.toISOString().slice(0, 10)
+  }
 
   if (!companyId) {
     return (
       <>
-        <Topbar pageTitle="Inventario" pageSubtitle="Productos y stock" />
+        <Topbar
+          pageTitle="Inventario"
+          pageSubtitle={`${from} → ${to}`}
+          showPeriodSelector
+          showExportButton
+        />
         <div style={{ padding: 20 }}>
           <p
             style={{
@@ -46,12 +81,14 @@ export default async function InventoryPage() {
 
   const { data: productsList } = await supabase
     .from('products')
-    .select('id, name, sku, sale_price, unit_cost, current_stock, min_stock_alert, lead_time_days, category_id, is_active')
+    .select(
+      'id, name, sku, sale_price, unit_cost, current_stock, min_stock_alert, lead_time_days, category_id, is_active'
+    )
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .eq('is_active', true)
     .order('name', { ascending: true })
-    .limit(100)
+    .limit(200)
 
   const { data: categoriesList } = await supabase
     .from('product_categories')
@@ -62,196 +99,73 @@ export default async function InventoryPage() {
 
   const products = productsList ?? []
   const categories = categoriesList ?? []
-  const categoriesMap = Object.fromEntries(categories.map((c) => [c.id, c.name]))
+  const categoriesMap = Object.fromEntries(
+    categories.map((c) => [c.id, c.name])
+  ) as Record<string, string>
 
-  const total_products = products.length
-  const low_stock_count = products.filter(
-    (p) =>
-      (p.current_stock ?? 0) <= (p.min_stock_alert ?? 0) &&
-      (p.min_stock_alert ?? 0) > 0
-  ).length
-  const frozen_capital = products.reduce(
-    (sum, p) => sum + (p.current_stock ?? 0) * (p.unit_cost ?? 0),
-    0
-  )
-  const out_of_stock = products.filter((p) => (p.current_stock ?? 0) === 0).length
+  // Movimientos del período actual
+  const { data: movementsList } = await supabase
+    .from('inventory_movements')
+    .select('type, quantity')
+    .eq('company_id', companyId)
+    .gte('movement_date', from)
+    .lte('movement_date', to)
+
+  const movements = movementsList ?? []
+  const movementsIn = movements
+    .filter((m) => m.type === 'in')
+    .reduce((s, m) => s + (m.quantity ?? 0), 0)
+  const movementsOut = movements
+    .filter((m) => m.type === 'out')
+    .reduce((s, m) => s + (m.quantity ?? 0), 0)
+
+  // Movimientos del período anterior
+  const { data: prevMovementsList } = await supabase
+    .from('inventory_movements')
+    .select('type, quantity')
+    .eq('company_id', companyId)
+    .gte('movement_date', prevFrom)
+    .lte('movement_date', prevTo)
+
+  const prevMovements = prevMovementsList ?? []
+  const prevMovementsIn = prevMovements
+    .filter((m) => m.type === 'in')
+    .reduce((s, m) => s + (m.quantity ?? 0), 0)
+  const prevMovementsOut = prevMovements
+    .filter((m) => m.type === 'out')
+    .reduce((s, m) => s + (m.quantity ?? 0), 0)
 
   return (
     <>
-      <Topbar pageTitle="Inventario" pageSubtitle="Productos y stock" />
+      <Topbar
+        pageTitle="Inventario"
+        pageSubtitle={`${from} → ${to}`}
+        showPeriodSelector
+        showExportButton
+      />
 
       <div
         style={{
           padding: 20,
+          height: 'calc(100vh - 52px)',
+          overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          gap: 20,
         }}
       >
-        {/* Grid 4 KpiCards */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: 10,
-          }}
-        >
-          <KpiCard label="Productos activos" value={total_products} />
-          <KpiCard label="Stock bajo" value={low_stock_count} />
-          <KpiCard label="Sin stock" value={out_of_stock} />
-          <KpiCard
-            label="Capital en stock"
-            prefix="$"
-            value={frozen_capital.toFixed(2)}
-            isGold
-          />
-        </div>
-
-        {/* AiInsightBox si hay productos con stock bajo */}
-        {low_stock_count > 0 && (
-          <AiInsightBox
-            variant="red"
-            title={`⚠ ${low_stock_count} producto${low_stock_count > 1 ? 's' : ''} con stock bajo`}
-            text="Tienes productos por debajo del mínimo. Revisa la columna Stock — los marcados en rojo requieren reposición pronto."
-          />
-        )}
-
-        {/* Card tabla de productos */}
-        <div
-          style={{
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            padding: 20,
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 16,
-            }}
-          >
-            <h2
-              className="font-syne font-bold"
-              style={{ fontSize: 16, color: 'var(--text)' }}
-            >
-              Catálogo de productos
-            </h2>
-            <NewProductForm categories={categories} />
-          </div>
-
-          {products.length === 0 ? (
-            <AiInsightBox
-              variant="blue"
-              title="Sin productos registrados"
-              text="Agrega tu primer producto usando el botón '+ Nuevo producto'."
-            />
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table
-                style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                }}
-              >
-                <thead>
-                  <tr>
-                    {['Producto', 'SKU', 'Categoría', 'Precio', 'Costo', 'Stock', 'Mín.', 'Lead time', 'Acción'].map((h) => (
-                      <th
-                        key={h}
-                        style={{
-                          fontSize: 11,
-                          color: 'var(--muted)',
-                          fontWeight: 600,
-                          padding: '10px 12px',
-                          textAlign: 'left',
-                        }}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.map((p) => {
-                    const stock = p.current_stock ?? 0
-                    const minAlert = p.min_stock_alert ?? 0
-                    const isLowStock = stock <= minAlert && minAlert > 0
-                    const isOutOfStock = stock === 0
-                    const leadDays = p.lead_time_days ?? 0
-                    return (
-                      <tr
-                        key={p.id}
-                        style={{
-                          borderBottom: '1px solid var(--border)',
-                        }}
-                      >
-                        <td style={{ fontSize: 12, padding: '10px 12px', color: 'var(--text)' }}>
-                          {p.name}
-                        </td>
-                        <td style={{ fontSize: 12, padding: '10px 12px', color: 'var(--text2)' }}>
-                          {p.sku ?? '—'}
-                        </td>
-                        <td style={{ fontSize: 12, padding: '10px 12px', color: 'var(--text2)' }}>
-                          {p.category_id ? categoriesMap[p.category_id] ?? '—' : '—'}
-                        </td>
-                        <td style={{ fontSize: 12, padding: '10px 12px', color: 'var(--text2)' }}>
-                          $ {(p.sale_price ?? 0).toLocaleString('es-EC')}
-                        </td>
-                        <td style={{ fontSize: 12, padding: '10px 12px', color: 'var(--text2)' }}>
-                          $ {(p.unit_cost ?? 0).toLocaleString('es-EC')}
-                        </td>
-                        <td style={{ fontSize: 12, padding: '10px 12px' }}>
-                          {isOutOfStock ? (
-                            <span
-                              style={{
-                                display: 'inline-block',
-                                padding: '2px 8px',
-                                borderRadius: 6,
-                                fontSize: 11,
-                                fontWeight: 500,
-                                background: 'rgba(220,38,38,0.1)',
-                                color: 'var(--red)',
-                              }}
-                            >
-                              Sin stock
-                            </span>
-                          ) : (
-                            <span
-                              style={{
-                                fontWeight: isLowStock ? 700 : 400,
-                                color: isLowStock ? 'var(--red)' : 'var(--text)',
-                              }}
-                            >
-                              {stock}
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ fontSize: 12, padding: '10px 12px', color: 'var(--text2)' }}>
-                          {minAlert}
-                        </td>
-                        <td style={{ fontSize: 12, padding: '10px 12px', color: 'var(--text2)' }}>
-                          {leadDays} día{leadDays !== 1 ? 's' : ''}
-                        </td>
-                        <td style={{ fontSize: 12, padding: '10px 12px' }}>
-                          <AddMovementForm
-                            product={{
-                              id: p.id,
-                              name: p.name,
-                              current_stock: stock,
-                            }}
-                          />
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <InventoryOverview
+          products={products}
+          categories={categories}
+          categoriesMap={categoriesMap}
+          movementsIn={movementsIn}
+          movementsOut={movementsOut}
+          prevMovementsIn={prevMovementsIn}
+          prevMovementsOut={prevMovementsOut}
+          from={from}
+          to={to}
+          prevFrom={prevFrom}
+          prevTo={prevTo}
+        />
       </div>
     </>
   )

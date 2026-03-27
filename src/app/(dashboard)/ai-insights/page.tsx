@@ -46,13 +46,24 @@ export default async function AiInsightsPage() {
   const isPulseAdmin = userData?.is_pulse_admin ?? false
   const canGenerate = userRole === 'admin' || isPulseAdmin
 
+  // 2. Semana y año actual
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const startOfYear = new Date(currentYear, 0, 1)
+  const weekNumber = Math.ceil(
+    ((now.getTime() - startOfYear.getTime()) / 86400000 +
+      startOfYear.getDay() +
+      1) /
+      7
+  )
+
   // Si no hay companyId → mensaje igual que otros módulos
   if (!companyId) {
     return (
       <>
         <Topbar
           pageTitle="IA Insights"
-          pageSubtitle="Análisis semanal"
+          pageSubtitle={`Análisis semanal · Semana ${weekNumber} · ${currentYear}`}
         />
         <div style={{ padding: 20 }}>
           <p
@@ -69,16 +80,6 @@ export default async function AiInsightsPage() {
     )
   }
 
-  // 2. Semana y año actual
-  const now = new Date()
-  const currentYear = now.getFullYear()
-  const startOfYear = new Date(currentYear, 0, 1)
-  const weekNumber = Math.ceil(
-    ((now.getTime() - startOfYear.getTime()) / 86400000 +
-      startOfYear.getDay() +
-      1) /
-      7
-  )
 
   // 3. Insight de la semana actual
   const { data: currentInsight } = await supabase

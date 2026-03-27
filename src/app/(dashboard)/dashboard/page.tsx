@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import KpiCard from '@/components/ui/KpiCard'
 import AiInsightBox from '@/components/ui/AiInsightBox'
 import RegisterSaleButton from '@/components/dashboard/RegisterSaleButton'
-import PeriodSelector from '@/components/dashboard/PeriodSelector'
+import DateRangePicker from '@/components/ui/DateRangePicker'
 
 // ── Componente interno BlockHeader ──────────────────────────
 function BlockHeader({
@@ -60,12 +60,46 @@ function BlockHeader({
 }
 
 interface DashboardPageProps {
-  searchParams: Promise<{ period?: string }>
+  searchParams: Promise<{ from?: string; to?: string }>
+}
+
+// Convierte rango de fechas a pares (year, week_number) para weekly_snapshots
+function getWeeksInRange(fromStr: string, toStr: string): { year: number; week_number: number }[] {
+  const from = new Date(fromStr)
+  const to = new Date(toStr)
+  const result: { year: number; week_number: number }[] = []
+  const day = from.getDay() || 7 // Lunes = 1
+  const monday = new Date(from)
+  monday.setDate(from.getDate() - day + 1)
+  monday.setHours(0, 0, 0, 0)
+  const endDate = new Date(to)
+  endDate.setHours(23, 59, 59, 999)
+  while (monday <= endDate) {
+    const thursday = new Date(monday)
+    thursday.setDate(monday.getDate() + 3)
+    const year = thursday.getFullYear()
+    const jan1 = new Date(year, 0, 1)
+    const weekNum = Math.ceil(
+      ((thursday.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 6) / 7
+    )
+    if (weekNum >= 1 && weekNum <= 53) {
+      result.push({ year, week_number: weekNum })
+    }
+    monday.setDate(monday.getDate() + 7)
+  }
+  return result
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams
-  const period = params.period ?? 'week'
+  const now = new Date()
+  const day = now.getDay()
+  const monday = new Date(now)
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
+  const defaultFrom = monday.toISOString().slice(0, 10)
+  const defaultTo = now.toISOString().slice(0, 10)
+  const from = params.from ?? defaultFrom
+  const to = params.to ?? defaultTo
 
   const supabase = await createClient()
   const {
@@ -113,8 +147,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     )
   }
 
-  // ── Calcular rango de fechas según período ───────────────
-  const now = new Date()
+  // ── Semanas en el rango from-to para weekly_snapshots ─────
   const currentYear = now.getFullYear()
   const startOfYear = new Date(currentYear, 0, 1)
   const currentWeek = Math.ceil(
@@ -123,90 +156,108 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       1) /
       7
   )
-  const currentMonth = now.getMonth() + 1
 
-  let weekNumbers: number[] = []
-  if (period === 'week') {
-    weekNumbers = [currentWeek]
-  } else if (period === 'month') {
-    const firstWeekOfMonth = Math.ceil(
-      ((new Date(currentYear, currentMonth - 1, 1).getTime() -
-        startOfYear.getTime()) /
-        86400000 +
-        startOfYear.getDay() +
-        1) /
-        7
-    )
-    weekNumbers = Array.from({ length: 4 }, (_, i) => firstWeekOfMonth + i)
-      .filter((w) => w <= currentWeek && w > 0 && w <= 52)
-  } else {
-    weekNumbers = Array.from({ length: 5 }, (_, i) => currentWeek - i).filter(
-      (w) => w > 0
-    )
+  const weeksInRange = getWeeksInRange(from, to)
+  const weeksByYear = weeksInRange.reduce(
+    (acc, { year, week_number }) => {
+      if (!acc[year]) acc[year] = []
+      if (!acc[year].includes(week_number)) acc[year].push(week_number)
+      return acc
+    },
+    {} as Record<number, number[]>
+  )
+
+  // Período anterior (misma duración, antes de from) para deltas
+  const fromDate = new Date(from)
+  const toDate = new Date(to)
+  const daysDiff = Math.round((toDate.getTime() - fromDate.getTime()) / 86400000) + 1
+  const prevToDate = new Date(fromDate)
+  prevToDate.setDate(prevToDate.getDate() - 1)
+  const prevFromDate = new Date(prevToDate)
+  prevFromDate.setDate(prevFromDate.getDate() - daysDiff + 1)
+  const prevFrom = prevFromDate.toISOString().slice(0, 10)
+  const prevTo = prevToDate.toISOString().slice(0, 10)
+  const prevWeeksInRange = getWeeksInRange(prevFrom, prevTo)
+  const prevWeeksByYear = prevWeeksInRange.reduce(
+    (acc, { year, week_number }) => {
+      if (!acc[year]) acc[year] = []
+      if (!acc[year].includes(week_number)) acc[year].push(week_number)
+      return acc
+    },
+    {} as Record<number, number[]>
+  )
+
+  // Snapshot período actual — un query por año si hay múltiples
+  const allSnaps: Record<string, unknown>[] = []
+  for (const [yearStr, weekNums] of Object.entries(weeksByYear)) {
+    const { data } = await supabase
+      .from('weekly_snapshots')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('year', Number(yearStr))
+      .in('week_number', weekNums.length > 0 ? weekNums : [0])
+      .order('week_number', { ascending: false })
+    allSnaps.push(...(data ?? []))
+  }
+  const snaps = allSnaps.sort(
+    (a, b) =>
+      Number(b.year ?? 0) - Number(a.year ?? 0) ||
+      Number(b.week_number ?? 0) - Number(a.week_number ?? 0)
+  )
+
+  // Snapshot período anterior — para deltas (todas las columnas numéricas)
+  let prevSnapsData: { total_sales?: number; total_transactions?: number; avg_lpp?: number; total_discounts?: number; gross_margin_pct?: number; total_ad_spend?: number; avg_roas?: number; total_leads?: number; avg_effectiveness?: number; avg_ctr?: number; cash_days?: number; net_margin_pct?: number; fixed_vs_total_pct?: number }[] = []
+  if (Object.keys(prevWeeksByYear).length > 0) {
+    const prevAll: typeof prevSnapsData = []
+    for (const [yearStr, weekNums] of Object.entries(prevWeeksByYear)) {
+      const { data } = await supabase
+        .from('weekly_snapshots')
+        .select(
+          'total_sales, total_transactions, avg_lpp, total_discounts, gross_margin_pct, total_ad_spend, avg_roas, total_leads, avg_effectiveness, avg_ctr, cash_days, net_margin_pct, fixed_vs_total_pct'
+        )
+        .eq('company_id', companyId)
+        .eq('year', Number(yearStr))
+        .in('week_number', weekNums.length > 0 ? weekNums : [0])
+      prevAll.push(...(data ?? []))
+    }
+    prevSnapsData = prevAll
   }
 
-  const prevWeekNumbers = weekNumbers
-    .map((w) => w - weekNumbers.length)
-    .filter((w) => w > 0)
-
-  // Snapshot período actual
-  const { data: currentSnaps } = await supabase
-    .from('weekly_snapshots')
-    .select('*')
-    .eq('company_id', companyId)
-    .eq('year', currentYear)
-    .in('week_number', weekNumbers.length > 0 ? weekNumbers : [0])
-    .order('week_number', { ascending: false })
-
-  const snaps = currentSnaps ?? []
-
-  // Snapshot período anterior — para deltas
-  const { data: prevSnaps } = await supabase
-    .from('weekly_snapshots')
-    .select(
-      'total_sales, total_transactions, avg_lpp, total_ad_spend, avg_roas, total_leads, cash_days, net_margin_pct, avg_effectiveness'
-    )
-    .eq('company_id', companyId)
-    .eq('year', currentYear)
-    .in('week_number', prevWeekNumbers.length > 0 ? prevWeekNumbers : [0])
-
-  const prevSnapsData = prevSnaps ?? []
-
   // ── Agregar valores del período actual ───────────────────
-  const totalSales = snaps.reduce((s, r) => s + (r.total_sales ?? 0), 0)
+  const totalSales = snaps.reduce((s, r) => s + Number(r.total_sales ?? 0), 0)
   const totalTransactions = snaps.reduce(
-    (s, r) => s + (r.total_transactions ?? 0),
+    (s, r) => s + Number(r.total_transactions ?? 0),
     0
   )
   const avgLpp =
     snaps.length > 0
-      ? snaps.reduce((s, r) => s + (r.avg_lpp ?? 0), 0) / snaps.length
+      ? snaps.reduce((s, r) => s + Number(r.avg_lpp ?? 0), 0) / snaps.length
       : 0
-  const totalDiscounts = snaps.reduce((s, r) => s + (r.total_discounts ?? 0), 0)
-  const totalAdSpend = snaps.reduce((s, r) => s + (r.total_ad_spend ?? 0), 0)
+  const totalDiscounts = snaps.reduce((s, r) => s + Number(r.total_discounts ?? 0), 0)
+  const totalAdSpend = snaps.reduce((s, r) => s + Number(r.total_ad_spend ?? 0), 0)
   const avgRoas =
     snaps.length > 0
-      ? snaps.reduce((s, r) => s + (r.avg_roas ?? 0), 0) / snaps.length
+      ? snaps.reduce((s, r) => s + Number(r.avg_roas ?? 0), 0) / snaps.length
       : 0
-  const totalLeads = snaps.reduce((s, r) => s + (r.total_leads ?? 0), 0)
+  const totalLeads = snaps.reduce((s, r) => s + Number(r.total_leads ?? 0), 0)
   const avgEffectiveness =
     snaps.length > 0
-      ? snaps.reduce((s, r) => s + (r.avg_effectiveness ?? 0), 0) / snaps.length
+      ? snaps.reduce((s, r) => s + Number(r.avg_effectiveness ?? 0), 0) / snaps.length
       : 0
   const avgCashDays =
     snaps.length > 0
-      ? snaps.reduce((s, r) => s + (r.cash_days ?? 0), 0) / snaps.length
+      ? snaps.reduce((s, r) => s + Number(r.cash_days ?? 0), 0) / snaps.length
       : 0
   const avgNetMargin =
     snaps.length > 0
-      ? snaps.reduce((s, r) => s + (r.net_margin_pct ?? 0), 0) / snaps.length
+      ? snaps.reduce((s, r) => s + Number(r.net_margin_pct ?? 0), 0) / snaps.length
       : 0
   const avgGrossMargin =
     snaps.length > 0
-      ? snaps.reduce((s, r) => s + (r.gross_margin_pct ?? 0), 0) / snaps.length
+      ? snaps.reduce((s, r) => s + Number(r.gross_margin_pct ?? 0), 0) / snaps.length
       : 0
   const overdueRec =
-    snaps.length > 0 ? snaps[0].overdue_receivables ?? 0 : 0
+    snaps.length > 0 ? Number(snaps[0].overdue_receivables ?? 0) : 0
 
   // ── Agregar valores del período anterior ─────────────────
   const prevTotalSales = prevSnapsData.reduce(
@@ -236,12 +287,41 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       ? prevSnapsData.reduce((s, r) => s + (r.net_margin_pct ?? 0), 0) /
         prevSnapsData.length
       : 0
+  const prevTotalDiscounts = prevSnapsData.reduce(
+    (s, r) => s + (r.total_discounts ?? 0),
+    0
+  )
+  const prevAvgGrossMargin =
+    prevSnapsData.length > 0
+      ? prevSnapsData.reduce((s, r) => s + (r.gross_margin_pct ?? 0), 0) /
+        prevSnapsData.length
+      : 0
+  const prevTotalLeads = prevSnapsData.reduce(
+    (s, r) => s + (r.total_leads ?? 0),
+    0
+  )
+  const prevAvgEffectiveness =
+    prevSnapsData.length > 0
+      ? prevSnapsData.reduce((s, r) => s + (r.avg_effectiveness ?? 0), 0) /
+        prevSnapsData.length
+      : 0
+  const prevAvgCtr =
+    prevSnapsData.length > 0
+      ? prevSnapsData.reduce((s, r) => s + (r.avg_ctr ?? 0), 0) /
+        prevSnapsData.length
+      : 0
+  const prevFixedVsTotal =
+    prevSnapsData.length > 0
+      ? prevSnapsData.reduce((s, r) => s + (r.fixed_vs_total_pct ?? 0), 0) /
+        prevSnapsData.length
+      : 0
 
+  // Muestra 0% cuando hay datos pero sin cambio; undefined solo si no hay prev
   function calcDelta(
     current: number,
     previous: number
   ): number | undefined {
-    if (!previous || previous === 0) return undefined
+    if (previous === 0 || prevSnapsData.length === 0) return undefined
     return Math.round(((current - previous) / previous) * 100)
   }
 
@@ -267,24 +347,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .single()
 
   // ── Ventas por canal ─────────────────────────────────────
-  const dateFrom =
-    period === 'week'
-      ? new Date(
-          now.getTime() - 7 * 24 * 60 * 60 * 1000
-        ).toISOString().slice(0, 10)
-      : period === 'month'
-        ? `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`
-        : new Date(
-            now.getTime() - 30 * 24 * 60 * 60 * 1000
-          ).toISOString().slice(0, 10)
-
   const { data: salesByChanData } = await supabase
     .from('sales')
     .select('gross_total, channel_id, sales_channels(name)')
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .neq('status', 'cancelled')
-    .gte('sale_date', dateFrom)
+    .gte('sale_date', from)
+    .lte('sale_date', to)
 
   const channelMap: Record<string, { name: string; total: number }> = {}
   const totalAllSales =
@@ -331,21 +401,23 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     (s, p) => s + (p.current_stock ?? 0),
     0
   )
+  // Días de inventario leído directamente del snapshot (no calcular)
   const inventoryDays =
-    totalStock > 0
-      ? Math.min(
-          Math.round(totalStock / Math.max(products.length * 0.3, 1)),
-          90
+    snaps.length > 0
+      ? Math.round(
+          snaps.reduce((s, r) => s + Number(r.inventory_days ?? 0), 0) /
+            snaps.length
         )
       : 0
-  const inventoryDaysPct = Math.min(Math.round((inventoryDays / 45) * 100), 100)
+  const inventoryDaysPct = Math.min(Math.round((inventoryDays / 60) * 100), 100)
 
   // ── Finanzas ─────────────────────────────────────────────
   const { data: txData } = await supabase
     .from('bank_transactions')
     .select('type, amount, is_fixed')
     .eq('company_id', companyId)
-    .gte('tx_date', dateFrom)
+    .gte('tx_date', from)
+    .lte('tx_date', to)
 
   const totalIncome = (txData ?? [])
     .filter((t) => t.type === 'income')
@@ -360,13 +432,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const fixedExpensesPct =
     totalExpenses > 0 ? Math.round((fixedExpenses / totalExpenses) * 100) : 0
 
+  // Insight desactualizado si es de una semana anterior
+  const insightIsStale =
+    insight && insight.week_number !== currentWeek
+
   // ── Label del período ─────────────────────────────────────
-  const periodLabel =
-    period === 'week'
-      ? `Semana ${currentWeek} · ${currentYear}`
-      : period === 'month'
-        ? `${['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][currentMonth - 1]} ${currentYear}`
-        : 'Últimos 30 días'
+  const periodLabel = `${from} → ${to}`
 
   return (
     <>
@@ -399,10 +470,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Suspense fallback={null}>
-            <PeriodSelector />
+            <DateRangePicker />
           </Suspense>
           <button
             type="button"
+            title="Exportar CSV — próximamente"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -412,9 +484,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               fontSize: 11,
               border: '1px solid var(--border2)',
               background: 'transparent',
-              color: 'var(--text2)',
-              cursor: 'pointer',
+              color: 'var(--muted)',
+              cursor: 'not-allowed',
               fontFamily: 'var(--font-jakarta)',
+              opacity: 0.6,
             }}
           >
             ⬇ Exportar
@@ -433,11 +506,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       >
         <div style={{ marginBottom: 20 }}>
           <AiInsightBox
-            variant="gold"
-            title={`lumio IA · Resumen ejecutivo — Semana ${insight?.week_number ?? currentWeek}`}
+            variant={insightIsStale ? 'blue' : 'gold'}
+            title={
+              insightIsStale
+                ? `lumio IA · Resumen semana ${insight?.week_number ?? currentWeek} (desactualizado)`
+                : `lumio IA · Resumen ejecutivo — Semana ${insight?.week_number ?? currentWeek}`
+            }
             text={
-              insight?.executive_summary ??
-              'Registra ventas y pautas para ver tus primeros insights.'
+              insightIsStale
+                ? `Este análisis es de la semana ${insight?.week_number}. Ve a IA Insights para generar el análisis actualizado de la semana ${currentWeek}.`
+                : (insight?.executive_summary ??
+                    'Registra ventas y pautas para ver tus primeros insights.')
             }
           />
         </div>
@@ -486,17 +565,23 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             label="Margen bruto"
             suffix="%"
             value={avgGrossMargin.toFixed(1)}
+            delta={calcDelta(avgGrossMargin, prevAvgGrossMargin)}
             compare="del período"
           />
           <KpiCard
             label="Contribución"
             prefix="$"
             value={(totalSales - totalDiscounts).toFixed(0)}
+            delta={calcDelta(
+              totalSales - totalDiscounts,
+              prevTotalSales - prevTotalDiscounts
+            )}
           />
           <KpiCard
             label="Descuentos"
             prefix="$"
             value={totalDiscounts.toFixed(2)}
+            delta={calcDelta(totalDiscounts, prevTotalDiscounts)}
             compare={
               totalSales > 0
                 ? `${Math.round((totalDiscounts / totalSales) * 100)}% de ventas`
@@ -713,15 +798,32 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <KpiCard
             label="Trans. digitales"
             value={snaps.reduce(
-              (s, r) => s + (r.total_transactions ?? 0),
+              (s, r) => s + Number(r.total_transactions ?? 0),
               0
             )}
+            delta={calcDelta(
+              snaps.reduce((s, r) => s + Number(r.total_transactions ?? 0), 0),
+              prevTotalTransactions
+            )}
           />
-          <KpiCard label="Leads generados" value={totalLeads} />
+          <KpiCard
+            label="Leads generados"
+            value={totalLeads}
+            delta={calcDelta(totalLeads, prevTotalLeads)}
+            compare={
+              prevTotalLeads > 0 ? `Ant: ${prevTotalLeads}` : undefined
+            }
+          />
           <KpiCard
             label="Efectividad"
             suffix="%"
             value={avgEffectiveness.toFixed(1)}
+            delta={calcDelta(avgEffectiveness, prevAvgEffectiveness)}
+            compare={
+              prevAvgEffectiveness > 0
+                ? `Ant: ${prevAvgEffectiveness.toFixed(1)}%`
+                : undefined
+            }
           />
           <KpiCard
             label="CTR"
@@ -729,10 +831,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             value={
               snaps.length > 0
                 ? (
-                    snaps.reduce((s, r) => s + (r.avg_ctr ?? 0), 0) /
+                    snaps.reduce((s, r) => s + Number(r.avg_ctr ?? 0), 0) /
                     snaps.length
                   ).toFixed(2)
                 : '0'
+            }
+            delta={calcDelta(
+              snaps.length > 0
+                ? snaps.reduce((s, r) => s + Number(r.avg_ctr ?? 0), 0) /
+                    snaps.length
+                : 0,
+              prevAvgCtr
+            )}
+            compare={
+              prevAvgCtr > 0 ? `Ant: ${prevAvgCtr.toFixed(2)}%` : undefined
             }
           />
         </div>
@@ -743,6 +855,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           href="/profit-loss"
           link="Ver P&G →"
         />
+        {avgCashDays < 30 && avgCashDays > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <AiInsightBox
+              variant={avgCashDays < 15 ? 'red' : 'gold'}
+              title={avgCashDays < 15 ? '🔴 Alerta crítica de caja' : '⚠ Días de caja bajos'}
+              text={`Tienes aproximadamente ${Math.round(avgCashDays)} días de caja disponibles. ${
+                avgCashDays < 15
+                  ? 'Acción urgente: revisar ingresos pendientes y reducir egresos no esenciales.'
+                  : 'Considera revisar tus CxC pendientes y planificar ingresos para las próximas semanas.'
+              }`}
+            />
+          </div>
+        )}
         <div
           style={{
             display: 'grid',
@@ -760,7 +885,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <KpiCard
             label="CxC vencidas"
             prefix="$"
-            value={overdueRec}
+            value={String(overdueRec)}
             compare="facturas >30 días"
           />
           <KpiCard
@@ -778,6 +903,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             label="Gastos fijos / Egr"
             suffix="%"
             value={fixedExpensesPct}
+            delta={calcDelta(fixedExpensesPct, Math.round(prevFixedVsTotal))}
             compare="Benchmark: <55%"
           />
         </div>
@@ -827,16 +953,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   display: 'flex',
                   alignItems: 'flex-end',
                   gap: 5,
-                  height: 90,
+                  height: '160px',
+                  padding: '18px',
                 }}
               >
-                {history.map((h, i) => {
-                  const heightPct = Math.max(
-                    ((h.total_sales ?? 0) / maxSales) * 100,
-                    4
+                {(() => {
+                  const maxIdx = history.reduce(
+                    (maxI, item, idx, arr) =>
+                      (item.total_sales ?? 0) > (arr[maxI].total_sales ?? 0)
+                        ? idx
+                        : maxI,
+                    0
                   )
-                  const isLast = i === history.length - 1
-                  return (
+                  return history.map((h, i) => {
+                    // Escala sqrt para amplificar diferencias en rangos similares
+                    const rawPct = maxSales > 0 ? (h.total_sales ?? 0) / maxSales : 0
+                    const heightPct = Math.max(Math.sqrt(rawPct) * 100, 6)
+                    const isLast = i === history.length - 1
+                    return (
                     <div
                       key={`${h.year}-${h.week_number}`}
                       style={{
@@ -845,12 +979,29 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                         flexDirection: 'column',
                         alignItems: 'center',
                         gap: 3,
+                        position: 'relative',
                       }}
                     >
                       <div
                         style={{
+                          position: 'absolute',
+                          top: -14,
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          fontSize: 7,
+                          color: isLast ? 'var(--gold)' : 'var(--muted)',
+                          fontWeight: isLast ? 700 : 900,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        ${((h.total_sales ?? 0) / 1000).toFixed(1)}k
+                      </div>
+                      
+                      <div
+                        title={`S${h.week_number}: $${(h.total_sales ?? 0).toLocaleString('es-EC')}`}
+                        style={{
                           width: '100%',
-                          height: `${heightPct}%`,
+                          height: `${Math.max(Math.sqrt(rawPct) * 120, 6)}px`,
                           borderRadius: '3px 3px 0 0',
                           background: isLast
                             ? 'linear-gradient(180deg,#F5C842,#F09A1A)'
@@ -871,11 +1022,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                           fontWeight: isLast ? 600 : 400,
                         }}
                       >
-                        S{h.week_number}
+                        Sem {h.week_number}
                       </div>
                     </div>
-                  )
-                })}
+                    )
+                  })
+                })()}
               </div>
             )}
           </div>
@@ -946,7 +1098,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                             fontWeight: 600,
                           }}
                         >
-                          ${ch.total.toLocaleString('es-EC')} · {pct}%
+                          ${ch.total.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · {pct}%
                         </span>
                       </div>
                       <div

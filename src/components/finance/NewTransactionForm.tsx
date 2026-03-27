@@ -7,8 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 // ── Tipos ─────────────────────────────────────────────────────
 interface Account {
   id: string
-  bank_name: string
-  account_type: string
+  bank_name: string | null
+  account_type: string | null
 }
 
 interface NewTransactionFormProps {
@@ -378,7 +378,7 @@ export default function NewTransactionForm({ accounts = [] }: NewTransactionForm
                     <option value="">Selecciona cuenta</option>
                     {accounts.map((a) => (
                       <option key={a.id} value={a.id}>
-                        {a.bank_name}
+                        {a.bank_name ?? 'Sin nombre'}
                       </option>
                     ))}
                   </select>

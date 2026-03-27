@@ -1,6 +1,6 @@
 # Lumio — Estado del Proyecto
 
-**Última actualización:** Marzo 2025
+**Última actualización:** 26 de marzo de 2026
 
 Documento de referencia para conocer el estado actual del proyecto, lo implementado, lo pendiente y posibles desarrollos futuros.
 
@@ -10,7 +10,7 @@ Documento de referencia para conocer el estado actual del proyecto, lo implement
 
 **Lumio** es una plataforma SaaS de inteligencia de negocio para PyMEs (Ecuador y América Latina), producto de la consultora **Pulse**. Conecta ventas, pautas publicitarias y finanzas en un solo lugar, con un motor de IA (Claude API) para insights semanales.
 
-**Stack:** Next.js 16 · Tailwind v4 · Supabase (PostgreSQL + Auth) · TypeScript
+**Stack:** Next.js 16 · Tailwind v4 · Supabase (PostgreSQL + Auth) · TypeScript · SheetJS (xlsx)
 
 ---
 
@@ -20,44 +20,77 @@ Documento de referencia para conocer el estado actual del proyecto, lo implement
 src/
 ├── app/
 │   ├── layout.tsx                    ✅ Root layout (fuentes Syne + Jakarta)
-│   ├── page.tsx                      ✅ Redirige a /dashboard
-│   ├── globals.css                   ✅ Variables CSS, reset
-│   ├── login/page.tsx                ✅ Login completo (email/password, recuperación)
-│   ├── auth/callback/route.ts        ✅ Callback Supabase Auth
+│   ├── page.tsx                    ✅ Redirige a /dashboard
+│   ├── globals.css                 ✅ Variables CSS, reset
+│   ├── login/page.tsx              ✅ Login (email/password, recuperación)
+│   ├── auth/callback/route.ts      ✅ Callback Supabase Auth
 │   ├── (dashboard)/
-│   │   ├── layout.tsx                ✅ Layout con Sidebar + datos usuario
-│   │   ├── dashboard/page.tsx        ✅ Dashboard principal (4 bloques KPIs)
-│   │   ├── sales/page.tsx            ✅ Módulo Ventas (tabla + QuickSaleForm)
-│   │   ├── ad-campaigns/page.tsx     ✅ Módulo Pautas (tabla + NewCampaignForm)
-│   │   ├── customers/page.tsx        🚧 Placeholder
-│   │   ├── inventory/page.tsx        🚧 Placeholder
-│   │   ├── finance/page.tsx          🚧 Placeholder
-│   │   ├── profit-loss/page.tsx      🚧 Placeholder
-│   │   ├── ai-insights/page.tsx      🚧 Placeholder
+│   │   ├── layout.tsx              ✅ Layout con Sidebar + datos usuario
+│   │   ├── dashboard/page.tsx      ✅ KPIs, gráficas, DateRangePicker, weekly_snapshots
+│   │   ├── sales/page.tsx          ✅ Server: datos + Topbar; SalesOverview (KPIs, tabla, export)
+│   │   ├── ad-campaigns/page.tsx   ✅ AdCampaignsOverview (KPIs, CampaignsTable)
+│   │   ├── customers/page.tsx      ✅ CustomersOverview (KPIs, CustomersTable, export)
+│   │   ├── inventory/page.tsx      ✅ InventoryOverview (KPIs, InventoryTable, export)
+│   │   ├── finance/page.tsx        ✅ FinanceOverview (KPIs, TransactionsTable, cuentas)
+│   │   ├── profit-loss/page.tsx    ✅ P&G (ingresos, gastos, publicidad, from/to)
+│   │   ├── ai-insights/page.tsx    ✅ GenerateInsightButton, InsightCard, KPIs
 │   │   └── settings/
-│   │       ├── users/page.tsx        🚧 Placeholder
-│   │       └── import/page.tsx       🚧 Placeholder
+│   │       ├── users/page.tsx      ✅ InviteUserForm, EditUserRoleForm
+│   │       └── import/page.tsx     ✅ ImportSection (CSV)
 │   └── pulse-admin/
-│       ├── layout.tsx                ✅ Layout oscuro, solo is_pulse_admin
-│       ├── page.tsx                  ✅ Panel con empresas, KPIs globales
-│       └── companies/page.tsx        🚧 Placeholder
+│       ├── layout.tsx              ✅ Solo is_pulse_admin
+│       ├── page.tsx                ✅ Empresas, KPIs globales
+│       └── companies/page.tsx      ✅ Gestión empresas
 ├── components/
 │   ├── layout/
-│   │   ├── Sidebar.tsx               ✅ Navegación, user chip, sección Pulse Admin
-│   │   └── Topbar.tsx                ✅ Título, selector período, Exportar, acción primaria
+│   │   ├── Sidebar.tsx             ✅ Navegación, user chip, Pulse Admin
+│   │   └── Topbar.tsx              ✅ Título, DateRangePicker, Exportar (stub), primaryAction
 │   ├── ui/
-│   │   ├── KpiCard.tsx               ✅ Card KPI con hover, delta, compare
-│   │   └── AiInsightBox.tsx          ✅ Caja insight (variantes gold/red/green/blue)
+│   │   ├── KpiCard.tsx             ✅ Delta, compare, prefix, suffix
+│   │   ├── AiInsightBox.tsx        ✅ Variantes gold/red/green/blue
+│   │   ├── DateRangePicker.tsx     ✅ ?from=&to= (presets + custom)
+│   │   └── ExportButton.tsx        ✅ Exportar a .xlsx (SheetJS)
+│   ├── dashboard/
+│   │   ├── RegisterSaleButton.tsx  ✅ Modal registrar venta
+│   │   └── PeriodSelector.tsx      ⚠️ Legacy (Topbar usa DateRangePicker)
 │   ├── sales/
-│   │   └── QuickSaleForm.tsx         ✅ Modal registrar venta (con canales opcionales)
-│   └── ad-campaigns/
-│       └── NewCampaignForm.tsx       ✅ Formulario pauta (flotante, preview ROAS/CTR)
+│   │   ├── SalesOverview.tsx       ✅ KPIs, AiInsightBox, SalesHistoryTable, ExportButton
+│   │   ├── SalesHistoryTable.tsx   ✅ Tabla historial de ventas
+│   │   └── QuickSaleForm.tsx       ✅ Modal registrar venta
+│   ├── ad-campaigns/
+│   │   ├── AdCampaignsOverview.tsx ✅ KPIs, CampaignsTable
+│   │   ├── CampaignsTable.tsx      ✅ Tabla campañas
+│   │   └── NewCampaignForm.tsx     ✅ Alta pauta
+│   ├── customers/
+│   │   ├── CustomersOverview.tsx   ✅ KPIs, CustomersTable, ExportButton
+│   │   ├── CustomersTable.tsx      ✅ Tabla clientes
+│   │   └── NewCustomerForm.tsx     ✅ Modal nuevo cliente
+│   ├── inventory/
+│   │   ├── InventoryOverview.tsx ✅ KPIs, InventoryTable, ExportButton
+│   │   ├── InventoryTable.tsx      ✅ Productos y stock
+│   │   ├── NewProductForm.tsx      ✅ Modal nuevo producto
+│   │   └── AddMovementForm.tsx     ✅ Modal movimiento inventario
+│   ├── finance/
+│   │   ├── FinanceOverview.tsx     ✅ KPIs, cuentas, TransactionsTable
+│   │   ├── TransactionsTable.tsx   ✅ Movimientos bancarios
+│   │   ├── NewBankAccountForm.tsx  ✅ Modal cuenta
+│   │   └── NewTransactionForm.tsx  ✅ Modal ingreso/egreso
+│   ├── ai-insights/
+│   │   ├── GenerateInsightButton.tsx ✅ Claude API
+│   │   └── InsightCard.tsx         ✅ Card insight
+│   ├── settings/
+│   │   ├── InviteUserForm.tsx      ✅ Invitar por email
+│   │   ├── EditUserRoleForm.tsx    ✅ Rol
+│   │   └── ImportSection.tsx       ✅ CSV
+│   └── pulse-admin/
+│       └── PulseSidebar.tsx        ✅ Sidebar panel Pulse
 ├── lib/
-│   └── supabase/
-│       ├── client.ts                 ✅ Cliente browser
-│       ├── server.ts                 ✅ Cliente server (cookies)
-│       └── database.types.ts         ✅ Tipos generados (1519 líneas)
-└── middleware.ts                     ✅ Protección rutas, refresh sesión
+│   ├── supabase/
+│   │   ├── client.ts               ✅ Cliente browser
+│   │   ├── server.ts               ✅ Cliente server (cookies)
+│   │   └── database.types.ts       ✅ Tipos generados
+│   └── dateUtils.ts                ✅ getDefaultDateRange() (default = semana actual lun→hoy)
+└── middleware.ts                   ✅ Rutas, refresh sesión
 ```
 
 ---
@@ -69,214 +102,128 @@ src/
 | `/` | ✅ | Redirige a `/dashboard` |
 | `/login` | ✅ | Login, recuperación contraseña |
 | `/auth/callback` | ✅ | Callback OAuth / magic link |
-| `/dashboard` | ✅ | Dashboard principal con 4 bloques |
-| `/sales` | ✅ | Ventas: KPIs, tabla, + Registrar venta |
-| `/ad-campaigns` | ✅ | Pautas: KPIs, tabla, + Registrar pauta |
-| `/customers` | 🚧 | Placeholder CRM |
-| `/inventory` | 🚧 | Placeholder inventario |
-| `/finance` | 🚧 | Placeholder bancos |
-| `/profit-loss` | 🚧 | Placeholder P&G |
-| `/ai-insights` | 🚧 | Placeholder IA |
-| `/settings/users` | 🚧 | Placeholder usuarios |
-| `/settings/import` | 🚧 | Placeholder importar |
+| `/dashboard` | ✅ | DateRangePicker, 4 bloques KPIs, gráfica, ventas por canal, CxC |
+| `/sales` | ✅ | SalesOverview: KPIs con período anterior, tabla, ExportButton, QuickSaleForm |
+| `/ad-campaigns` | ✅ | AdCampaignsOverview: KPIs, tabla campañas, NewCampaignForm |
+| `/customers` | ✅ | CustomersOverview: KPIs, tabla, ExportButton, NewCustomerForm |
+| `/inventory` | ✅ | InventoryOverview: KPIs, tabla productos, export, formularios |
+| `/finance` | ✅ | FinanceOverview: cuentas, TransactionsTable, formularios, filtro tx_date |
+| `/profit-loss` | ✅ | P&G: ingresos, gastos, publicidad, neto, filtro from/to |
+| `/ai-insights` | ✅ | IA: insights, GenerateInsightButton, tarjetas y KPIs |
+| `/settings/users` | ✅ | Usuarios: InviteUserForm, EditUserRoleForm |
+| `/settings/import` | ✅ | ImportSection (CSV) |
 | `/pulse-admin` | ✅ | Panel Pulse (solo is_pulse_admin) |
-| `/pulse-admin/companies` | 🚧 | Placeholder gestión empresas |
+| `/pulse-admin/companies` | ✅ | Gestión empresas |
 
 ---
 
-## 4. Base de datos — Tablas y relaciones
+## 4. Filtro por rango de fechas (from/to)
 
-### Tablas principales (Supabase)
+Las siguientes páginas usan `searchParams.from` y `searchParams.to` con `getDefaultDateRange()` (por defecto: **lunes de la semana actual → hoy**):
 
-| Tabla | Uso actual | Relaciones |
-|-------|------------|------------|
-| `companies` | Layout, Pulse Admin, filtro tenant | — |
-| `users` | Auth, layout, QuickSaleForm, Pulse Admin | → companies |
-| `sales` | Ventas, QuickSaleForm | → companies, sales_channels, customers |
-| `ad_campaigns` | Pautas, NewCampaignForm | → companies |
-| `weekly_snapshots` | Dashboard KPIs | → companies |
-| `ai_insights` | Dashboard insight, IA | → companies |
-| `sales_channels` | QuickSaleForm (opcional) | → companies |
-| `customers` | — | → companies |
-| `products` | — | → companies, product_categories |
-| `inventory_movements` | — | → companies, products |
-| `bank_accounts` | — | → companies |
-| `bank_transactions` | — | → companies, bank_accounts |
-| `accounts_receivable` | — | → companies, customers |
-| `branches` | — | → companies |
-| `suppliers` | — | → companies |
-| `product_categories` | — | → companies |
-| `product_price_history` | — | → products |
-| `pulse_metrics` | Pulse Admin (fetch, no UI) | → companies |
-| `audit_log` | — | — |
-| `cities`, `countries` | — | Referencias |
+- **Dashboard:** weekly_snapshots, ventas por canal, bank_transactions en rango
+- **Ventas, Pautas, Clientes, Finance, P&G:** consultas filtradas por el campo de fecha correspondiente (`sale_date`, `campaign_date`, `registered_since`, `tx_date`, etc.)
 
-### Funciones RPC disponibles
+Varias páginas calculan además un **período anterior** (misma duración que el rango elegido, o comparación YTD cuando el inicio es 1-ene) para **deltas en KPIs** y cajas de insight (SalesOverview, AdCampaignsOverview, CustomersOverview, InventoryOverview, FinanceOverview).
 
-- `calculate_weekly_snapshot(p_company_id, p_week, p_year)`
-- `get_user_company_id()`
-- `get_user_role()`
-- `is_pulse_admin()`
+**Inventario:** la vista lista productos y stock actual; el rango en URL puede usarse en KPIs/resúmenes del overview según implementación, no como “historial de stock por día” global.
+
+**Topbar** con `showPeriodSelector` envuelve `<DateRangePicker />` en `Suspense`.
 
 ---
 
-## 5. Avances por módulo
+## 5. Componentes reutilizables
 
-### ✅ Completado
-
-| Módulo | Funcionalidad |
-|--------|---------------|
-| **Auth** | Login email/password, recuperación, callback, middleware |
-| **Layout** | Sidebar (nav, user chip, Pulse Admin condicional), Topbar |
-| **Dashboard** | 4 bloques (Ventas, Pautas, Finanzas), AiInsightBox, weekly_snapshots, ai_insights |
-| **Ventas** | KPIs calculados, tabla historial, QuickSaleForm (INSERT), badges estado |
-| **Pautas** | KPIs calculados, tabla historial, NewCampaignForm (INSERT), badges efectividad/plataforma |
-| **Pulse Admin** | Layout oscuro, conteo empresas/usuarios, tabla empresas, badges estado |
-
-### 🚧 Placeholder (estructura lista)
-
-- Clientes, Inventario, Bancos, P&G, IA Insights, Usuarios, Importar, Pulse/Companies
-
-### ⚠️ Pendiente / mejoras
-
-| Área | Detalle |
-|------|---------|
-| **Ventas** | Columna Canal muestra "—" (no se hace join con sales_channels para nombre) |
-| **Dashboard** | Deltas en KpiCards (comparar vs período anterior) no implementados |
-| **Topbar** | Selector período y Exportar no tienen lógica real |
-| **weekly_snapshots** | Depende de job/cron que ejecute `calculate_weekly_snapshot` |
-| **ai_insights** | No hay generación automática con Claude API |
-
----
-
-## 6. Componentes reutilizables
-
-| Componente | Props | Uso |
-|------------|-------|-----|
-| `KpiCard` | label, value, delta?, compare?, isGold?, prefix?, suffix? | Dashboard, Ventas, Pautas, Pulse |
-| `AiInsightBox` | title, text, variant? (gold/red/green/blue) | Dashboard, Pautas, Pulse |
-| `Topbar` | pageTitle, pageSubtitle?, primaryAction? | Todas las páginas dashboard |
+| Componente | Props / notas | Uso |
+|------------|---------------|-----|
+| `KpiCard` | label, value, delta?, compare?, isGold?, prefix?, suffix? | Overviews, dashboard |
+| `AiInsightBox` | title, text, variant? | Overviews, dashboard |
+| `Topbar` | pageTitle, pageSubtitle?, showPeriodSelector?, showExportButton?, primaryAction? | Páginas dashboard |
+| `DateRangePicker` | Lee `?from=`, `?to=` de la URL | Topbar cuando showPeriodSelector |
+| `ExportButton` | data, filename, sheetName?, disabled? | **Ventas, Clientes, Inventario** (export real Excel) |
 | `Sidebar` | userName?, userRole?, companyName?, isPulseAdmin? | Layout dashboard |
-| `QuickSaleForm` | channels? (opcional) | Ventas |
-| `NewCampaignForm` | — | Pautas |
-
-**No existen aún:** DataTable, BarChart (mencionados en CURSOR_CONTEXT)
-
----
-
-## 7. Seguridad y permisos
-
-- **Middleware:** Redirige a `/login` si no hay sesión; a `/dashboard` si hay sesión y está en `/login`
-- **Layout dashboard:** Obtiene usuario, company_id; redirige si no hay usuario
-- **Layout pulse-admin:** Redirige si no hay usuario o `is_pulse_admin !== true`
-- **RLS:** Supabase Row Level Security (configurado en BD, no en código)
-- **Roles:** admin, manager, operator (en users.role) — no hay lógica de permisos por rol en UI aún
+| `SalesOverview` / `SalesHistoryTable` | Ver props en componentes | `/sales` |
+| `AdCampaignsOverview` / `CampaignsTable` | — | `/ad-campaigns` |
+| `CustomersOverview` / `CustomersTable` | — | `/customers` |
+| `InventoryOverview` / `InventoryTable` | — | `/inventory` |
+| `FinanceOverview` / `TransactionsTable` | — | `/finance` |
+| `QuickSaleForm`, `NewCampaignForm`, … | — | Formularios en cada módulo |
+| `RegisterSaleButton` | companyId | Dashboard |
+| `GenerateInsightButton` | — | AI Insights |
+| `InviteUserForm`, `ImportSection` | — | Settings |
 
 ---
 
-## 8. Posibles desarrollos — Hoja de ruta
+## 6. Exportación Excel
 
-### Fase 1 — Completar módulos core (prioridad alta)
-
-1. **Clientes (CRM)**
-   - CRUD customers
-   - Relación con sales (customer_id)
-   - Tipos: customer_type, label
-
-2. **Inventario**
-   - CRUD products, product_categories
-   - inventory_movements (entradas/salidas)
-   - Vista stock actual, alertas bajo stock
-
-3. **Bancos & Finanzas**
-   - CRUD bank_accounts
-   - bank_transactions (ingresos/egresos)
-   - Saldo calculado o por trigger
-
-4. **P&G (Pérdidas y ganancias)**
-   - Vista consolidada ingresos vs gastos
-   - Usar sales, ad_campaigns, bank_transactions, etc.
-
-### Fase 2 — IA y analítica
-
-5. **IA Insights**
-   - Integración Claude API
-   - Generar ai_insights (executive_summary, playbook)
-   - Job semanal o manual
-
-6. **weekly_snapshots**
-   - Cron/job que llame `calculate_weekly_snapshot`
-   - O implementar cálculo en backend
-
-7. **Deltas en KPIs**
-   - Comparar snapshot actual vs anterior
-   - Mostrar ▲/▼ en KpiCards
-
-### Fase 3 — Configuración y operación
-
-8. **Usuarios & Roles**
-   - CRUD usuarios por empresa
-   - Asignar rol (admin/manager/operator)
-   - Invitar por email
-
-9. **Importar datos**
-   - Carga CSV para sales, customers, products
-   - Validación y mapeo columnas
-
-10. **Selector período Topbar**
-    - Pasar período a páginas (context o query)
-    - Filtrar datos por semana/mes/30 días
-
-11. **Exportar**
-    - Export CSV/Excel de tablas visibles
-
-### Fase 4 — Pulse Admin
-
-12. **Gestión empresas**
-    - CRUD companies
-    - Asignar plan, status (active/trial/suspended)
-    - Crear usuarios iniciales
-
-13. **pulse_metrics**
-    - UI para ver/editar métricas por empresa
-    - MRR, Churn, NPS, etc.
-
-14. **Canal en Ventas**
-    - Join sales_channels para mostrar nombre en tabla
-    - Selector de canal en QuickSaleForm (ya tiene prop channels)
+| Ubicación | Comportamiento |
+|-----------|----------------|
+| **Ventas, Clientes, Inventario** | `ExportButton` en el bloque Overview: exporta datos visibles/tabular según implementación. |
+| **Pautas, Finanzas, P&G** | `showExportButton` en Topbar muestra un botón **Exportar deshabilitado** (placeholder); aún no enlazado a `ExportButton`. |
 
 ---
 
-## 9. Dependencias técnicas
+## 7. Dependencias
 
-- **Supabase:** RLS, triggers para stock/saldo, funciones RPC
-- **Claude API:** Para ai_insights (requiere API key, job/cron)
-- **Vercel Cron / Supabase Edge Functions:** Para weekly_snapshots y ai_insights automáticos
+- **xlsx** (SheetJS): `ExportButton` → `.xlsx`
+- **@anthropic-ai/sdk**: Claude API → `ai_insights`
+- **Supabase**: Auth, PostgreSQL, RLS
 
 ---
 
-## 10. Checklist rápido
+## 8. Base de datos — Tablas principales
+
+| Tabla | Uso actual |
+|-------|------------|
+| `companies` | Layout, Pulse Admin, tenant |
+| `users` | Auth, layout, roles, invitaciones |
+| `sales` | Ventas, QuickSaleForm, P&G |
+| `ad_campaigns` | Pautas, NewCampaignForm, P&G |
+| `weekly_snapshots` | Dashboard KPIs |
+| `ai_insights` | Dashboard, IA |
+| `sales_channels` | QuickSaleForm, ventas |
+| `customers` | CRM |
+| `products` | Inventario |
+| `inventory_movements` | Inventario |
+| `bank_accounts` | Finance |
+| `bank_transactions` | Finance, P&G, dashboard |
+| `accounts_receivable` | CxC (dashboard) |
+
+---
+
+## 9. Checklist rápido
 
 | Item | Estado |
 |------|--------|
 | Login / Auth | ✅ |
 | Layout dashboard | ✅ |
-| Dashboard 4 bloques | ✅ |
-| Ventas (listado + alta) | ✅ |
-| Pautas (listado + alta) | ✅ |
-| Pulse Admin básico | ✅ |
-| Clientes | 🚧 |
-| Inventario | 🚧 |
-| Bancos | 🚧 |
-| P&G | 🚧 |
-| IA Insights (UI + generación) | 🚧 |
-| Usuarios & Roles | 🚧 |
-| Importar datos | 🚧 |
-| Deltas en KPIs | ❌ |
-| Selector período funcional | ❌ |
-| Exportar | ❌ |
-| Canal en ventas (nombre) | ❌ |
+| Dashboard 4 bloques + DateRangePicker | ✅ |
+| Deltas KPIs (dashboard y módulos con Overview) | ✅ |
+| Ventas (Overview, tabla, export Excel, QuickSale) | ✅ |
+| Pautas (Overview, tabla, alta) | ✅ |
+| Clientes (Overview, export Excel) | ✅ |
+| Inventario (Overview, export Excel) | ✅ |
+| Bancos & Finanzas (Overview, transacciones) | ✅ |
+| P&G | ✅ |
+| IA Insights | ✅ |
+| Usuarios & Roles | ✅ |
+| Importar datos | ✅ |
+| Pulse Admin | ✅ |
+| Selector período (DateRangePicker) | ✅ |
+| Export Excel funcional | ✅ Ventas, Clientes, Inventario |
+| Topbar “Exportar” global | ⚠️ Stub deshabilitado donde se muestra |
 
 ---
 
-*Documento generado para planificación. Actualizar según avances.*
+## 10. Pendiente / mejoras
+
+| Área | Detalle |
+|------|---------|
+| **Exportación** | Conectar `ExportButton` en Pautas, Finanzas y/o P&G, o sustituir el stub del Topbar por acción real cuando aplique. |
+| **weekly_snapshots** | Depende de job/cron que ejecute `calculate_weekly_snapshot`. |
+| **PeriodSelector** | Legacy; el flujo actual usa `DateRangePicker` en Topbar. |
+| **Consistencia UX** | Decidir si se mantiene el botón deshabilitado en Topbar en páginas que ya exportan desde el Overview (duplicidad visual). |
+
+---
+
+*Documento actualizado según el código en el repositorio (marzo 2026).*

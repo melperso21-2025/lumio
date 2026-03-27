@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import Topbar from '@/components/layout/Topbar'
 import KpiCard from '@/components/ui/KpiCard'
 import AiInsightBox from '@/components/ui/AiInsightBox'
+import getDefaultDateRange from '@/components/ui/DateRangePicker'
 
 // ── Etiquetas de categorías de gastos ──────────────────────────
 const catLabels: Record<string, string> = {
@@ -52,7 +53,12 @@ function PGRow({
   )
 }
 
-export default async function ProfitLossPage() {
+export default async function ProfitLossPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; to?: string }>
+}) {
+  const params = await searchParams
   const supabase = await createClient()
 
   const {
@@ -70,11 +76,22 @@ export default async function ProfitLossPage() {
     .single()
 
   const companyId = userData?.company_id
+  const now = new Date()
+  const day = now.getDay()
+  const monday = new Date(now)
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
+  const from = params.from ?? monday.toISOString().slice(0, 10)
+  const to = params.to ?? now.toISOString().slice(0, 10)
 
   if (!companyId) {
     return (
       <>
-        <Topbar pageTitle="P&G" pageSubtitle="Pérdidas y Ganancias" />
+        <Topbar 
+          pageTitle="P&G" 
+          pageSubtitle={`${from} → ${to}`}
+          showPeriodSelector
+          showExportButton
+        />
         <div style={{ padding: 20 }}>
           <p
             style={{
@@ -90,38 +107,29 @@ export default async function ProfitLossPage() {
     )
   }
 
-  const now = new Date()
-  const currentMonth = now.getMonth() + 1
-  const currentYear = now.getFullYear()
-
-  const monthStart = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`
-  const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
-  const nextYear = currentMonth === 12 ? currentYear + 1 : currentYear
-  const monthEnd = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`
-
   const { data: salesData } = await supabase
     .from('sales')
     .select('gross_total, production_cost, discount_amount')
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .neq('status', 'cancelled')
-    .gte('sale_date', monthStart)
-    .lt('sale_date', monthEnd)
+    .gte('sale_date', from)
+    .lte('sale_date', to)
 
   const { data: expensesData } = await supabase
     .from('bank_transactions')
     .select('amount, category, concept, is_fixed, type')
     .eq('company_id', companyId)
-    .gte('tx_date', monthStart)
-    .lt('tx_date', monthEnd)
+    .gte('tx_date', from)
+    .lte('tx_date', to)
 
   const { data: adsData } = await supabase
     .from('ad_campaigns')
     .select('spend, attributed_revenue, roas')
     .eq('company_id', companyId)
     .is('deleted_at', null)
-    .gte('campaign_date', monthStart)
-    .lt('campaign_date', monthEnd)
+    .gte('campaign_date', from)
+    .lte('campaign_date', to)
 
   const sales = salesData ?? []
   const transactions = expensesData ?? []
@@ -165,17 +173,15 @@ export default async function ProfitLossPage() {
   const net_margin_pct =
     net_revenue > 0 ? (ebitda / net_revenue) * 100 : 0
 
-  const monthNames = [
-    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-  ]
-  const monthLabel = `${monthNames[currentMonth - 1]} ${currentYear}`
+  const rangeLabel = `${from} → ${to}`
 
   return (
     <>
       <Topbar
         pageTitle="P&G"
-        pageSubtitle={`Pérdidas y Ganancias · ${monthLabel}`}
+        pageSubtitle={`${from} → ${to}`}
+        showPeriodSelector
+        showExportButton
       />
 
       <div
@@ -191,8 +197,8 @@ export default async function ProfitLossPage() {
           variant={ebitda >= 0 ? 'green' : 'red'}
           title={
             ebitda >= 0
-              ? `✓ Resultado positivo — ${monthLabel}`
-              : `⚠ Resultado negativo — ${monthLabel}`
+              ? `✓ Resultado positivo — ${rangeLabel}`
+              : `⚠ Resultado negativo — ${rangeLabel}`
           }
           text={`Ingresos netos: $${net_revenue.toFixed(2)} · Gastos totales: $${total_expenses_all.toFixed(2)} · ${
             ebitda >= 0

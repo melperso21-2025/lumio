@@ -1,36 +1,49 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense } from 'react'
+import DateRangePicker from '@/components/ui/DateRangePicker'
 
 // ── Tipos ──────────────────────────────────────────────────
-
-type PeriodOption = 'semana' | 'mes' | '30dias'
-
-export interface PrimaryAction {
-  label: string
-  onClick: () => void
-}
 
 export interface TopbarProps {
   pageTitle: string
   pageSubtitle?: string
-  primaryAction?: PrimaryAction
+  showPeriodSelector?: boolean
+  showExportButton?: boolean
+  primaryAction?: {
+    label: string
+    href?: string
+    onClick?: () => void
+  }
 }
 
-const PERIOD_LABELS: Record<PeriodOption, string> = {
-  semana: 'Esta semana',
-  mes: 'Este mes',
-  '30dias': 'Últimos 30 días',
+// ── Botón dorado común (link o button) ───────────────────────
+
+const goldButtonStyle: React.CSSProperties = {
+  background: 'linear-gradient(135deg, #F5C842, #F09A1A)',
+  color: '#1A1B2E',
+  fontFamily: 'var(--font-syne)',
+  fontWeight: 700,
+  fontSize: 13,
+  padding: '7px 16px',
+  borderRadius: 8,
+  border: 'none',
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
 }
 
-// ── Componente ──────────────────────────────────────────────
+// ── Componente principal ────────────────────────────────────
 
 export default function Topbar({
   pageTitle,
   pageSubtitle,
+  showPeriodSelector,
+  showExportButton,
   primaryAction,
 }: TopbarProps) {
-  const [period, setPeriod] = useState<PeriodOption>('mes')
+  const hasRightSection =
+    showPeriodSelector || showExportButton || !!primaryAction
 
   return (
     <header
@@ -59,66 +72,66 @@ export default function Topbar({
         )}
       </div>
 
-      {/* Lado derecho: selector de período, Exportar, acción primaria */}
-      <div className="flex items-center gap-3 shrink-0">
-        {/* Selector de período */}
+      {/* Lado derecho: solo si hay algo que mostrar */}
+      {hasRightSection && (
         <div
-          className="flex items-center rounded-lg overflow-hidden"
           style={{
-            background: 'var(--hover)',
-            border: '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
           }}
         >
-          {(['semana', 'mes', '30dias'] as const).map((opt) => (
+          {/* Selector de período */}
+          {showPeriodSelector && (
+            <Suspense fallback={null}>
+              <DateRangePicker />
+            </Suspense>
+          )}
+
+          {/* Botón Exportar (deshabilitado) */}
+          {showExportButton && (
             <button
-              key={opt}
               type="button"
-              onClick={() => setPeriod(opt)}
-              className="px-3 py-1.5 text-xs font-medium transition-colors"
+              disabled
               style={{
-                color: period === opt ? 'var(--gold)' : 'var(--text2)',
-                background: period === opt ? 'var(--gold-bg)' : 'transparent',
+                fontSize: 12,
+                padding: '6px 14px',
+                borderRadius: 7,
+                border: '1px solid var(--border2)',
+                background: 'var(--surface)',
+                color: 'var(--muted)',
+                cursor: 'not-allowed',
+                opacity: 0.6,
+                fontFamily: 'var(--font-jakarta)',
               }}
             >
-              {PERIOD_LABELS[opt]}
+              Exportar
             </button>
-          ))}
+          )}
+
+          {/* Acción primaria (link o botón) */}
+          {primaryAction &&
+            (primaryAction.href ? (
+              <a
+                href={primaryAction.href}
+                style={{
+                  ...goldButtonStyle,
+                  textDecoration: 'none',
+                }}
+              >
+                {primaryAction.label}
+              </a>
+            ) : primaryAction.onClick ? (
+              <button
+                type="button"
+                onClick={primaryAction.onClick}
+                style={goldButtonStyle}
+              >
+                {primaryAction.label}
+              </button>
+            ) : null)}
         </div>
-
-        {/* Botón Exportar (ghost) */}
-        <button
-          type="button"
-          className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
-          style={{
-            color: 'var(--text2)',
-            background: 'transparent',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--hover)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent'
-          }}
-        >
-          ⬇ Exportar
-        </button>
-
-        {/* Botón primario (si se proporciona) */}
-        {primaryAction && (
-          <button
-            type="button"
-            onClick={primaryAction.onClick}
-            className="px-4 py-1.5 text-sm font-bold rounded-lg transition-opacity hover:opacity-90"
-            style={{
-              background: 'linear-gradient(135deg, #F5C842, #F09A1A)',
-              color: '#1A1B2E',
-              fontFamily: 'var(--font-syne)',
-            }}
-          >
-            {primaryAction.label}
-          </button>
-        )}
-      </div>
+      )}
     </header>
   )
 }
