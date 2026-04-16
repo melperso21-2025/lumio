@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       .order('year', { ascending: true })
       .order('week_number', { ascending: true })
 
-    const snaps = (snapsData ?? []) as WeeklySnapshotRow[]
+    const snaps = (snapsData ?? []) as unknown as WeeklySnapshotRow[]
 
     const { data: salesSummary } = await supabase
       .from('sales')
