@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
+import type { Database } from '@/lib/supabase/database.types'
+
+type WeeklySnapshotRow = Database['public']['Tables']['weekly_snapshots']['Row']
 
 export async function POST(request: NextRequest) {
   try {
@@ -68,7 +71,7 @@ export async function POST(request: NextRequest) {
       .order('year', { ascending: true })
       .order('week_number', { ascending: true })
 
-    const snaps = snapsData ?? []
+    const snaps = (snapsData ?? []) as WeeklySnapshotRow[]
 
     const { data: salesSummary } = await supabase
       .from('sales')
