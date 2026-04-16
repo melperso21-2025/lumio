@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { formatBusinessDate } from '@/lib/dateUtils'
 
 const PAGE_SIZE = 20
 
@@ -49,19 +50,6 @@ const COLUMNS: { key: SortKey; label: string; align: 'left' | 'right' }[] = [
   { key: 'last_purchase_at', label: 'Última compra', align: 'left' },
   { key: 'registered_since', label: 'Cliente desde', align: 'left' },
 ]
-
-function formatDate(iso: string | null): string {
-  if (!iso) return '—'
-  try {
-    return new Date(iso).toLocaleDateString('es-EC', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
-  } catch {
-    return '—'
-  }
-}
 
 function getSortValue(c: CustomerRow, key: SortKey): string | number {
   switch (key) {
@@ -194,7 +182,7 @@ export default function CustomersTable({
             flexWrap: 'wrap',
             gap: 12,
             alignItems: 'center',
-            padding: '12px 0 16px',
+            padding: '10px 0 12px',
             borderBottom: '1px solid var(--border)',
             marginBottom: 12,
             flexShrink: 0,
@@ -338,7 +326,7 @@ export default function CustomersTable({
           flexWrap: 'wrap',
           gap: 12,
           alignItems: 'center',
-          padding: '12px 0 16px',
+          padding: '10px 0 12px',
           borderBottom: '1px solid var(--border)',
           marginBottom: 12,
           flexShrink: 0,
@@ -601,10 +589,10 @@ export default function CustomersTable({
                     )}
                   </td>
                   <td style={{ fontSize: 12, padding: '10px 12px', color: 'var(--text2)' }}>
-                    {formatDate(c.last_purchase_at)}
+                    {formatBusinessDate(c.last_purchase_at)}
                   </td>
                   <td style={{ fontSize: 12, padding: '10px 12px', color: 'var(--text2)' }}>
-                    {formatDate(c.registered_since)}
+                    {formatBusinessDate(c.registered_since)}
                   </td>
                 </tr>
               )
@@ -620,7 +608,7 @@ export default function CustomersTable({
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: '12px 0 0',
-            marginTop: 12,
+            marginTop: 8,
             borderTop: '1px solid var(--border)',
             gap: 12,
             flexWrap: 'wrap',

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { formatBusinessDate } from '@/lib/dateUtils'
 
 const PAGE_SIZE = 20
 
@@ -32,19 +33,6 @@ const COLUMNS: { key: SortKey; label: string; align: 'left' | 'right' }[] = [
   { key: 'type', label: 'Tipo', align: 'left' },
   { key: 'amount', label: 'Monto', align: 'right' },
 ]
-
-function formatDate(iso: string | null): string {
-  if (!iso) return '—'
-  try {
-    return new Date(iso).toLocaleDateString('es-EC', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
-  } catch {
-    return '—'
-  }
-}
 
 interface TransactionsTableProps {
   transactions: TxRow[]
@@ -99,6 +87,7 @@ export default function TransactionsTable({
     return filteredTransactions.map((t) => ({
       ...t,
       account_name: accountsMap[t.account_id]?.bank_name ?? '—',
+      account_number: accountsMap[t.account_id]?.account_number ?? null,
     }))
   }, [filteredTransactions, accountsMap])
 
@@ -224,7 +213,7 @@ export default function TransactionsTable({
             flexWrap: 'wrap',
             gap: 12,
             alignItems: 'center',
-            padding: '12px 0 16px',
+            padding: '10px 0 12px',
             borderBottom: '1px solid var(--border)',
             marginBottom: 12,
             flexShrink: 0,
@@ -321,7 +310,7 @@ export default function TransactionsTable({
           flexWrap: 'wrap',
           gap: 12,
           alignItems: 'center',
-          padding: '12px 0 16px',
+          padding: '10px 0 12px',
           borderBottom: '1px solid var(--border)',
           marginBottom: 12,
           flexShrink: 0,
@@ -479,7 +468,7 @@ export default function TransactionsTable({
                       color: 'var(--text2)',
                     }}
                   >
-                    {formatDate(t.tx_date)}
+                    {formatBusinessDate(t.tx_date)}
                   </td>
                   <td
                     style={{
@@ -488,7 +477,18 @@ export default function TransactionsTable({
                       color: 'var(--text2)',
                     }}
                   >
-                    {t.account_name}
+                    <div>{t.account_name}</div>
+                    {t.account_number ? (
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: 'var(--muted)',
+                          marginTop: 1,
+                        }}
+                      >
+                        {t.account_number}
+                      </div>
+                    ) : null}
                   </td>
                   <td
                     style={{
@@ -569,7 +569,7 @@ export default function TransactionsTable({
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: '12px 0 0',
-            marginTop: 12,
+            marginTop: 8,
             borderTop: '1px solid var(--border)',
             gap: 12,
             flexWrap: 'wrap',

@@ -10,7 +10,7 @@ export default function PulseAdminCompaniesPage() {
         pageTitle="Empresas"
         pageSubtitle="Gestión de cuentas cliente"
       />
-      <div style={{ padding: 20 }}>
+      <div style={{ padding: '14px 16px' }}>
         <p
           style={{
             fontFamily: 'var(--font-syne)',

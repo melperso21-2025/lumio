@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { toLocalISO } from '@/lib/dateUtils'
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface Account {
@@ -81,7 +82,7 @@ export default function NewTransactionForm({ accounts = [] }: NewTransactionForm
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState('')
   const [concept, setConcept] = useState('')
-  const [tx_date, setTxDate] = useState(new Date().toISOString().slice(0, 10))
+  const [tx_date, setTxDate] = useState(toLocalISO(new Date()))
   const [is_fixed, setIsFixed] = useState(false)
 
   const categories = type === 'income' ? incomeCategories : expenseCategories
@@ -97,7 +98,7 @@ export default function NewTransactionForm({ accounts = [] }: NewTransactionForm
     setAccountId(accounts[0]?.id ?? '')
     setCategory('')
     setConcept('')
-    setTxDate(new Date().toISOString().slice(0, 10))
+    setTxDate(toLocalISO(new Date()))
     setIsFixed(false)
     setError(null)
     setSuccess(false)
@@ -267,7 +268,7 @@ export default function NewTransactionForm({ accounts = [] }: NewTransactionForm
                   border: '1px solid rgba(5,150,105,0.2)',
                   borderRadius: 8,
                   padding: '10px 14px',
-                  marginBottom: 16,
+                  marginBottom: 12,
                   fontSize: 12,
                   color: 'var(--green)',
                   fontWeight: 500,
@@ -284,7 +285,7 @@ export default function NewTransactionForm({ accounts = [] }: NewTransactionForm
                   border: '1px solid rgba(220,38,38,0.2)',
                   borderRadius: 8,
                   padding: '8px 12px',
-                  marginBottom: 16,
+                  marginBottom: 12,
                   fontSize: 12,
                   color: 'var(--red)',
                 }}

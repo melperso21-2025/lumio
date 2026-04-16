@@ -1,9 +1,11 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/queries/getUser'
 import Topbar from '@/components/layout/Topbar'
 import KpiCard from '@/components/ui/KpiCard'
 import AiInsightBox from '@/components/ui/AiInsightBox'
-import getDefaultDateRange from '@/components/ui/DateRangePicker'
+import ProfitLossExportButton from '@/components/profit-loss/ProfitLossExportButton'
+import { getDefaultDateRange } from '@/lib/dateUtils'
 
 // ── Etiquetas de categorías de gastos ──────────────────────────
 const catLabels: Record<string, string> = {
@@ -15,6 +17,14 @@ const catLabels: Record<string, string> = {
   taxes:     'Impuestos',
   logistics: 'Logística',
   other:     'Otros',
+}
+
+/** Montos P&G sin decimales (redondeo estándar), formato es-EC */
+function fmtPgAmount(n: number): string {
+  return Math.round(n).toLocaleString('es-EC', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })
 }
 
 // ── Componente fila del estado financiero ───────────────────────
@@ -59,40 +69,23 @@ export default async function ProfitLossPage({
   searchParams: Promise<{ from?: string; to?: string }>
 }) {
   const params = await searchParams
+  const companyId = await getCompanyId()
+  if (!companyId) redirect('/login')
+
   const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login')
-  }
-
-  const { data: userData } = await supabase
-    .from('users')
-    .select('company_id')
-    .eq('id', user.id)
-    .single()
-
-  const companyId = userData?.company_id
-  const now = new Date()
-  const day = now.getDay()
-  const monday = new Date(now)
-  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
-  const from = params.from ?? monday.toISOString().slice(0, 10)
-  const to = params.to ?? now.toISOString().slice(0, 10)
+  const defaults = getDefaultDateRange()
+  const from = params.from ?? defaults.from
+  const to = params.to ?? defaults.to
 
   if (!companyId) {
     return (
       <>
-        <Topbar 
-          pageTitle="P&G" 
+        <Topbar
+          pageTitle="P&G"
           pageSubtitle={`${from} → ${to}`}
           showPeriodSelector
-          showExportButton
         />
-        <div style={{ padding: 20 }}>
+        <div style={{ padding: '14px 16px' }}>
           <p
             style={{
               fontFamily: 'var(--font-syne)',
@@ -144,12 +137,13 @@ export default async function ProfitLossPage({
   const gross_margin_pct =
     net_revenue > 0 ? (gross_profit / net_revenue) * 100 : 0
 
+  // Excluye marketing en bank_tx: la inversión publicitaria oficial es ad_campaigns (evita doble conteo con ad_spend)
   const operating_expenses = transactions
-    .filter((t) => t.type === 'expense')
+    .filter((t) => t.type === 'expense' && t.category !== 'marketing')
     .reduce((s, t) => s + (t.amount ?? 0), 0)
 
   const expensesByCategory = transactions
-    .filter((t) => t.type === 'expense')
+    .filter((t) => t.type === 'expense' && t.category !== 'marketing')
     .reduce(
       (acc, t) => {
         const cat = t.category ?? 'other'
@@ -160,7 +154,12 @@ export default async function ProfitLossPage({
     )
 
   const fixed_expenses = transactions
-    .filter((t) => t.type === 'expense' && t.is_fixed)
+    .filter(
+      (t) =>
+        t.type === 'expense' &&
+        t.is_fixed &&
+        t.category !== 'marketing'
+    )
     .reduce((s, t) => s + (t.amount ?? 0), 0)
   const variable_expenses = operating_expenses - fixed_expenses
 
@@ -168,10 +167,27 @@ export default async function ProfitLossPage({
   const ad_revenue = ads.reduce((s, a) => s + (a.attributed_revenue ?? 0), 0)
   const avg_roas = ad_spend > 0 ? ad_revenue / ad_spend : 0
 
+  // Margen de contribución = ganancia bruta − publicidad (fuente única: ad_campaigns)
+  const contribution_margin = gross_profit - ad_spend
+  const contribution_margin_pct =
+    net_revenue > 0 ? (contribution_margin / net_revenue) * 100 : 0
+
   const total_expenses_all = operating_expenses + ad_spend
   const ebitda = gross_profit - total_expenses_all
   const net_margin_pct =
     net_revenue > 0 ? (ebitda / net_revenue) * 100 : 0
+
+  const pygExportData = [
+    { Concepto: 'Ventas brutas', Monto: gross_revenue },
+    { Concepto: 'Descuentos', Monto: -total_discounts },
+    { Concepto: 'Ventas netas', Monto: net_revenue },
+    { Concepto: 'Costo de ventas', Monto: -cost_of_goods },
+    { Concepto: 'Margen bruto', Monto: gross_profit },
+    { Concepto: 'Inversión publicitaria', Monto: -ad_spend },
+    { Concepto: 'Gastos operativos', Monto: -operating_expenses },
+    { Concepto: 'EBITDA', Monto: ebitda },
+    { Concepto: 'Margen neto %', Monto: net_margin_pct },
+  ]
 
   const rangeLabel = `${from} → ${to}`
 
@@ -181,15 +197,21 @@ export default async function ProfitLossPage({
         pageTitle="P&G"
         pageSubtitle={`${from} → ${to}`}
         showPeriodSelector
-        showExportButton
+        rightExtras={
+          <ProfitLossExportButton
+            data={pygExportData}
+            from={from}
+            to={to}
+          />
+        }
       />
 
       <div
         style={{
-          padding: 20,
+          padding: '14px 16px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 20,
+          gap: 14,
         }}
       >
         {/* AiInsightBox resumen */}
@@ -200,25 +222,25 @@ export default async function ProfitLossPage({
               ? `✓ Resultado positivo — ${rangeLabel}`
               : `⚠ Resultado negativo — ${rangeLabel}`
           }
-          text={`Ingresos netos: $${net_revenue.toFixed(2)} · Gastos totales: $${total_expenses_all.toFixed(2)} · ${
+          text={`Ingresos netos: $${fmtPgAmount(net_revenue)} · Gastos totales: $${fmtPgAmount(total_expenses_all)} · ${
             ebitda >= 0
-              ? `Ganancia: $${ebitda.toFixed(2)} (margen ${net_margin_pct.toFixed(1)}%)`
-              : `Pérdida: $${Math.abs(ebitda).toFixed(2)}. Revisa tus gastos operativos y considera aumentar ingresos.`
+              ? `Ganancia: $${fmtPgAmount(ebitda)} (margen ${net_margin_pct.toFixed(1)}%)`
+              : `Pérdida: $${fmtPgAmount(Math.abs(ebitda))}. Revisa tus gastos operativos y considera aumentar ingresos.`
           }`}
         />
 
-        {/* Grid 4 KpiCards */}
+        {/* Grid KPIs */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: 10,
+            gridTemplateColumns: 'repeat(5, 1fr)',
+            gap: 8,
           }}
         >
           <KpiCard
             label="Ingresos netos"
             prefix="$"
-            value={net_revenue.toFixed(2)}
+            value={Math.round(net_revenue)}
             isGold
           />
           <KpiCard
@@ -227,15 +249,24 @@ export default async function ProfitLossPage({
             value={gross_margin_pct.toFixed(1)}
           />
           <KpiCard
+            label="Margen contribución"
+            suffix="%"
+            value={contribution_margin_pct.toFixed(1)}
+            compare={`$${contribution_margin.toLocaleString('es-EC', {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0,
+            })}`}
+          />
+          <KpiCard
             label="Gastos totales"
             prefix="$"
-            value={total_expenses_all.toFixed(2)}
+            value={Math.round(total_expenses_all)}
           />
           {ebitda >= 0 ? (
             <KpiCard
               label="Resultado neto"
               prefix="$"
-              value={ebitda.toFixed(2)}
+              value={Math.round(ebitda)}
               isGold
             />
           ) : (
@@ -264,7 +295,7 @@ export default async function ProfitLossPage({
                   color: 'var(--red)',
                 }}
               >
-                $ {ebitda.toFixed(2)}
+                $ {fmtPgAmount(ebitda)}
               </div>
             </div>
           )}
@@ -284,12 +315,12 @@ export default async function ProfitLossPage({
               background: 'var(--card)',
               border: '1px solid var(--border)',
               borderRadius: 12,
-              padding: 20,
+              padding: '14px 16px',
             }}
           >
             <div
               className="font-syne font-bold"
-              style={{ fontSize: 14, color: 'var(--text)', marginBottom: 16 }}
+              style={{ fontSize: 14, color: 'var(--text)', marginBottom: 12 }}
             >
               <span
                 style={{
@@ -317,7 +348,7 @@ export default async function ProfitLossPage({
             <div style={{ borderBottom: '1px solid var(--border)', margin: '4px 0' }} />
             <PGRow
               label="Ingresos netos"
-              value={`$ ${net_revenue.toLocaleString('es-EC')}`}
+              value={`$ ${fmtPgAmount(net_revenue)}`}
               valueStyle={{ color: 'var(--gold)', fontSize: 15 }}
             />
             <PGRow
@@ -334,6 +365,30 @@ export default async function ProfitLossPage({
               }}
             />
             <PGRow
+              label="(-) Inversión publicitaria"
+              value={`-$ ${ad_spend.toLocaleString('es-EC', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`}
+              valueStyle={{ color: 'var(--orange)' }}
+            />
+            <PGRow
+              label="Margen de contribución"
+              value={`$ ${contribution_margin.toLocaleString('es-EC', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`}
+              valueStyle={{
+                color: contribution_margin >= 0 ? 'var(--green)' : 'var(--red)',
+                fontWeight: 700,
+              }}
+            />
+            <PGRow
+              label="Margen contribución %"
+              value={`${contribution_margin_pct.toFixed(1)}%`}
+              valueStyle={{ color: 'var(--muted)', fontSize: 11 }}
+            />
+            <PGRow
               label="Margen bruto"
               value={`${gross_margin_pct.toFixed(1)}%`}
               valueStyle={{ color: 'var(--muted)', fontSize: 11 }}
@@ -346,12 +401,12 @@ export default async function ProfitLossPage({
               background: 'var(--card)',
               border: '1px solid var(--border)',
               borderRadius: 12,
-              padding: 20,
+              padding: '14px 16px',
             }}
           >
             <div
               className="font-syne font-bold"
-              style={{ fontSize: 14, color: 'var(--text)', marginBottom: 16 }}
+              style={{ fontSize: 14, color: 'var(--text)', marginBottom: 12 }}
             >
               <span
                 style={{
@@ -402,12 +457,12 @@ export default async function ProfitLossPage({
               background: 'var(--card)',
               border: '1px solid var(--border)',
               borderRadius: 12,
-              padding: 20,
+              padding: '14px 16px',
             }}
           >
             <div
               className="font-syne font-bold"
-              style={{ fontSize: 14, color: 'var(--text)', marginBottom: 16 }}
+              style={{ fontSize: 14, color: 'var(--text)', marginBottom: 12 }}
             >
               <span
                 style={{
@@ -428,10 +483,21 @@ export default async function ProfitLossPage({
               value={`$ ${ad_spend.toLocaleString('es-EC')}`}
             />
             <PGRow
-              label="Ventas atribuidas"
+              label="Ventas atribuidas (pauta)"
               value={`$ ${ad_revenue.toLocaleString('es-EC')}`}
               valueStyle={{ color: 'var(--green)' }}
             />
+            <div
+              style={{
+                fontSize: 10,
+                color: 'var(--muted)',
+                padding: '4px 0 8px',
+                borderBottom: '1px solid var(--border)',
+              }}
+            >
+              * Revenue atribuido a campañas — puede solaparse con ventas brutas
+              registradas
+            </div>
             <PGRow
               label="ROAS"
               value={avg_roas.toFixed(2)}
@@ -458,7 +524,7 @@ export default async function ProfitLossPage({
               </div>
               <PGRow
                 label="(-) Gastos totales"
-                value={`$ ${total_expenses_all.toLocaleString('es-EC')}`}
+                value={`$ ${fmtPgAmount(total_expenses_all)}`}
                 valueStyle={{ color: 'var(--red)' }}
               />
               <div style={{ borderBottom: '1px solid var(--border)', margin: '4px 0' }} />
@@ -486,7 +552,7 @@ export default async function ProfitLossPage({
                     color: ebitda >= 0 ? 'var(--green)' : 'var(--red)',
                   }}
                 >
-                  $ {ebitda.toLocaleString('es-EC')}
+                  $ {fmtPgAmount(ebitda)}
                 </span>
               </div>
               <PGRow

@@ -40,8 +40,21 @@ const SALES_TEMPLATE = [
     'canal',
     'estado',
     'notas',
+    'cliente',
+    'sucursal',
   ],
-  ['2026-03-01', '150.00', '0', '80.00', '2', 'Web', 'cerrada', 'Venta online'],
+  [
+    '2026-03-01',
+    '150.00',
+    '0',
+    '80.00',
+    '2',
+    'Web',
+    'cerrada',
+    'Venta online',
+    'Juan Pérez',
+    'Matriz Quito',
+  ],
   [
     '2026-03-02',
     '320.50',
@@ -51,6 +64,8 @@ const SALES_TEMPLATE = [
     'Local Megamaxi',
     'cerrada',
     '',
+    'María García',
+    'Matriz Quito',
   ],
   [
     '2026-03-03',
@@ -61,6 +76,8 @@ const SALES_TEMPLATE = [
     'WhatsApp',
     'revision',
     'Pendiente confirmación',
+    'Empresa ABC S.A.',
+    'Sucursal Norte',
   ],
 ]
 
@@ -339,7 +356,7 @@ export default function ImportSection({
         background: 'var(--card)',
         border: '1px solid var(--border)',
         borderRadius: 12,
-        padding: 20,
+        padding: '14px 16px',
       }}
     >
       {/* Header */}
@@ -348,7 +365,7 @@ export default function ImportSection({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-start',
-          marginBottom: 16,
+          marginBottom: 12,
         }}
       >
         <div>
@@ -389,7 +406,7 @@ export default function ImportSection({
       </div>
 
       {/* Tabla de referencia de columnas */}
-      <details style={{ marginBottom: 16 }}>
+      <details style={{ marginBottom: 12 }}>
         <summary
           style={{
             fontSize: 11,
@@ -491,6 +508,18 @@ export default function ImportSection({
                     tipo="Texto"
                     req={false}
                     ejemplo="Cualquier observación"
+                  />
+                  <ColumnRow
+                    col="cliente"
+                    tipo="Texto"
+                    req={true}
+                    ejemplo="Juan Pérez"
+                  />
+                  <ColumnRow
+                    col="sucursal"
+                    tipo="Texto"
+                    req={true}
+                    ejemplo="Matriz Quito"
                   />
                 </>
               )}

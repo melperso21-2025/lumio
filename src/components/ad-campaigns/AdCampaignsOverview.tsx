@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import KpiCard from '@/components/ui/KpiCard'
 import AiInsightBox from '@/components/ui/AiInsightBox'
+import ExportButton from '@/components/ui/ExportButton'
 import NewCampaignForm from '@/components/ad-campaigns/NewCampaignForm'
 import CampaignsTable from '@/components/ad-campaigns/CampaignsTable'
 
@@ -91,6 +92,29 @@ export default function AdCampaignsOverview({
     })
   }, [prevCampaigns, filterWeek, filterCampaign, filterPlatform])
 
+  const exportData = useMemo(
+    () =>
+      filteredCampaigns.map((c) => ({
+        Fecha: c.campaign_date,
+        Semana: c.week_number,
+        Campaña: c.campaign_name,
+        Plataforma: c.platform,
+        'Inversión $': c.spend,
+        'Revenue atrib. $': c.attributed_revenue,
+        ROAS: c.roas,
+        Impresiones: c.impressions,
+        Clicks: c.clicks,
+        'CTR %': c.ctr,
+        'CPM $': c.cpm,
+        Leads: c.leads_count,
+        'Leads calidad': c.quality_leads,
+        'Ventas atr.': c.transactions,
+        'Conv. %': c.conversion_rate,
+        'Efectividad %': c.effectiveness_rate,
+      })),
+    [filteredCampaigns]
+  )
+
   const totals = useMemo(() => {
     return filteredCampaigns.reduce(
       (acc, c) => {
@@ -170,6 +194,14 @@ export default function AdCampaignsOverview({
       ? (totals.totalClicks / totals.totalImpressions) * 100
       : 0
 
+  const total_revenue = totals.totalRevenue
+  const total_impressions = totals.totalImpressions
+  const total_transactions = totals.totalTransactions
+
+  const prev_revenue = prevTotals.totalRevenue
+  const prev_impressions = prevTotals.totalImpressions
+  const prev_transactions = prevTotals.totalTransactions
+
   const prev_spend = prevTotals.totalSpend
   const prev_leads = prevTotals.totalLeads
   const prev_avg_roas =
@@ -202,7 +234,7 @@ export default function AdCampaignsOverview({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 20,
+        gap: 14,
         flex: 1,
         minHeight: 0,
       }}
@@ -216,26 +248,18 @@ export default function AdCampaignsOverview({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(6, 1fr)',
-          gap: 10,
+          gridTemplateColumns: 'repeat(9, 1fr)',
+          gap: 8,
           flexShrink: 0,
         }}
       >
         <KpiCard
           label="Inversión"
           prefix="$"
-          value={total_spend.toLocaleString('es-EC', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
+          value={Math.round(total_spend)}
           delta={calcDelta(total_spend, prev_spend, hasPrevData)}
           compare={
-            prev_spend > 0
-              ? `Ant: $${prev_spend.toLocaleString('es-EC', {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0,
-                })}`
-              : undefined
+            prev_spend > 0 ? `Ant: $${Math.round(prev_spend)}` : undefined
           }
         />
         <KpiCard
@@ -306,6 +330,39 @@ export default function AdCampaignsOverview({
             prev_ctr_pct > 0 ? `Ant: ${prev_ctr_pct.toFixed(2)}%` : undefined
           }
         />
+        {/* Revenue atribuido — gold porque es el retorno monetario directo */}
+        <KpiCard
+          label="Revenue atribuido"
+          prefix="$"
+          value={Math.round(total_revenue)}
+          isGold
+          delta={calcDelta(total_revenue, prev_revenue, hasPrevData)}
+          compare={
+            prev_revenue > 0 ? `Ant: $${Math.round(prev_revenue)}` : undefined
+          }
+        />
+        {/* Impresiones totales */}
+        <KpiCard
+          label="Impresiones"
+          value={total_impressions.toLocaleString('es-EC')}
+          delta={calcDelta(total_impressions, prev_impressions, hasPrevData)}
+          compare={
+            prev_impressions > 0
+              ? `Ant: ${prev_impressions.toLocaleString('es-EC')}`
+              : undefined
+          }
+        />
+        {/* Transactions — ventas directamente atribuidas a pautas */}
+        <KpiCard
+          label="Ventas atribuidas"
+          value={Math.round(total_transactions)}
+          delta={calcDelta(total_transactions, prev_transactions, hasPrevData)}
+          compare={
+            prev_transactions > 0
+              ? `Ant: ${Math.round(prev_transactions)}`
+              : undefined
+          }
+        />
       </div>
 
       {/* Card historial */}
@@ -314,7 +371,7 @@ export default function AdCampaignsOverview({
           borderRadius: 12,
           background: 'var(--card)',
           border: '1px solid var(--border)',
-          padding: 20,
+          padding: '14px 16px',
           flex: 1,
           minHeight: 0,
           display: 'flex',
@@ -326,7 +383,7 @@ export default function AdCampaignsOverview({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: 16,
+            marginBottom: 12,
             flexShrink: 0,
           }}
         >
@@ -336,7 +393,14 @@ export default function AdCampaignsOverview({
           >
             Historial de campañas
           </h2>
-          <NewCampaignForm />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ExportButton
+              data={exportData}
+              filename={`pautas_${from}_${to}`}
+              sheetName="Pautas"
+            />
+            <NewCampaignForm />
+          </div>
         </div>
 
         {campaigns.length === 0 ? (

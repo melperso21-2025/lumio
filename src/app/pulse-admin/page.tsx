@@ -1,5 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import Topbar from '@/components/layout/Topbar'
+import RecalculateSnapshotsButton from '@/components/pulse-admin/RecalculateSnapshotsButton'
+import ApproveAndRegenerateButton from '@/components/pulse-admin/ApproveAndRegenerateButton'
+import GenerateInitialInsightButton from '@/components/pulse-admin/GenerateInitialInsightButton'
 
 export default async function PulseAdminPage() {
   const supabase = await createClient()
@@ -47,6 +50,30 @@ export default async function PulseAdminPage() {
       : 0
   const totalInsights30d = insightsData?.length ?? 0
 
+  // Empresas que ya tienen análisis inicial generado
+  const { data: initialInsightsData } = await supabase
+    .from('ai_insights')
+    .select('company_id')
+    .eq('type', 'initial')
+
+  const companiesWithInitial = new Set(
+    initialInsightsData?.map((i) => i.company_id) ?? []
+  )
+
+  // Solicitudes de corrección de análisis pendientes
+  const { data: pendingRequestsData } = await supabase
+    .from('insight_requests')
+    .select(
+      `id, company_id, week_number, year, reason, created_at, status,
+       companies(name),
+       users!requested_by(full_name)`
+    )
+    .in('status', ['pending', 'approved'])
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  const pendingRequests = pendingRequestsData ?? []
+
   // MRR placeholder
   const mrr = 0
   const mrrTarget = 1000
@@ -62,10 +89,10 @@ export default async function PulseAdminPage() {
 
       <div
         style={{
-          padding: 20,
+          padding: '14px 16px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 20,
+          gap: 14,
         }}
       >
         {/* North Star — caja púrpura */}
@@ -130,6 +157,48 @@ export default async function PulseAdminPage() {
                 : 'Aún no hay empresas con 2+ insights. Incentiva el uso de IA Insights esta semana.'}
             </div>
           </div>
+        </div>
+
+        {/* Snapshots semanales */}
+        <div
+          style={{
+            background: 'var(--card)',
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            padding: '14px 18px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontFamily: 'var(--font-syne)',
+                fontWeight: 600,
+                fontSize: 12,
+                color: 'var(--text)',
+                marginBottom: 4,
+              }}
+            >
+              KPIs dashboard (weekly_snapshots)
+            </div>
+            <p
+              style={{
+                fontSize: 12,
+                color: 'var(--muted)',
+                margin: 0,
+                lineHeight: 1.5,
+                maxWidth: 520,
+              }}
+            >
+              Recalcula los indicadores agregados de la semana actual para todas las
+              empresas activas. Útil tras cargar datos o antes del cierre semanal.
+            </p>
+          </div>
+          <RecalculateSnapshotsButton />
         </div>
 
         {/* 5 KPI Stats */}
@@ -371,6 +440,112 @@ export default async function PulseAdminPage() {
           </div>
         </div>
 
+        {/* Solicitudes de corrección de análisis IA */}
+        {pendingRequests.length > 0 && (
+          <div
+            style={{
+              background: 'var(--card)',
+              border: '1px solid rgba(217,119,6,0.3)',
+              borderRadius: 10,
+              padding: 16,
+            }}
+          >
+            <div
+              className="font-syne font-bold"
+              style={{
+                fontSize: 13,
+                color: 'var(--orange)',
+                marginBottom: 12,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              ⚠ Solicitudes de corrección pendientes ({pendingRequests.length})
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {pendingRequests.map((r) => {
+                const company = (
+                  r as unknown as { companies: { name: string } | null }
+                ).companies
+                const requestedBy = (
+                  r as unknown as { users: { full_name: string } | null }
+                ).users
+                return (
+                  <div
+                    key={r.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '10px 12px',
+                      background: 'var(--bg)',
+                      borderRadius: 8,
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: 'var(--text)',
+                        }}
+                      >
+                        {company?.name ?? 'Empresa'} — S{r.week_number}/
+                        {r.year}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: 'var(--muted)',
+                          marginTop: 2,
+                        }}
+                      >
+                        Solicitado por{' '}
+                        {requestedBy?.full_name ?? 'usuario'}
+                        {r.reason ? ` · "${r.reason}"` : ''}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 10,
+                          padding: '2px 8px',
+                          borderRadius: 4,
+                          fontWeight: 600,
+                          background:
+                            r.status === 'approved'
+                              ? 'rgba(5,150,105,0.1)'
+                              : 'rgba(217,119,6,0.1)',
+                          color:
+                            r.status === 'approved'
+                              ? 'var(--green)'
+                              : 'var(--orange)',
+                        }}
+                      >
+                        {r.status === 'approved' ? 'Aprobado' : 'Pendiente'}
+                      </span>
+                      <ApproveAndRegenerateButton
+                        requestId={r.id}
+                        companyId={r.company_id}
+                        weekNumber={r.week_number}
+                        year={r.year}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Grid 2-1 (Semáforo + columna derecha) */}
         <div
           style={{
@@ -574,6 +749,19 @@ export default async function PulseAdminPage() {
                       >
                         {semLabel}
                       </span>
+                      <div
+                        style={{
+                          borderLeft: '1px solid var(--border)',
+                          paddingLeft: 10,
+                          marginLeft: 4,
+                        }}
+                      >
+                        <GenerateInitialInsightButton
+                          companyId={c.id}
+                          companyName={c.name}
+                          hasInitial={companiesWithInitial.has(c.id)}
+                        />
+                      </div>
                     </div>
                   </div>
                 )

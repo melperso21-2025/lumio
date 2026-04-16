@@ -2,9 +2,42 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
 
+// ── Helper: fechas ISO correctas de una semana ────────────────────────────────
+// El 4 de enero siempre cae en la semana 1 ISO, lo que ancla el cálculo
+function getISOWeekDates(
+  year: number,
+  week: number
+): { weekStartStr: string; weekEndStr: string } {
+  const jan4 = new Date(Date.UTC(year, 0, 4))
+  const jan4Day = jan4.getUTCDay() || 7
+  const week1Mon = new Date(jan4.getTime() - (jan4Day - 1) * 86400000)
+  const weekMon = new Date(week1Mon.getTime() + (week - 1) * 7 * 86400000)
+  const weekSun = new Date(weekMon.getTime() + 6 * 86400000)
+  const toISO = (d: Date) => d.toISOString().slice(0, 10)
+  return { weekStartStr: toISO(weekMon), weekEndStr: toISO(weekSun) }
+}
+
+// ── Helper: delta % formateado para el prompt ─────────────────────────────────
+function pct(
+  curr: number | null | undefined,
+  prev: number | null | undefined,
+  prevWeek: number
+): string {
+  if (curr == null || prev == null || prev === 0) return 'sin datos anteriores'
+  const d = ((curr - prev) / prev) * 100
+  const formatted = d.toFixed(1)
+  return `${Number(formatted) >= 0 ? '+' : ''}${formatted}% vs S${prevWeek}`
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { companyId, weekNumber, year } = await request.json()
+    const body = await request.json()
+    const { companyId, weekNumber, year, forcedByPulse } = body as {
+      companyId: string
+      weekNumber: number
+      year: number
+      forcedByPulse?: boolean
+    }
 
     if (!companyId || !weekNumber || !year) {
       return NextResponse.json(
@@ -15,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // 1. Verificar autenticación
+    // ── 1. Autenticación ──────────────────────────────────────────────────────
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -23,64 +56,72 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
-    // 2. Verificar permisos — solo admin o pulse_admin
     const { data: userData } = await supabase
       .from('users')
       .select('role, is_pulse_admin, company_id')
       .eq('id', user.id)
       .single()
 
-    if (
-      userData?.company_id !== companyId &&
-      !userData?.is_pulse_admin
-    ) {
+    const isPulseAdmin = userData?.is_pulse_admin === true
+    const isCompanyAdmin =
+      userData?.company_id === companyId && userData?.role === 'admin'
+
+    if (!isPulseAdmin && !isCompanyAdmin) {
       return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
     }
 
-    if (userData?.role !== 'admin' && !userData?.is_pulse_admin) {
-      return NextResponse.json(
-        { error: 'Solo administradores pueden generar análisis' },
-        { status: 403 }
-      )
-    }
-
-    // 3. CONTROL DE USO: verificar si ya existe insight esta semana
+    // ── 2. Control de uso — 1 análisis por empresa/semana ────────────────────
     const { data: existing } = await supabase
       .from('ai_insights')
       .select('id, created_at')
       .eq('company_id', companyId)
       .eq('week_number', weekNumber)
       .eq('year', year)
-      .single()
+      .maybeSingle()
 
-    // Si existe y fue generado hace menos de 1 hora, no regenerar
     if (existing) {
-      const generatedAt = new Date(existing.created_at).getTime()
-      const oneHourAgo = Date.now() - 60 * 60 * 1000
-      if (generatedAt > oneHourAgo) {
+      if (isPulseAdmin && forcedByPulse) {
+        // Regeneración autorizada por Pulse — continuar
+      } else if (isPulseAdmin) {
         return NextResponse.json(
           {
             error:
-              'Ya existe un análisis reciente para esta semana. Espera al menos 1 hora para regenerar.',
+              'Ya existe análisis para esta semana. Usa forcedByPulse=true para regenerar.',
+          },
+          { status: 429 }
+        )
+      } else {
+        // Cliente: debe solicitar corrección a Pulse en lugar de regenerar directamente
+        return NextResponse.json(
+          {
+            error:
+              'Ya generaste el análisis de esta semana. Si necesitas corregirlo, solicita una corrección a Pulse.',
           },
           { status: 429 }
         )
       }
     }
 
-    // 4. Recopilar datos de la empresa para el análisis
-    const monthStart = new Date(year, 0, 1)
-    const weekStart = new Date(
-      monthStart.getTime() +
-        (weekNumber - 1) * 7 * 24 * 60 * 60 * 1000
-    )
-    const weekEnd = new Date(
-      weekStart.getTime() + 7 * 24 * 60 * 60 * 1000
-    )
-    const weekStartStr = weekStart.toISOString().slice(0, 10)
-    const weekEndStr = weekEnd.toISOString().slice(0, 10)
+    // ── 3. Fechas ISO de la semana a analizar ─────────────────────────────────
+    const { weekStartStr, weekEndStr } = getISOWeekDates(year, weekNumber)
 
-    // Datos de ventas de la semana
+    // ── 4. Recopilar datos para el análisis ───────────────────────────────────
+    const { data: snapData } = await supabase
+      .from('weekly_snapshots')
+      .select(
+        'week_number, total_sales, total_transactions, avg_roas, ' +
+          'total_ad_spend, total_leads, avg_effectiveness, gross_margin_pct, ' +
+          'net_margin_pct, cash_days, inventory_days, overdue_receivables, ' +
+          'fixed_vs_total_pct, avg_ctr, avg_lpp, total_discounts'
+      )
+      .eq('company_id', companyId)
+      .eq('year', year)
+      .in('week_number', [weekNumber, weekNumber - 1])
+      .order('week_number', { ascending: false })
+
+    const currentSnap = snapData?.find((s) => s.week_number === weekNumber)
+    const prevSnap = snapData?.find((s) => s.week_number === weekNumber - 1)
+
     const { data: salesData } = await supabase
       .from('sales')
       .select(
@@ -90,32 +131,28 @@ export async function POST(request: NextRequest) {
       .is('deleted_at', null)
       .neq('status', 'cancelled')
       .gte('sale_date', weekStartStr)
-      .lt('sale_date', weekEndStr)
+      .lte('sale_date', weekEndStr)
 
-    // Datos de pautas de la semana
     const { data: adsData } = await supabase
       .from('ad_campaigns')
       .select(
-        'spend, attributed_revenue, roas, ctr, effectiveness_rate, leads_count, platform'
+        'spend, attributed_revenue, roas, ctr, effectiveness_rate, leads_count, platform, campaign_name'
       )
       .eq('company_id', companyId)
       .is('deleted_at', null)
       .eq('week_number', weekNumber)
+      .eq('year', year)
 
-    // Datos de inventario — productos con stock bajo
     const { data: inventoryData } = await supabase
       .from('products')
-      .select(
-        'name, current_stock, min_stock_alert, sale_price, unit_cost'
-      )
+      .select('name, current_stock, min_stock_alert, sale_price, unit_cost')
       .eq('company_id', companyId)
       .is('deleted_at', null)
       .eq('is_active', true)
 
-    // Datos financieros — saldo y transacciones recientes
     const { data: bankData } = await supabase
       .from('bank_accounts')
-      .select('current_balance, bank_name')
+      .select('current_balance')
       .eq('company_id', companyId)
       .is('deleted_at', null)
 
@@ -124,32 +161,19 @@ export async function POST(request: NextRequest) {
       .select('type, amount, category, is_fixed')
       .eq('company_id', companyId)
       .gte('tx_date', weekStartStr)
-      .lt('tx_date', weekEndStr)
+      .lte('tx_date', weekEndStr)
 
-    // 5. Preparar resumen de datos para el prompt
     const sales = salesData ?? []
     const ads = adsData ?? []
     const products = inventoryData ?? []
     const banks = bankData ?? []
-    const transactions = txData ?? []
+    const txs = txData ?? []
 
+    // Cálculos derivados usados en el prompt cuando no hay snapshot
     const totalSales = sales.reduce((s, r) => s + (r.gross_total ?? 0), 0)
-    const totalTransactions = sales.length
-    const avgLPP =
-      totalTransactions > 0
-        ? sales.reduce((s, r) => s + (r.lines_per_order ?? 0), 0) /
-          totalTransactions
-        : 0
     const totalAdSpend = ads.reduce((s, a) => s + (a.spend ?? 0), 0)
-    const avgROAS =
-      ads.length > 0
-        ? ads.reduce((s, a) => s + (a.roas ?? 0), 0) / ads.length
-        : 0
-    const totalBalance = banks.reduce(
-      (s, b) => s + (b.current_balance ?? 0),
-      0
-    )
-    const totalExpenses = transactions
+    const totalBalance = banks.reduce((s, b) => s + (b.current_balance ?? 0), 0)
+    const totalExpenses = txs
       .filter((t) => t.type === 'expense')
       .reduce((s, t) => s + (t.amount ?? 0), 0)
     const lowStockProducts = products.filter(
@@ -157,70 +181,85 @@ export async function POST(request: NextRequest) {
         (p.current_stock ?? 0) <= (p.min_stock_alert ?? 0) &&
         (p.min_stock_alert ?? 0) > 0
     )
+    const bestCampaign = [...ads].sort(
+      (a, b) => (b.roas ?? 0) - (a.roas ?? 0)
+    )[0]
+    const topFrozenProduct = [...products].sort(
+      (a, b) =>
+        (b.current_stock ?? 0) * (b.unit_cost ?? 0) -
+        (a.current_stock ?? 0) * (a.unit_cost ?? 0)
+    )[0]
 
-    // 6. Construir prompt para Claude
-    const prompt = `Eres el motor de análisis de Lumio, una plataforma de inteligencia de negocio para PyMEs latinoamericanas.
+    // ── 5. Construir prompt ───────────────────────────────────────────────────
+    const prevWeek = weekNumber - 1
 
-Analiza los siguientes datos de la semana ${weekNumber} del año ${year} y genera un informe ejecutivo en español para el dueño del negocio.
+    const prompt = `Eres el motor de análisis de Lumio, plataforma de inteligencia \
+de negocio para PyMEs latinoamericanas. Analiza los datos de la semana \
+${weekNumber}/${year} (${weekStartStr} → ${weekEndStr}) y genera un informe \
+ejecutivo en español para el dueño del negocio. Sé directo, específico \
+con los números y accionable.
 
-## DATOS DE LA SEMANA
+## DATOS SEMANA ${weekNumber}/${year}
 
 ### Ventas
-- Total ventas: $${totalSales.toFixed(2)}
-- Número de transacciones: ${totalTransactions}
-- Promedio líneas por pedido (LPP): ${avgLPP.toFixed(1)}
-- Total descuentos: $${sales.reduce((s, r) => s + (r.discount_amount ?? 0), 0).toFixed(2)}
+- Total: $${(currentSnap?.total_sales ?? totalSales).toFixed(2)} (${pct(currentSnap?.total_sales, prevSnap?.total_sales, prevWeek)})
+- Transacciones: ${currentSnap?.total_transactions ?? sales.length} (${pct(currentSnap?.total_transactions, prevSnap?.total_transactions, prevWeek)})
+- LPP promedio: ${currentSnap?.avg_lpp?.toFixed(1) ?? '0'} líneas por pedido
+- Descuentos: $${(currentSnap?.total_discounts ?? 0).toFixed(2)}
+- Margen bruto: ${currentSnap?.gross_margin_pct?.toFixed(1) ?? '0'}%
+- Margen neto: ${currentSnap?.net_margin_pct?.toFixed(1) ?? '0'}%
 
 ### Pautas Publicitarias
-- Inversión total: $${totalAdSpend.toFixed(2)}
-- ROAS promedio: ${avgROAS.toFixed(2)}
-- Leads generados: ${ads.reduce((s, a) => s + (a.leads_count ?? 0), 0)}
-- Plataformas activas: ${[...new Set(ads.map((a) => a.platform))].join(', ') || 'ninguna'}
+- Inversión: $${(currentSnap?.total_ad_spend ?? totalAdSpend).toFixed(2)} (${pct(currentSnap?.total_ad_spend, prevSnap?.total_ad_spend, prevWeek)})
+- ROAS: ${currentSnap?.avg_roas?.toFixed(2) ?? '0'} (${pct(currentSnap?.avg_roas, prevSnap?.avg_roas, prevWeek)})
+- Leads: ${currentSnap?.total_leads ?? 0} (${pct(currentSnap?.total_leads, prevSnap?.total_leads, prevWeek)})
+- Efectividad: ${currentSnap?.avg_effectiveness?.toFixed(1) ?? '0'}%
+- CTR: ${currentSnap?.avg_ctr?.toFixed(2) ?? '0'}%
+- Plataformas: ${[...new Set(ads.map((a) => a.platform))].filter(Boolean).join(', ') || 'ninguna'}
+${bestCampaign ? `- Mejor campaña: "${bestCampaign.campaign_name}" ROAS ${bestCampaign.roas?.toFixed(2)}` : ''}
 
 ### Inventario
-- Total productos activos: ${products.length}
-- Productos con stock bajo: ${lowStockProducts.length}
-${lowStockProducts.length > 0 ? `- Productos críticos: ${lowStockProducts.slice(0, 3).map((p) => p.name).join(', ')}` : ''}
+- Días de cobertura: ${currentSnap?.inventory_days ?? 0} días (óptimo 20–45)
+- Productos activos: ${products.length}
+- Stock bajo: ${lowStockProducts.length} producto${lowStockProducts.length !== 1 ? 's' : ''}
+${lowStockProducts.length > 0 ? `- Críticos: ${lowStockProducts.slice(0, 3).map((p) => p.name).join(', ')}` : ''}
+${topFrozenProduct ? `- Mayor capital paralizado: "${topFrozenProduct.name}" ($${((topFrozenProduct.current_stock ?? 0) * (topFrozenProduct.unit_cost ?? 0)).toFixed(0)})` : ''}
 
 ### Finanzas
-- Saldo total en cuentas: $${totalBalance.toFixed(2)}
-- Egresos de la semana: $${totalExpenses.toFixed(2)}
-- Días de caja estimados: ${totalExpenses > 0 ? Math.floor(totalBalance / (totalExpenses / 7)) : 'N/A'}
+- Saldo total: $${totalBalance.toFixed(2)}
+- Egresos semana: $${totalExpenses.toFixed(2)}
+- Días de caja: ${currentSnap?.cash_days ?? 0} (óptimo >30)
+- CxC vencidas: $${currentSnap?.overdue_receivables ?? 0}
+- Gastos fijos/egresos: ${currentSnap?.fixed_vs_total_pct?.toFixed(1) ?? '0'}% (benchmark <55%)
 
-## INSTRUCCIONES
+## SEMANA ANTERIOR S${prevWeek}/${year}
+- Ventas: $${prevSnap?.total_sales?.toFixed(2) ?? 'sin datos'}
+- ROAS: ${prevSnap?.avg_roas?.toFixed(2) ?? 'sin datos'}
+- Margen neto: ${prevSnap?.net_margin_pct?.toFixed(1) ?? 'sin datos'}%
+- Días de caja: ${prevSnap?.cash_days ?? 'sin datos'}
 
-Genera el análisis en formato JSON con exactamente esta estructura. NO incluyas texto fuera del JSON:
+## FORMATO — responde SOLO con JSON válido, sin markdown:
 
 {
-  "executive_summary": "Párrafo de 3-4 oraciones con los hallazgos más importantes de la semana. Sé específico con los números. Tono directo y ejecutivo.",
-  "insight_sales": "Análisis de 2-3 párrafos sobre el desempeño de ventas. Incluye observaciones sobre transacciones, LPP y descuentos.",
-  "insight_campaigns": "Análisis de 2-3 párrafos sobre pautas publicitarias. Evalúa ROAS, eficiencia de inversión y recomendaciones.",
-  "insight_inventory": "Análisis de 1-2 párrafos sobre el estado del inventario. Menciona productos críticos si los hay.",
-  "insight_finance": "Análisis de 1-2 párrafos sobre la situación financiera. Evalúa días de caja y flujo.",
+  "executive_summary": "3-4 oraciones. Hallazgos más importantes con números específicos y tendencia vs semana anterior. Tono ejecutivo y directo.",
+  "insight_sales": "Análisis de ventas: desempeño, comparativa, canales efectivos, observaciones sobre descuentos o ticket.",
+  "insight_campaigns": "Análisis de pautas: eficiencia de inversión, ROAS, qué escalar o pausar, recomendación concreta.",
+  "insight_inventory": "Estado inventario: días de cobertura, capital paralizado, qué reponer o liquidar.",
+  "insight_finance": "Situación financiera: flujo de caja, días disponibles, alertas.",
   "playbook": [
     {
-      "action": "Acción específica y concreta que debe tomar el dueño del negocio",
-      "reason": "Por qué esta acción es importante basándose en los datos",
-      "priority": "urgent",
-      "timeframe": "hoy"
+      "action": "Acción específica y concreta basada en los datos",
+      "reason": "Por qué basado en los números reales",
+      "priority": "urgent|soon|later",
+      "timeframe": "hoy|esta semana|este mes"
     }
   ]
 }
 
-El playbook debe tener entre 3 y 5 acciones priorizadas:
-- priority "urgent" + timeframe "hoy": máximo 1 acción crítica
-- priority "soon" + timeframe "esta semana": 1-2 acciones importantes
-- priority "later" + timeframe "este mes": 1-2 acciones estratégicas
+Playbook: 3–5 acciones. Máximo 1 urgent. Si una métrica está bien, reconócelo.`
 
-Si no hay datos suficientes en algún módulo, indícalo claramente en el análisis correspondiente y da recomendaciones generales.
-
-Responde ÚNICAMENTE con el JSON válido, sin markdown, sin explicaciones adicionales.`
-
-    // 7. Llamar a Claude API
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    })
-
+    // ── 6. Llamar a Claude ────────────────────────────────────────────────────
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-5',
       max_tokens: 2000,
@@ -230,7 +269,6 @@ Responde ÚNICAMENTE con el JSON válido, sin markdown, sin explicaciones adicio
     const responseText =
       message.content[0].type === 'text' ? message.content[0].text : ''
 
-    // 8. Parsear respuesta JSON de Claude
     let analysisData: {
       executive_summary: string
       insight_sales: string
@@ -246,7 +284,6 @@ Responde ÚNICAMENTE con el JSON válido, sin markdown, sin explicaciones adicio
     }
 
     try {
-      // Limpiar posibles backticks de markdown
       const cleaned = responseText
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
@@ -254,51 +291,52 @@ Responde ÚNICAMENTE con el JSON válido, sin markdown, sin explicaciones adicio
       analysisData = JSON.parse(cleaned)
     } catch {
       return NextResponse.json(
-        {
-          error: 'Error procesando la respuesta de IA. Intenta de nuevo.',
-        },
+        { error: 'Error procesando la respuesta de IA. Intenta de nuevo.' },
         { status: 500 }
       )
     }
 
-    // 9. Guardar en Supabase (upsert — actualiza si ya existe)
-    const { error: upsertError } = await supabase
-      .from('ai_insights')
-      .upsert(
-        {
-          company_id: companyId,
-          week_number: weekNumber,
-          year: year,
-          executive_summary: analysisData.executive_summary,
-          insight_sales: analysisData.insight_sales,
-          insight_campaigns: analysisData.insight_campaigns,
-          insight_inventory: analysisData.insight_inventory,
-          insight_finance: analysisData.insight_finance,
-          playbook: analysisData.playbook,
-          viewed_at: null,
-        },
-        {
-          onConflict: 'company_id,week_number,year',
-        }
-      )
+    // ── 7. Guardar en Supabase ────────────────────────────────────────────────
+    const { error: upsertError } = await supabase.from('ai_insights').upsert(
+      {
+        company_id: companyId,
+        week_number: weekNumber,
+        year: year,
+        executive_summary: analysisData.executive_summary,
+        insight_sales: analysisData.insight_sales,
+        insight_campaigns: analysisData.insight_campaigns,
+        insight_inventory: analysisData.insight_inventory,
+        insight_finance: analysisData.insight_finance,
+        playbook: analysisData.playbook,
+        viewed_at: null,
+      },
+      { onConflict: 'company_id,week_number,year' }
+    )
 
     if (upsertError) {
-      return NextResponse.json(
-        { error: upsertError.message },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: upsertError.message }, { status: 500 })
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Análisis generado correctamente',
-    })
+    // Si era regeneración forzada por Pulse, marcar la solicitud como completada
+    if (forcedByPulse && isPulseAdmin) {
+      await supabase
+        .from('insight_requests')
+        .update({
+          status: 'done',
+          reviewed_by: user.id,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('company_id', companyId)
+        .eq('week_number', weekNumber)
+        .eq('year', year)
+        .eq('status', 'approved')
+    }
+
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error generando insight:', error)
     return NextResponse.json(
-      {
-        error: 'Error interno del servidor. Intenta de nuevo.',
-      },
+      { error: 'Error interno del servidor.' },
       { status: 500 }
     )
   }

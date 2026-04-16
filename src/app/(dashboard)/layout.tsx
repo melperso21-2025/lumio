@@ -1,53 +1,34 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import Sidebar from '@/components/layout/Sidebar'
+import DashboardShell from '@/components/layout/DashboardShell'
+import { getUserData } from '@/lib/queries/getUser'
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
+  const userData = await getUserData()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  if (!userData) {
     redirect('/login')
   }
 
-  const { data: userData } = await supabase
-    .from('users')
-    .select('full_name, role, is_pulse_admin, company_id')
-    .eq('id', user.id)
-    .single()
-
+  const supabase = await createClient()
   const { data: companyData } = await supabase
     .from('companies')
     .select('name')
-    .eq('id', userData?.company_id)
+    .eq('id', userData.company_id)
     .single()
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'row',
-        height: '100vh',
-        overflow: 'hidden',
-        background: 'var(--bg)',
-      }}
+    <DashboardShell
+      userName={userData.full_name}
+      userRole={userData.role}
+      companyName={companyData?.name}
+      isPulseAdmin={userData.is_pulse_admin}
     >
-      <Sidebar
-        userName={userData?.full_name}
-        userRole={userData?.role}
-        companyName={companyData?.name}
-        isPulseAdmin={userData?.is_pulse_admin}
-      />
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {children}
-      </div>
-    </div>
+      {children}
+    </DashboardShell>
   )
 }

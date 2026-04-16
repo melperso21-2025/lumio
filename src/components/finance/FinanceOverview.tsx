@@ -6,6 +6,7 @@ import AiInsightBox from '@/components/ui/AiInsightBox'
 import NewBankAccountForm from '@/components/finance/NewBankAccountForm'
 import NewTransactionForm from '@/components/finance/NewTransactionForm'
 import TransactionsTable from '@/components/finance/TransactionsTable'
+import ExportButton from '@/components/ui/ExportButton'
 
 const accountTypeConfig: Record<string, { bg: string; color: string; label: string }> = {
   checking: { bg: 'rgba(37,99,235,0.1)', color: 'var(--blue)', label: 'Corriente' },
@@ -112,10 +113,47 @@ export default function FinanceOverview({
     .filter((t) => t.type === 'expense')
     .reduce((sum, t) => sum + (t.amount ?? 0), 0)
 
-  const daily_expense_avg = total_expenses > 0 ? total_expenses / 30 : 0
-  const cash_days = daily_expense_avg > 0
-    ? Math.floor(total_balance / daily_expense_avg)
-    : 0
+  // Calcular días reales del período — mínimo 1 para evitar división por cero
+  const fromDate = new Date(from + 'T12:00:00Z')
+  const toDate = new Date(to + 'T12:00:00Z')
+  const periodDays = Math.max(
+    Math.round((toDate.getTime() - fromDate.getTime()) / 86400000) + 1,
+    1
+  )
+
+  // Promedio diario de egresos basado en los días reales del período
+  const daily_expense_avg =
+    total_expenses > 0 ? total_expenses / periodDays : 0
+
+  // Días de caja = saldo total / gasto diario promedio
+  const cash_days =
+    daily_expense_avg > 0
+      ? Math.floor(total_balance / daily_expense_avg)
+      : 0
+
+  // Balance neto del período
+  const net_balance = total_income - total_expenses
+  const prev_net_balance = prev_income - prev_expenses
+
+  // Conteo de movimientos
+  const num_income_tx = filteredTx.filter((t) => t.type === 'income').length
+  const num_expense_tx = filteredTx.filter((t) => t.type === 'expense').length
+
+  // Gastos fijos
+  const fixed_expenses = filteredTx
+    .filter((t) => t.type === 'expense' && t.is_fixed === true)
+    .reduce((sum, t) => sum + (t.amount ?? 0), 0)
+  const prev_fixed_expenses = filteredPrevTx
+    .filter((t) => t.type === 'expense' && t.is_fixed === true)
+    .reduce((sum, t) => sum + (t.amount ?? 0), 0)
+
+  // % gastos fijos sobre total egresos
+  const fixed_pct =
+    total_expenses > 0 ? (fixed_expenses / total_expenses) * 100 : 0
+  const prev_fixed_pct =
+    prev_expenses > 0
+      ? (prev_fixed_expenses / prev_expenses) * 100
+      : 0
 
   // Saldo al cierre del período anterior = saldo actual - ingresos + egresos del período
   const prev_balance = total_balance - total_income + total_expenses
@@ -124,6 +162,39 @@ export default function FinanceOverview({
   const accountsMap = useMemo(
     () => Object.fromEntries(accounts.map((a) => [a.id, a])),
     [accounts]
+  )
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((t) => {
+      if (!filteredAccountIds.has(t.account_id)) return false
+      const concept = (t.concept ?? '').toLowerCase()
+      if (filterConcept && !concept.includes(filterConcept.toLowerCase()))
+        return false
+      if (filterCategory && (t.category ?? '') !== filterCategory) return false
+      if (filterType && (t.type ?? '') !== filterType) return false
+      return true
+    })
+  }, [
+    transactions,
+    filteredAccountIds,
+    filterConcept,
+    filterCategory,
+    filterType,
+  ])
+
+  const exportData = useMemo(
+    () =>
+      filteredTransactions.map((t) => ({
+        Fecha: t.tx_date,
+        Banco: accountsMap[t.account_id]?.bank_name ?? '—',
+        Cuenta: accountsMap[t.account_id]?.account_number ?? '—',
+        Tipo: t.type === 'income' ? 'Ingreso' : 'Egreso',
+        Monto: t.amount,
+        Categoría: t.category,
+        Concepto: t.concept,
+        'Gasto fijo': t.is_fixed ? 'Sí' : 'No',
+      })),
+    [filteredTransactions, accountsMap]
   )
 
   const filterInputStyle: React.CSSProperties = {
@@ -164,7 +235,7 @@ export default function FinanceOverview({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 20,
+        gap: 14,
         flex: 1,
         minHeight: 0,
       }}
@@ -173,53 +244,89 @@ export default function FinanceOverview({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 10,
+          gridTemplateColumns: 'repeat(8, 1fr)',
+          gap: 8,
           flexShrink: 0,
         }}
       >
         <KpiCard
           label="Saldo total"
           prefix="$"
-          value={total_balance.toLocaleString('es-EC', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
+          value={Math.round(total_balance)}
           isGold
           delta={
             prev_balance !== 0
               ? calcDelta(total_balance, prev_balance, true)
               : undefined
           }
-          compare={`Ant: $${prev_balance.toLocaleString('es-EC', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-          })}`}
+          compare={`Ant: $${Math.round(prev_balance)}`}
         />
         <KpiCard
           label="Ingresos"
           prefix="$"
-          value={total_income.toLocaleString('es-EC', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
+          value={Math.round(total_income)}
           delta={calcDelta(total_income, prev_income, hasPrevData)}
-          compare={prev_income > 0 ? `Ant: $${prev_income.toLocaleString('es-EC', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : undefined}
+          compare={
+            prev_income > 0 ? `Ant: $${Math.round(prev_income)}` : undefined
+          }
         />
         <KpiCard
           label="Egresos"
           prefix="$"
-          value={total_expenses.toLocaleString('es-EC', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
+          value={Math.round(total_expenses)}
           delta={calcDelta(total_expenses, prev_expenses, hasPrevData)}
-          compare={prev_expenses > 0 ? `Ant: $${prev_expenses.toLocaleString('es-EC', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : undefined}
+          compare={
+            prev_expenses > 0
+              ? `Ant: $${Math.round(prev_expenses)}`
+              : undefined
+          }
         />
         <KpiCard
           label="Días de caja"
           value={cash_days}
           compare="meta: >30 días"
+        />
+        {/* Balance neto del período */}
+        <KpiCard
+          label="Balance neto"
+          prefix={net_balance >= 0 ? '+$' : '-$'}
+          value={Math.round(Math.abs(net_balance))}
+          delta={calcDelta(net_balance, prev_net_balance, hasPrevData)}
+          compare={
+            prev_net_balance !== 0
+              ? `Ant: $${Math.round(prev_net_balance)}`
+              : undefined
+          }
+        />
+        {/* Movimientos del período */}
+        <KpiCard
+          label="Movimientos"
+          value={num_income_tx + num_expense_tx}
+          compare={`${num_income_tx} ing / ${num_expense_tx} egr`}
+        />
+        {/* Gastos fijos del período */}
+        <KpiCard
+          label="Gastos fijos"
+          prefix="$"
+          value={Math.round(fixed_expenses)}
+          delta={calcDelta(fixed_expenses, prev_fixed_expenses, hasPrevData)}
+          compare={
+            prev_fixed_expenses > 0
+              ? `Ant: $${Math.round(prev_fixed_expenses)}`
+              : undefined
+          }
+        />
+        {/* % gastos fijos sobre egresos */}
+        <KpiCard
+          label="Fijos / egresos"
+          suffix="%"
+          value={fixed_pct.toFixed(1)}
+          delta={calcDelta(fixed_pct, prev_fixed_pct, hasPrevData)}
+          compare={
+            prev_fixed_pct > 0
+              ? `Ant: ${prev_fixed_pct.toFixed(1)}%`
+              : 'Benchmark: <55%'
+          }
         />
       </div>
 
@@ -302,7 +409,7 @@ export default function FinanceOverview({
         style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1.5fr',
-          gap: 20,
+          gap: 14,
           flex: 1,
           minHeight: 0,
         }}
@@ -313,7 +420,7 @@ export default function FinanceOverview({
             background: 'var(--card)',
             border: '1px solid var(--border)',
             borderRadius: 12,
-            padding: 20,
+            padding: '14px 16px',
             display: 'flex',
             flexDirection: 'column',
             minHeight: 0,
@@ -324,7 +431,7 @@ export default function FinanceOverview({
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: 16,
+              marginBottom: 12,
               flexShrink: 0,
             }}
           >
@@ -436,7 +543,7 @@ export default function FinanceOverview({
             background: 'var(--card)',
             border: '1px solid var(--border)',
             borderRadius: 12,
-            padding: 20,
+            padding: '14px 16px',
             display: 'flex',
             flexDirection: 'column',
             minHeight: 0,
@@ -447,7 +554,7 @@ export default function FinanceOverview({
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: 16,
+              marginBottom: 12,
               flexShrink: 0,
             }}
           >
@@ -457,7 +564,14 @@ export default function FinanceOverview({
             >
               Movimientos recientes
             </h2>
-            <NewTransactionForm accounts={accounts} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <ExportButton
+                data={exportData}
+                filename={`finanzas_${from}_${to}`}
+                sheetName="Transacciones"
+              />
+              <NewTransactionForm accounts={accounts} />
+            </div>
           </div>
 
           {transactions.length === 0 ? (

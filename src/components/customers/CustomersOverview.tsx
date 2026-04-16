@@ -125,7 +125,7 @@ export default function CustomersOverview({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 20,
+        gap: 14,
         flex: 1,
         minHeight: 0,
       }}
@@ -135,7 +135,7 @@ export default function CustomersOverview({
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 10,
+          gap: 8,
           flexShrink: 0,
         }}
       >
@@ -169,17 +169,11 @@ export default function CustomersOverview({
         <KpiCard
           label="LTV total"
           prefix="$"
-          value={total_ltv.toLocaleString('es-EC', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
+          value={Math.round(total_ltv)}
           delta={calcDelta(total_ltv, prev_total_ltv, hasPrevData)}
           compare={
             prev_total_ltv > 0
-              ? `Ant: $${prev_total_ltv.toLocaleString('es-EC', {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0,
-                })}`
+              ? `Ant: $${Math.round(prev_total_ltv)}`
               : undefined
           }
         />
@@ -191,7 +185,7 @@ export default function CustomersOverview({
           borderRadius: 12,
           background: 'var(--card)',
           border: '1px solid var(--border)',
-          padding: 20,
+          padding: '14px 16px',
           flex: 1,
           minHeight: 0,
           display: 'flex',
@@ -203,7 +197,7 @@ export default function CustomersOverview({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: 16,
+            marginBottom: 12,
             flexShrink: 0,
           }}
         >

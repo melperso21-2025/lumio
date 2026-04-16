@@ -78,7 +78,13 @@ export default function InventoryOverview({
       if (filterProduct && !name.includes(filterProduct.toLowerCase()))
         return false
       if (filterSku && !skuStr.includes(filterSku.toLowerCase())) return false
-      if (filterCategory && catName !== filterCategory) return false
+      if (filterCategory) {
+        if (filterCategory === 'Sin categoría') {
+          if (p.category_id && categoriesMap[p.category_id]) return false
+        } else {
+          if (catName !== filterCategory) return false
+        }
+      }
       if (filterAccion && accion !== filterAccion) return false
       return true
     })
@@ -103,6 +109,7 @@ export default function InventoryOverview({
     Categoría: p.category_id ? categoriesMap[p.category_id] ?? '' : '',
     Precio: p.sale_price ?? 0,
     Costo: p.unit_cost ?? 0,
+    'Valor stock': (p.current_stock ?? 0) * (p.unit_cost ?? 0),
     Stock: p.current_stock ?? 0,
     Mín: p.min_stock_alert ?? 0,
     'Lead time': p.lead_time_days ?? 0,
@@ -125,7 +132,7 @@ export default function InventoryOverview({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 20,
+        gap: 14,
         flex: 1,
         minHeight: 0,
       }}
@@ -135,7 +142,7 @@ export default function InventoryOverview({
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 10,
+          gap: 8,
           flexShrink: 0,
         }}
       >
@@ -159,10 +166,7 @@ export default function InventoryOverview({
         <KpiCard
           label="Capital en stock"
           prefix="$"
-          value={frozen_capital.toLocaleString('es-EC', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
+          value={Math.round(frozen_capital)}
           isGold
         />
       </div>
@@ -186,7 +190,7 @@ export default function InventoryOverview({
           borderRadius: 12,
           background: 'var(--card)',
           border: '1px solid var(--border)',
-          padding: 20,
+          padding: '14px 16px',
           flex: 1,
           minHeight: 0,
           display: 'flex',
@@ -198,7 +202,7 @@ export default function InventoryOverview({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: 16,
+            marginBottom: 12,
             flexShrink: 0,
           }}
         >

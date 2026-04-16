@@ -2,17 +2,18 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { getDefaultDateRange } from '@/lib/dateUtils'
+import { getDefaultDateRange, toLocalISO, roundToFullWeeks } from '@/lib/dateUtils'
 
 // ── Tipos ──────────────────────────────────────────────────
+
+interface DateRangePickerProps {
+  /** Si true (solo Dashboard), el rango se redondea a semanas ISO completas al aplicar. */
+  snapToWeeks?: boolean
+}
 
 type PresetRange = {
   label: string
   getValue: () => { from: string; to: string }
-}
-
-function toISO(date: Date): string {
-  return date.toISOString().slice(0, 10)
 }
 
 // ── Presets ─────────────────────────────────────────────────
@@ -20,13 +21,7 @@ function toISO(date: Date): string {
 const presets: PresetRange[] = [
   {
     label: 'Esta semana',
-    getValue: () => {
-      const now = new Date()
-      const day = now.getDay()
-      const monday = new Date(now)
-      monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
-      return { from: toISO(monday), to: toISO(now) }
-    },
+    getValue: () => getDefaultDateRange(),
   },
   {
     label: 'Semana anterior',
@@ -37,7 +32,7 @@ const presets: PresetRange[] = [
       monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) - 7)
       const sunday = new Date(monday)
       sunday.setDate(monday.getDate() + 6)
-      return { from: toISO(monday), to: toISO(sunday) }
+      return { from: toLocalISO(monday), to: toLocalISO(sunday) }
     },
   },
   {
@@ -45,7 +40,7 @@ const presets: PresetRange[] = [
     getValue: () => {
       const now = new Date()
       const first = new Date(now.getFullYear(), now.getMonth(), 1)
-      return { from: toISO(first), to: toISO(now) }
+      return { from: toLocalISO(first), to: toLocalISO(now) }
     },
   },
   {
@@ -54,7 +49,7 @@ const presets: PresetRange[] = [
       const now = new Date()
       const first = new Date(now.getFullYear(), now.getMonth() - 1, 1)
       const last = new Date(now.getFullYear(), now.getMonth(), 0)
-      return { from: toISO(first), to: toISO(last) }
+      return { from: toLocalISO(first), to: toLocalISO(last) }
     },
   },
   {
@@ -62,7 +57,7 @@ const presets: PresetRange[] = [
     getValue: () => {
       const now = new Date()
       const first = new Date(now.getFullYear(), 0, 1)
-      return { from: toISO(first), to: toISO(now) }
+      return { from: toLocalISO(first), to: toLocalISO(now) }
     },
   },
   {
@@ -71,7 +66,7 @@ const presets: PresetRange[] = [
       const now = new Date()
       const first = new Date(now.getFullYear() - 1, 0, 1)
       const last = new Date(now.getFullYear() - 1, 11, 31)
-      return { from: toISO(first), to: toISO(last) }
+      return { from: toLocalISO(first), to: toLocalISO(last) }
     },
   },
   {
@@ -80,7 +75,7 @@ const presets: PresetRange[] = [
       const now = new Date()
       const from = new Date(now)
       from.setDate(now.getDate() - 6)
-      return { from: toISO(from), to: toISO(now) }
+      return { from: toLocalISO(from), to: toLocalISO(now) }
     },
   },
 ]
@@ -91,7 +86,7 @@ const presets: PresetRange[] = [
  * DateRangePicker: lee y escribe ?from= y ?to= en la URL.
  * Debe usarse dentro de <Suspense fallback={null}> por useSearchParams.
  */
-export default function DateRangePicker() {
+export default function DateRangePicker({ snapToWeeks = false }: DateRangePickerProps) {
   const [open, setOpen] = useState(false)
   const [activePreset, setActivePreset] = useState<string | null>(null)
   const [customFrom, setCustomFrom] = useState('')
@@ -107,7 +102,8 @@ export default function DateRangePicker() {
 
   // Aplicar un preset
   function applyPreset(preset: PresetRange) {
-    const { from, to } = preset.getValue()
+    let { from, to } = preset.getValue()
+    if (snapToWeeks) ({ from, to } = roundToFullWeeks(from, to))
     const params = new URLSearchParams(searchParams.toString())
     params.set('from', from)
     params.set('to', to)
@@ -120,9 +116,12 @@ export default function DateRangePicker() {
   function applyCustom() {
     if (!customFrom || !customTo) return
     if (customFrom > customTo) return
+    let from = customFrom
+    let to = customTo
+    if (snapToWeeks) ({ from, to } = roundToFullWeeks(from, to))
     const params = new URLSearchParams(searchParams.toString())
-    params.set('from', customFrom)
-    params.set('to', customTo)
+    params.set('from', from)
+    params.set('to', to)
     router.push(`${pathname}?${params.toString()}`)
     setActivePreset('Custom')
     setOpen(false)
@@ -309,6 +308,19 @@ export default function DateRangePicker() {
                   }}
                 />
               </div>
+              {snapToWeeks && (
+                <p
+                  style={{
+                    fontSize: 9,
+                    color: 'var(--muted)',
+                    marginTop: 4,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  El Dashboard trabaja con semanas completas (lun→dom). Las fechas se
+                  ajustarán automáticamente.
+                </p>
+              )}
               <button
                 type="button"
                 onClick={applyCustom}

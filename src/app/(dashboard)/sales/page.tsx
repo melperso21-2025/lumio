@@ -1,46 +1,27 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getUserData } from '@/lib/queries/getUser'
 import Topbar from '@/components/layout/Topbar'
 import SalesOverview from '@/components/sales/SalesOverview'
-import { getDefaultDateRange } from '@/lib/dateUtils'
+import { getDefaultDateRange, getPreviousPeriodRolling } from '@/lib/dateUtils'
 
 export default async function SalesPage({
   searchParams,
 }: {
   searchParams: Promise<{ from?: string; to?: string }>
 }) {
-  const params = await searchParams
-  const supabase = await createClient()
+  const params   = await searchParams
+  const userData = await getUserData()
+  if (!userData?.company_id) redirect('/login')
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login')
-  }
-
-  const { data: userData } = await supabase
-    .from('users')
-    .select('company_id')
-    .eq('id', user.id)
-    .single()
-
-  const companyId = userData?.company_id
+  const companyId = userData.company_id
+  const userRole  = userData.role ?? 'seller'
+  const supabase  = await createClient()
   const defaults = getDefaultDateRange()
   const from = params.from ?? defaults.from
   const to = params.to ?? defaults.to
 
-  // Período anterior (igual duración) para deltas
-  const fromDate = new Date(from)
-  const toDate = new Date(to)
-  const daysDiff = Math.round((toDate.getTime() - fromDate.getTime()) / 86400000) + 1
-  const prevToDate = new Date(fromDate)
-  prevToDate.setDate(prevToDate.getDate() - 1)
-  const prevFromDate = new Date(prevToDate)
-  prevFromDate.setDate(prevFromDate.getDate() - daysDiff + 1)
-  const prevFrom = prevFromDate.toISOString().slice(0, 10)
-  const prevTo = prevToDate.toISOString().slice(0, 10)
+  const { prevFrom, prevTo } = getPreviousPeriodRolling(from, to)
 
   if (!companyId) {
     return (
@@ -51,7 +32,7 @@ export default async function SalesPage({
           showPeriodSelector
           showExportButton
         />
-        <div style={{ padding: 20 }}>
+        <div style={{ padding: '14px 16px' }}>
           <p
             style={{
               fontFamily: 'var(--font-syne)',
@@ -69,7 +50,7 @@ export default async function SalesPage({
   const { data: salesList } = await supabase
     .from('sales')
     .select(
-      'id, sale_date, week_number, gross_total, discount_amount, lines_per_order, status, channel_id,  sales_channels(name)'
+      'id, sale_date, week_number, gross_total, discount_amount, production_cost, lines_per_order, status, channel_id,  sales_channels(name)'
     )
     .eq('company_id', companyId)
     .is('deleted_at', null)
@@ -83,7 +64,7 @@ export default async function SalesPage({
   const { data: prevSalesList } = await supabase
     .from('sales')
     .select(
-      'id, sale_date, week_number, gross_total, discount_amount, lines_per_order, status, channel_id, sales_channels(name)'
+      'id, sale_date, week_number, gross_total, discount_amount, production_cost, lines_per_order, status, channel_id, sales_channels(name)'
     )
     .eq('company_id', companyId)
     .is('deleted_at', null)
@@ -104,6 +85,25 @@ export default async function SalesPage({
 
   const channels = channelsList ?? []
 
+  const { data: customersList } = await supabase
+    .from('customers')
+    .select('id, full_name, customer_type, label')
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .order('full_name', { ascending: true })
+    .limit(300)
+
+  const { data: branchesList } = await supabase
+    .from('branches')
+    .select('id, name, type')
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+
+  const customers = customersList ?? []
+  const branches = branchesList ?? []
+
   return (
     <>
       <Topbar
@@ -115,7 +115,7 @@ export default async function SalesPage({
 
       <div
         style={{
-          padding: 20,
+          padding: '14px 16px',
           height: 'calc(100vh - 52px)',
           overflow: 'hidden',
           display: 'flex',
@@ -126,10 +126,14 @@ export default async function SalesPage({
           sales={sales}
           prevSales={prevSales}
           channels={channels}
+          customers={customers}
+          branches={branches}
           from={from}
           to={to}
           prevFrom={prevFrom}
           prevTo={prevTo}
+          companyId={companyId}
+          userRole={userRole}
         />
       </div>
     </>

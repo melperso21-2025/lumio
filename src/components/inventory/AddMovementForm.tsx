@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { toLocalISO } from '@/lib/dateUtils'
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface Product {
@@ -142,7 +143,7 @@ export default function AddMovementForm({ product }: AddMovementFormProps) {
       return
     }
 
-    const today = new Date().toISOString().slice(0, 10)
+    const today = toLocalISO(new Date())
 
     const { error: insertError } = await supabase
       .from('inventory_movements')
@@ -212,7 +213,7 @@ export default function AddMovementForm({ product }: AddMovementFormProps) {
               background: 'var(--card)',
               border: '1px solid var(--border)',
               borderRadius: 12,
-              padding: 20,
+              padding: '14px 16px',
               width: '100%',
               maxWidth: 380,
               boxShadow: '0 20px 40px rgba(0,0,0,0.14)',

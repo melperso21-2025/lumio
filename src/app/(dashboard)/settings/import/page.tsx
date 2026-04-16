@@ -31,7 +31,7 @@ export default async function SettingsImportPage() {
           pageTitle="Importar datos"
           pageSubtitle="Carga masiva desde CSV"
         />
-        <div style={{ padding: 20 }}>
+        <div style={{ padding: '14px 16px' }}>
           <p
             style={{
               fontFamily: 'var(--font-syne)',
@@ -73,10 +73,10 @@ export default async function SettingsImportPage() {
 
       <div
         style={{
-          padding: 20,
+          padding: '14px 16px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 20,
+          gap: 14,
         }}
       >
         {/* Sección 2 — Si no puede importar */}

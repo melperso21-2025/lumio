@@ -2,7 +2,12 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Topbar from '@/components/layout/Topbar'
 import FinanceOverview from '@/components/finance/FinanceOverview'
-import { getDefaultDateRange } from '@/lib/dateUtils'
+import {
+  getDefaultDateRange,
+  getPreviousPeriodRolling,
+  parseLocalDate,
+  toLocalISO,
+} from '@/lib/dateUtils'
 
 export default async function FinancePage({
   searchParams,
@@ -31,9 +36,8 @@ export default async function FinancePage({
   const from = params.from ?? defaults.from
   const to = params.to ?? defaults.to
 
-  // Período anterior: YTD si from es 1 ene, sino rolling
-  const fromDate = new Date(from + 'T12:00:00')
-  const toDate = new Date(to + 'T12:00:00')
+  const fromDate = parseLocalDate(from)
+  const toDate = parseLocalDate(to)
   const isYTD = fromDate.getMonth() === 0 && fromDate.getDate() === 1
 
   let prevFrom: string
@@ -43,16 +47,11 @@ export default async function FinancePage({
     prevFrom = `${fromDate.getFullYear() - 1}-01-01`
     const prevToDate = new Date(toDate)
     prevToDate.setFullYear(fromDate.getFullYear() - 1)
-    prevTo = prevToDate.toISOString().slice(0, 10)
+    prevTo = toLocalISO(prevToDate)
   } else {
-    const daysDiff =
-      Math.round((toDate.getTime() - fromDate.getTime()) / 86400000) + 1
-    const prevToDate = new Date(fromDate)
-    prevToDate.setDate(prevToDate.getDate() - 1)
-    const prevFromDate = new Date(prevToDate)
-    prevFromDate.setDate(prevFromDate.getDate() - daysDiff + 1)
-    prevFrom = prevFromDate.toISOString().slice(0, 10)
-    prevTo = prevToDate.toISOString().slice(0, 10)
+    const rolling = getPreviousPeriodRolling(from, to)
+    prevFrom = rolling.prevFrom
+    prevTo = rolling.prevTo
   }
 
   if (!companyId) {
@@ -64,7 +63,7 @@ export default async function FinancePage({
           showPeriodSelector
           showExportButton
         />
-        <div style={{ padding: 20 }}>
+        <div style={{ padding: '14px 16px' }}>
           <p
             style={{
               fontFamily: 'var(--font-syne)',
@@ -122,7 +121,7 @@ export default async function FinancePage({
 
       <div
         style={{
-          padding: 20,
+          padding: '14px 16px',
           height: 'calc(100vh - 52px)',
           overflow: 'hidden',
           display: 'flex',

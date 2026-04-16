@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import KpiCard from '@/components/ui/KpiCard'
 import ExportButton from '@/components/ui/ExportButton'
 import QuickSaleForm from '@/components/sales/QuickSaleForm'
 import SalesHistoryTable from '@/components/sales/SalesHistoryTable'
+import EditSaleModal, { type SaleWithItems } from '@/components/sales/EditSaleModal'
 
 type SaleRow = {
   id: string
@@ -20,6 +22,19 @@ type SaleRow = {
 
 type ChannelRow = { id: string; name: string }
 
+type CustomerRow = {
+  id: string
+  full_name: string | null
+  customer_type: string | null
+  label: string | null
+}
+
+type BranchRow = {
+  id: string
+  name: string
+  type: string | null
+}
+
 function getChannelName(sale: SaleRow): string {
   const sc = sale.sales_channels
   return Array.isArray(sc)
@@ -31,10 +46,14 @@ interface SalesOverviewProps {
   sales: SaleRow[]
   prevSales: SaleRow[]
   channels: ChannelRow[]
+  customers: CustomerRow[]
+  branches: BranchRow[]
   from: string
   to: string
   prevFrom: string
   prevTo: string
+  companyId: string
+  userRole: string
 }
 
 function calcDelta(
@@ -50,14 +69,42 @@ export default function SalesOverview({
   sales,
   prevSales,
   channels,
+  customers,
+  branches,
   from,
   to,
   prevFrom,
   prevTo,
+  companyId,
+  userRole,
 }: SalesOverviewProps) {
+  const router = useRouter()
+
   const [filterWeek, setFilterWeek] = useState<string>('')
   const [filterChannel, setFilterChannel] = useState<string>('')
   const [filterStatus, setFilterStatus] = useState<string>('')
+
+  const [selectedSale, setSelectedSale] = useState<SaleWithItems | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
+
+  async function handleEdit(saleId: string) {
+    const res = await fetch(`/api/sales/${saleId}`)
+    if (!res.ok) return
+    const { sale } = await res.json()
+    setSelectedSale(sale)
+    setEditOpen(true)
+  }
+
+  function handleEditClose() {
+    setEditOpen(false)
+    setSelectedSale(null)
+  }
+
+  function handleEditSuccess() {
+    setEditOpen(false)
+    setSelectedSale(null)
+    router.refresh()
+  }
 
   const filteredSales = useMemo(() => {
     return sales.filter((s) => {
@@ -137,7 +184,7 @@ export default function SalesOverview({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 20,
+        gap: 14,
         flex: 1,
         minHeight: 0,
       }}
@@ -147,19 +194,19 @@ export default function SalesOverview({
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 10,
+          gap: 8,
           flexShrink: 0,
         }}
       >
         <KpiCard
           label="Ventas"
           prefix="$"
-          value={total_sales.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          value={Math.round(total_sales)}
           isGold
           delta={calcDelta(total_sales, prev_total_sales, hasPrevData)}
           compare={
             prev_total_sales > 0
-              ? `Ant: $${prev_total_sales.toLocaleString('es-EC', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+              ? `Ant: $${Math.round(prev_total_sales)}`
               : undefined
           }
         />
@@ -182,11 +229,11 @@ export default function SalesOverview({
         <KpiCard
           label="Descuentos"
           prefix="$"
-          value={total_discounts.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          value={Math.round(total_discounts)}
           delta={calcDelta(total_discounts, prev_total_discounts, hasPrevData)}
           compare={
             prev_total_discounts > 0
-              ? `Ant: $${prev_total_discounts.toLocaleString('es-EC', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+              ? `Ant: $${Math.round(prev_total_discounts)}`
               : undefined
           }
         />
@@ -198,7 +245,7 @@ export default function SalesOverview({
           borderRadius: 12,
           background: 'var(--card)',
           border: '1px solid var(--border)',
-          padding: 20,
+          padding: '14px 16px',
           flex: 1,
           minHeight: 0,
           display: 'flex',
@@ -210,7 +257,7 @@ export default function SalesOverview({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: 16,
+            marginBottom: 12,
             flexShrink: 0,
           }}
         >
@@ -226,7 +273,13 @@ export default function SalesOverview({
               filename={`ventas_${from}_${to}`}
               sheetName="Ventas"
             />
-            <QuickSaleForm channels={channels} />
+            <QuickSaleForm
+              channels={channels}
+              customers={customers}
+              branches={branches}
+              companyId={companyId}
+              userRole={userRole}
+            />
           </div>
         </div>
 
@@ -237,9 +290,24 @@ export default function SalesOverview({
             filterChannel={filterChannel}
             filterStatus={filterStatus}
             onFilterChange={handleFilterChange}
+            userRole={userRole}
+            onEdit={handleEdit}
           />
         </div>
       </div>
+
+      {editOpen && selectedSale && (
+        <EditSaleModal
+          sale={selectedSale}
+          customers={customers}
+          branches={branches}
+          channels={channels}
+          companyId={companyId}
+          userRole={userRole}
+          onClose={handleEditClose}
+          onSuccess={handleEditSuccess}
+        />
+      )}
     </div>
   )
 }

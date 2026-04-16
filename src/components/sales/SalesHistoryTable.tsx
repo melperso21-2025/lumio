@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import { formatBusinessDate } from '@/lib/dateUtils'
 
 const PAGE_SIZE = 20
 
@@ -34,18 +36,6 @@ const COLUMNS: { key: SortKey; label: string; align: 'left' | 'right' }[] = [
   { key: 'discount_amount', label: 'Descuento', align: 'right' },
   { key: 'status', label: 'Estado', align: 'left' },
 ]
-
-function formatDate(iso: string) {
-  try {
-    return new Date(iso).toLocaleDateString('es-EC', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
-  } catch {
-    return iso
-  }
-}
 
 function StatusBadge({ status }: { status: string | null }) {
   if (!status) return <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>
@@ -104,6 +94,8 @@ interface SalesHistoryTableProps {
   filterChannel?: string
   filterStatus?: string
   onFilterChange?: (week: string, channel: string, status: string) => void
+  userRole?: string
+  onEdit?: (saleId: string) => void
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -119,7 +111,11 @@ export default function SalesHistoryTable({
   filterChannel: controlledChannel = '',
   filterStatus: controlledStatus = '',
   onFilterChange,
+  userRole,
+  onEdit,
 }: SalesHistoryTableProps) {
+  const router  = useRouter()
+  const canEdit = (userRole === 'admin' || userRole === 'manager') && !!onEdit
   const [sortBy, setSortBy] = useState<SortKey>('sale_date')
   const [sortAsc, setSortAsc] = useState(false)
   const [page, setPage] = useState(0)
@@ -236,7 +232,7 @@ export default function SalesHistoryTable({
             flexWrap: 'wrap',
             gap: 12,
             alignItems: 'center',
-            padding: '12px 0 16px',
+            padding: '10px 0 12px',
             borderBottom: '1px solid var(--border)',
             marginBottom: 12,
           }}
@@ -366,7 +362,7 @@ export default function SalesHistoryTable({
           flexWrap: 'wrap',
           gap: 12,
           alignItems: 'center',
-          padding: '12px 0 16px',
+          padding: '10px 0 12px',
           borderBottom: '1px solid var(--border)',
           marginBottom: 12,
           flexShrink: 0,
@@ -531,16 +527,36 @@ export default function SalesHistoryTable({
                   </th>
                 )
               })}
+              {canEdit && (
+                <th
+                  style={{
+                    padding: '10px 12px',
+                    color: 'var(--muted)',
+                    fontWeight: 600,
+                    textAlign: 'left',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Acciones
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {paginatedSales.map((sale) => (
               <tr
                 key={sale.id}
-                style={{ borderBottom: '1px solid var(--border)' }}
+                onClick={() => router.push(`/sales/${sale.id}`)}
+                style={{
+                  borderBottom: '1px solid var(--border)',
+                  cursor: 'pointer',
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 <td style={{ padding: '10px 12px', color: 'var(--text)' }}>
-                  {formatDate(sale.sale_date)}
+                  {formatBusinessDate(sale.sale_date)}
                 </td>
                 <td style={{ padding: '10px 12px', color: 'var(--text2)' }}>
                   {sale.week_number ?? '—'}
@@ -572,6 +588,27 @@ export default function SalesHistoryTable({
                 <td style={{ padding: '10px 12px' }}>
                   <StatusBadge status={sale.status} />
                 </td>
+                {canEdit && (
+                  <td style={{ padding: '10px 12px' }}>
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); onEdit!(sale.id) }}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: 11,
+                        borderRadius: 6,
+                        border: '1px solid var(--border2)',
+                        background: 'var(--hover)',
+                        color: 'var(--text2)',
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-jakarta)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      ✏ Editar
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -585,7 +622,7 @@ export default function SalesHistoryTable({
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: '12px 0 0',
-            marginTop: 12,
+            marginTop: 8,
             borderTop: '1px solid var(--border)',
             gap: 12,
             flexWrap: 'wrap',

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { formatBusinessDate } from '@/lib/dateUtils'
 
 const PAGE_SIZE = 20
 
@@ -10,6 +11,10 @@ const PLATFORM_LABELS: Record<string, string> = {
   tiktok: 'TikTok',
   other: 'Otro',
 }
+
+/** Anchos fijos para columnas de contexto (Fecha–Plataforma) con sticky horizontal */
+const STICKY_LEFT = [0, 100, 164, 364] as const
+const STICKY_WIDTH = [100, 64, 200, 120] as const
 
 type CampaignRow = {
   id: string
@@ -38,8 +43,15 @@ type SortKey =
   | 'campaign_name'
   | 'platform'
   | 'spend'
+  | 'attributed_revenue'
+  | 'impressions'
   | 'clicks'
+  | 'leads_count'
+  | 'quality_leads'
+  | 'transactions'
   | 'ctr'
+  | 'cpm'
+  | 'conversion_rate'
   | 'roas'
   | 'effectiveness_rate'
 
@@ -49,24 +61,18 @@ const COLUMNS: { key: SortKey; label: string; align: 'left' | 'right' }[] = [
   { key: 'campaign_name', label: 'Campaña', align: 'left' },
   { key: 'platform', label: 'Plataforma', align: 'left' },
   { key: 'spend', label: 'Inversión', align: 'right' },
+  { key: 'attributed_revenue', label: 'Revenue', align: 'right' },
+  { key: 'roas', label: 'ROAS', align: 'right' },
+  { key: 'impressions', label: 'Impresiones', align: 'right' },
   { key: 'clicks', label: 'Clicks', align: 'right' },
   { key: 'ctr', label: 'CTR', align: 'right' },
-  { key: 'roas', label: 'ROAS', align: 'right' },
+  { key: 'cpm', label: 'CPM', align: 'right' },
+  { key: 'leads_count', label: 'Leads', align: 'right' },
+  { key: 'quality_leads', label: 'Calidad', align: 'right' },
+  { key: 'transactions', label: 'Ventas atr.', align: 'right' },
+  { key: 'conversion_rate', label: 'Conv. %', align: 'right' },
   { key: 'effectiveness_rate', label: 'Efectividad', align: 'right' },
 ]
-
-function formatDate(iso: string | null): string {
-  if (!iso) return '—'
-  try {
-    return new Date(iso).toLocaleDateString('es-EC', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
-  } catch {
-    return iso
-  }
-}
 
 function getPlatformLabel(platform: string | null): string {
   if (!platform) return 'Otro'
@@ -85,8 +91,18 @@ function getSortValue(c: CampaignRow, key: SortKey): string | number {
       return (c.platform ?? '').toLowerCase()
     case 'spend':
       return c.spend ?? 0
+    case 'attributed_revenue':
+      return c.attributed_revenue ?? 0
+    case 'impressions':
+      return c.impressions ?? 0
     case 'clicks':
       return c.clicks ?? 0
+    case 'leads_count':
+      return c.leads_count ?? 0
+    case 'quality_leads':
+      return c.quality_leads ?? 0
+    case 'transactions':
+      return c.transactions ?? 0
     case 'ctr':
       return (
         c.ctr ??
@@ -94,6 +110,10 @@ function getSortValue(c: CampaignRow, key: SortKey): string | number {
           ? ((c.clicks ?? 0) / c.impressions) * 100
           : -1)
       )
+    case 'cpm':
+      return c.cpm ?? 0
+    case 'conversion_rate':
+      return c.conversion_rate ?? 0
     case 'roas':
       return (
         c.roas ??
@@ -264,7 +284,7 @@ export default function CampaignsTable({
             flexWrap: 'wrap',
             gap: 12,
             alignItems: 'center',
-            padding: '12px 0 16px',
+            padding: '10px 0 12px',
             borderBottom: '1px solid var(--border)',
             marginBottom: 12,
             flexShrink: 0,
@@ -391,7 +411,7 @@ export default function CampaignsTable({
           flexWrap: 'wrap',
           gap: 12,
           alignItems: 'center',
-          padding: '12px 0 16px',
+          padding: '10px 0 12px',
           borderBottom: '1px solid var(--border)',
           marginBottom: 12,
           flexShrink: 0,
@@ -404,7 +424,8 @@ export default function CampaignsTable({
         style={{
           flex: 1,
           minHeight: 0,
-          overflow: 'auto',
+          overflowX: 'auto',
+          overflowY: 'auto',
         }}
       >
         <table
@@ -424,8 +445,9 @@ export default function CampaignsTable({
             }}
           >
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              {COLUMNS.map(({ key, label, align }) => {
+              {COLUMNS.map(({ key, label, align }, colIndex) => {
                 const isActive = sortBy === key
+                const isSticky = colIndex < 4
                 return (
                   <th
                     key={key}
@@ -438,6 +460,20 @@ export default function CampaignsTable({
                       cursor: 'pointer',
                       userSelect: 'none',
                       whiteSpace: 'nowrap',
+                      ...(isSticky
+                        ? {
+                            position: 'sticky',
+                            left: STICKY_LEFT[colIndex],
+                            top: 0,
+                            zIndex: 5,
+                            minWidth: STICKY_WIDTH[colIndex],
+                            background: 'var(--card)',
+                            boxShadow:
+                              colIndex === 3
+                                ? '4px 0 8px -2px rgba(0,0,0,0.08)'
+                                : undefined,
+                          }
+                        : {}),
                     }}
                   >
                     <span
@@ -488,6 +524,17 @@ export default function CampaignsTable({
                   effColor = 'var(--orange)'
                 }
               }
+              const stickyTd = (i: number) => ({
+                position: 'sticky' as const,
+                left: STICKY_LEFT[i],
+                zIndex: 2,
+                minWidth: STICKY_WIDTH[i],
+                background: 'var(--card)',
+                boxShadow:
+                  i === 3
+                    ? '4px 0 8px -2px rgba(0,0,0,0.08)'
+                    : undefined,
+              })
               return (
                 <tr
                   key={c.id}
@@ -495,14 +542,16 @@ export default function CampaignsTable({
                 >
                   <td
                     style={{
+                      ...stickyTd(0),
                       padding: '10px 12px',
                       color: 'var(--text)',
                     }}
                   >
-                    {formatDate(c.campaign_date)}
+                    {formatBusinessDate(c.campaign_date)}
                   </td>
                   <td
                     style={{
+                      ...stickyTd(1),
                       padding: '10px 12px',
                       color: 'var(--text2)',
                     }}
@@ -511,13 +560,19 @@ export default function CampaignsTable({
                   </td>
                   <td
                     style={{
+                      ...stickyTd(2),
                       padding: '10px 12px',
                       color: 'var(--text)',
                     }}
                   >
                     {c.campaign_name ?? '—'}
                   </td>
-                  <td style={{ padding: '10px 12px' }}>
+                  <td
+                    style={{
+                      ...stickyTd(3),
+                      padding: '10px 12px',
+                    }}
+                  >
                     <span
                       style={{
                         display: 'inline-block',
@@ -537,16 +592,59 @@ export default function CampaignsTable({
                       color: 'var(--text)',
                     }}
                   >
-                    $ {(c.spend ?? 0).toLocaleString('es-EC', {
+                    $
+                    {(c.spend ?? 0).toLocaleString('es-EC', {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
+                  </td>
+                  {/* Revenue atribuido — verde (dinero); ROAS va en dorado */}
+                  <td
+                    style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      color: 'var(--green)',
+                      fontWeight: 600,
+                      fontSize: 12,
+                    }}
+                  >
+                    {c.attributed_revenue != null
+                      ? `$${c.attributed_revenue.toLocaleString('es-EC', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}`
+                      : '—'}
+                  </td>
+                  <td
+                    style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      color: 'var(--gold)',
+                      fontFamily: 'var(--font-syne)',
+                      fontWeight: 700,
+                      fontSize: 12,
+                    }}
+                  >
+                    {roasValue != null ? roasValue.toFixed(2) : '—'}
                   </td>
                   <td
                     style={{
                       padding: '10px 12px',
                       textAlign: 'right',
                       color: 'var(--text2)',
+                      fontSize: 12,
+                    }}
+                  >
+                    {c.impressions != null
+                      ? c.impressions.toLocaleString('es-EC')
+                      : '—'}
+                  </td>
+                  <td
+                    style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      color: 'var(--text2)',
+                      fontSize: 12,
                     }}
                   >
                     {c.clicks ?? 0}
@@ -556,6 +654,7 @@ export default function CampaignsTable({
                       padding: '10px 12px',
                       textAlign: 'right',
                       color: 'var(--text2)',
+                      fontSize: 12,
                     }}
                   >
                     {ctrValue != null ? `${ctrValue.toFixed(2)}%` : '—'}
@@ -564,12 +663,75 @@ export default function CampaignsTable({
                     style={{
                       padding: '10px 12px',
                       textAlign: 'right',
-                      color: 'var(--gold)',
-                      fontFamily: 'var(--font-syne)',
-                      fontWeight: 700,
+                      color: 'var(--text2)',
+                      fontSize: 12,
                     }}
                   >
-                    {roasValue != null ? roasValue.toFixed(2) : '—'}
+                    {c.cpm != null ? `$${c.cpm.toFixed(2)}` : '—'}
+                  </td>
+                  <td
+                    style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      color: 'var(--text2)',
+                      fontSize: 12,
+                    }}
+                  >
+                    {c.leads_count ?? '—'}
+                  </td>
+                  <td
+                    style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      color: 'var(--text2)',
+                      fontSize: 12,
+                    }}
+                  >
+                    {c.quality_leads != null ? (
+                      <span>
+                        {c.quality_leads}
+                        {c.leads_count ? (
+                          <span
+                            style={{
+                              color: 'var(--muted)',
+                              fontSize: 10,
+                              marginLeft: 4,
+                            }}
+                          >
+                            (
+                            {(
+                              (c.quality_leads / c.leads_count) *
+                              100
+                            ).toFixed(0)}
+                            %)
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td
+                    style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      color: 'var(--text2)',
+                      fontSize: 12,
+                    }}
+                  >
+                    {c.transactions ?? '—'}
+                  </td>
+                  <td
+                    style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      color: 'var(--text2)',
+                      fontSize: 12,
+                    }}
+                  >
+                    {c.conversion_rate != null
+                      ? `${c.conversion_rate.toFixed(2)}%`
+                      : '—'}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                     {effValue != null ? (
@@ -602,7 +764,7 @@ export default function CampaignsTable({
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: '12px 0 0',
-            marginTop: 12,
+            marginTop: 8,
             borderTop: '1px solid var(--border)',
             gap: 12,
             flexWrap: 'wrap',

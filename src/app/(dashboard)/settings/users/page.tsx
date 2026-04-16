@@ -71,7 +71,7 @@ export default async function SettingsUsersPage() {
           pageTitle="Usuarios & Roles"
           pageSubtitle="Gestión de accesos"
         />
-        <div style={{ padding: 20 }}>
+        <div style={{ padding: '14px 16px' }}>
           <p
             style={{
               fontFamily: 'var(--font-syne)',
@@ -113,10 +113,10 @@ export default async function SettingsUsersPage() {
 
       <div
         style={{
-          padding: 20,
+          padding: '14px 16px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 20,
+          gap: 14,
         }}
       >
         {/* Sección 2 — AiInsightBox si el usuario no es admin */}
@@ -133,7 +133,7 @@ export default async function SettingsUsersPage() {
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: 10,
+            gap: 8,
           }}
         >
           <KpiCard label="Total usuarios" value={total_users} />
@@ -148,7 +148,7 @@ export default async function SettingsUsersPage() {
             background: 'var(--card)',
             border: '1px solid var(--border)',
             borderRadius: 12,
-            padding: 20,
+            padding: '14px 16px',
           }}
         >
           <div
@@ -156,7 +156,7 @@ export default async function SettingsUsersPage() {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: 16,
+              marginBottom: 12,
             }}
           >
             <h2
@@ -312,7 +312,7 @@ export default async function SettingsUsersPage() {
             background: 'var(--card)',
             border: '1px solid var(--border)',
             borderRadius: 12,
-            padding: 20,
+            padding: '14px 16px',
             marginTop: 0,
           }}
         >
@@ -321,7 +321,7 @@ export default async function SettingsUsersPage() {
             style={{
               fontSize: 13,
               color: 'var(--text)',
-              marginBottom: 16,
+              marginBottom: 12,
             }}
           >
             Descripción de roles

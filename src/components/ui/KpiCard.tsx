@@ -1,6 +1,8 @@
 // KpiCard — tarjeta de KPI para el dashboard
 // Componente puro sin 'use client'; hover vía CSS (group/group-hover)
 
+import { formatKpiCompare, formatKpiDisplayValue } from '@/lib/formatKpi'
+
 export interface KpiCardProps {
   /** ej: "ROAS", "Ventas $" */
   label: string
@@ -16,6 +18,8 @@ export interface KpiCardProps {
   prefix?: string
   /** texto después del valor: "%" */
   suffix?: string
+  /** Menos padding y tipografía. Por defecto activo; usar `compact={false}` para tarjeta amplia. */
+  compact?: boolean
 }
 
 export default function KpiCard({
@@ -26,14 +30,18 @@ export default function KpiCard({
   isGold = false,
   prefix = '',
   suffix = '',
+  compact = true,
 }: KpiCardProps) {
+  const displayValue = formatKpiDisplayValue(value)
+  const displayCompare = compare ? formatKpiCompare(compare) : undefined
+
   return (
     <div
       className="group relative rounded-[10px] transition-colors duration-150 hover:[border-color:var(--gold-bdr)]"
       style={{
         background: 'var(--card)',
         border: '1px solid var(--border)',
-        padding: '14px 16px',
+        padding: compact ? '10px 12px' : '14px 16px',
       }}
     >
       {/* Barra superior visible en hover */}
@@ -44,9 +52,9 @@ export default function KpiCard({
 
       {/* Label */}
       <div
-        className="uppercase mb-1.5 font-semibold"
+        className={`uppercase font-semibold ${compact ? 'mb-1' : 'mb-1.5'}`}
         style={{
-          fontSize: 9,
+          fontSize: compact ? 8 : 9,
           letterSpacing: '0.1em',
           color: 'var(--muted)',
         }}
@@ -58,38 +66,40 @@ export default function KpiCard({
       <div
         className="font-syne font-bold"
         style={{
-          fontSize: 22,
+          fontSize: compact ? 19 : 22,
+          lineHeight: compact ? 1.15 : 1.2,
           color: isGold ? 'var(--gold)' : 'var(--text)',
         }}
       >
         {prefix}
-        {value}
+        {displayValue}
         {suffix}
       </div>
 
       {/* Delta (solo si existe y no es cero) */}
       {delta !== undefined && delta !== 0 && (
         <div
-          className="mt-1"
+          className={compact ? 'mt-0.5' : 'mt-1'}
           style={{
-            fontSize: 10,
+            fontSize: compact ? 9 : 10,
             color: delta > 0 ? 'var(--green)' : 'var(--red)',
           }}
         >
-          {delta > 0 ? '▲' : '▼'} {Math.abs(delta)}%
+          {delta > 0 ? '▲' : '▼'}{' '}
+          {formatKpiDisplayValue(Math.abs(delta))}%
         </div>
       )}
 
       {/* Compare */}
-      {compare && (
+      {displayCompare && (
         <div
           className="mt-0.5"
           style={{
-            fontSize: 9,
+            fontSize: compact ? 8 : 9,
             color: 'var(--muted)',
           }}
         >
-          {compare}
+          {displayCompare}
         </div>
       )}
     </div>

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { toLocalISO } from '@/lib/dateUtils'
 
 // ── Tipos ─────────────────────────────────────────────────────
 interface Category {
@@ -134,7 +135,7 @@ export default function NewProductForm({ categories = [] }: NewProductFormProps)
       return
     }
 
-    const today = new Date().toISOString().slice(0, 10)
+    const today = toLocalISO(new Date())
     const stockVal = parseInt(current_stock, 10) || 0
 
     const { data: insertedProduct, error: insertError } = await supabase
@@ -270,7 +271,7 @@ export default function NewProductForm({ categories = [] }: NewProductFormProps)
                   border: '1px solid rgba(5,150,105,0.2)',
                   borderRadius: 8,
                   padding: '10px 14px',
-                  marginBottom: 16,
+                  marginBottom: 12,
                   fontSize: 12,
                   color: 'var(--green)',
                   fontWeight: 500,
@@ -287,7 +288,7 @@ export default function NewProductForm({ categories = [] }: NewProductFormProps)
                   border: '1px solid rgba(220,38,38,0.2)',
                   borderRadius: 8,
                   padding: '8px 12px',
-                  marginBottom: 16,
+                  marginBottom: 12,
                   fontSize: 12,
                   color: 'var(--red)',
                 }}

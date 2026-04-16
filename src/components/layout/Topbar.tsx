@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, type ReactNode } from 'react'
 import DateRangePicker from '@/components/ui/DateRangePicker'
 
 // ── Tipos ──────────────────────────────────────────────────
@@ -9,7 +9,10 @@ export interface TopbarProps {
   pageTitle: string
   pageSubtitle?: string
   showPeriodSelector?: boolean
+  /** @deprecated Cada módulo maneja su propio ExportButton; no renderiza nada. */
   showExportButton?: boolean
+  /** Contenido extra a la derecha (p. ej. exportación real). */
+  rightExtras?: ReactNode
   primaryAction?: {
     label: string
     href?: string
@@ -39,15 +42,16 @@ export default function Topbar({
   pageTitle,
   pageSubtitle,
   showPeriodSelector,
-  showExportButton,
+  showExportButton: _showExportButton,
+  rightExtras,
   primaryAction,
 }: TopbarProps) {
   const hasRightSection =
-    showPeriodSelector || showExportButton || !!primaryAction
+    showPeriodSelector || !!primaryAction || !!rightExtras
 
   return (
     <header
-      className="sticky top-0 z-50 flex items-center justify-between px-6 shrink-0"
+      className="sticky top-0 z-50 flex items-center justify-between px-5 shrink-0"
       style={{
         height: 52,
         background: 'var(--surface)',
@@ -88,26 +92,9 @@ export default function Topbar({
             </Suspense>
           )}
 
-          {/* Botón Exportar (deshabilitado) */}
-          {showExportButton && (
-            <button
-              type="button"
-              disabled
-              style={{
-                fontSize: 12,
-                padding: '6px 14px',
-                borderRadius: 7,
-                border: '1px solid var(--border2)',
-                background: 'var(--surface)',
-                color: 'var(--muted)',
-                cursor: 'not-allowed',
-                opacity: 0.6,
-                fontFamily: 'var(--font-jakarta)',
-              }}
-            >
-              Exportar
-            </button>
-          )}
+          {/* Deprecated: cada módulo maneja su propio ExportButton */}
+          {rightExtras}
+
 
           {/* Acción primaria (link o botón) */}
           {primaryAction &&

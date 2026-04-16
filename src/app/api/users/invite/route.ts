@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,17 +47,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Crear usuario en Supabase Auth con invitación
-    // Usar service role para poder crear usuarios
-    const { createClient: createServiceClient } = await import(
-      '@supabase/supabase-js'
-    )
-    const serviceSupabase = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
     const { data: authData, error: authError } =
-      await serviceSupabase.auth.admin.inviteUserByEmail(email, {
+      await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
       })
 
@@ -66,7 +58,7 @@ export async function POST(request: NextRequest) {
       // Si el usuario ya existe en auth, buscar su id para crear/actualizar en users
       if (authError.message.includes('already been registered')) {
         const { data: listData } =
-          await serviceSupabase.auth.admin.listUsers({ perPage: 1000 })
+          await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
         const existingUser = listData?.users?.find(
           (u) => u.email?.toLowerCase() === email.toLowerCase()
         )
@@ -81,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     if (userId) {
       // 3. Crear registro en tabla users
-      const { error: userError } = await serviceSupabase
+      const { error: userError } = await supabaseAdmin
         .from('users')
         .upsert(
           {

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { toLocalISO } from '@/lib/dateUtils'
 
 // ── Estilos base (igual que QuickSaleForm) ─────────────────────
 const inputStyle: React.CSSProperties = {
@@ -50,9 +51,7 @@ export default function NewCustomerForm() {
   const [email, setEmail] = useState('')
   const [customer_type, setCustomerType] = useState('retail')
   const [label, setLabel] = useState('new')
-  const [registered_since, setRegisteredSince] = useState(
-    new Date().toISOString().slice(0, 10)
-  )
+  const [registered_since, setRegisteredSince] = useState(toLocalISO(new Date()))
 
   function resetForm() {
     setFullName('')
@@ -60,7 +59,7 @@ export default function NewCustomerForm() {
     setEmail('')
     setCustomerType('retail')
     setLabel('new')
-    setRegisteredSince(new Date().toISOString().slice(0, 10))
+    setRegisteredSince(toLocalISO(new Date()))
     setError(null)
     setSuccess(false)
   }
@@ -212,7 +211,7 @@ export default function NewCustomerForm() {
                   border: '1px solid rgba(5,150,105,0.2)',
                   borderRadius: 8,
                   padding: '10px 14px',
-                  marginBottom: 16,
+                  marginBottom: 12,
                   fontSize: 12,
                   color: 'var(--green)',
                   fontWeight: 500,
@@ -229,7 +228,7 @@ export default function NewCustomerForm() {
                   border: '1px solid rgba(220,38,38,0.2)',
                   borderRadius: 8,
                   padding: '8px 12px',
-                  marginBottom: 16,
+                  marginBottom: 12,
                   fontSize: 12,
                   color: 'var(--red)',
                 }}

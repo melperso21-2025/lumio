@@ -24,6 +24,7 @@ type SortKey =
   | 'category_name'
   | 'sale_price'
   | 'unit_cost'
+  | 'stock_value'
   | 'current_stock'
   | 'min_stock_alert'
   | 'lead_time_days'
@@ -35,6 +36,7 @@ const COLUMNS: { key: SortKey; label: string; align: 'left' | 'right' }[] = [
   { key: 'category_name', label: 'Categoría', align: 'left' },
   { key: 'sale_price', label: 'Precio', align: 'right' },
   { key: 'unit_cost', label: 'Costo', align: 'right' },
+  { key: 'stock_value', label: 'Valor stock', align: 'right' },
   { key: 'current_stock', label: 'Stock', align: 'right' },
   { key: 'min_stock_alert', label: 'Mín.', align: 'right' },
   { key: 'lead_time_days', label: 'Lead time', align: 'right' },
@@ -62,6 +64,8 @@ function getSortValue(p: ProductWithCategory, key: SortKey): string | number {
       return p.sale_price ?? 0
     case 'unit_cost':
       return p.unit_cost ?? 0
+    case 'stock_value':
+      return (p.current_stock ?? 0) * (p.unit_cost ?? 0)
     case 'current_stock':
       return p.current_stock ?? -1
     case 'min_stock_alert':
@@ -113,11 +117,15 @@ export default function InventoryTable({
 
   const uniqueCategories = useMemo(() => {
     const set = new Set<string>()
+    let hasSinCategoria = false
     products.forEach((p) => {
       const name = p.category_id ? categoriesMap[p.category_id] : null
       if (name) set.add(name)
+      else hasSinCategoria = true
     })
-    return Array.from(set).sort()
+    const arr = Array.from(set).sort()
+    if (hasSinCategoria) arr.push('Sin categoría')
+    return arr
   }, [products, categoriesMap])
 
   const filteredProducts = useMemo(() => {
@@ -129,7 +137,13 @@ export default function InventoryTable({
       if (filterProduct && !name.includes(filterProduct.toLowerCase()))
         return false
       if (filterSku && !skuStr.includes(filterSku.toLowerCase())) return false
-      if (filterCategory && catName !== filterCategory) return false
+      if (filterCategory) {
+        if (filterCategory === 'Sin categoría') {
+          if (p.category_id && categoriesMap[p.category_id]) return false
+        } else {
+          if (catName !== filterCategory) return false
+        }
+      }
       if (filterAccion && accion !== filterAccion) return false
       return true
     })
@@ -229,7 +243,7 @@ export default function InventoryTable({
             flexWrap: 'wrap',
             gap: 12,
             alignItems: 'center',
-            padding: '12px 0 16px',
+            padding: '10px 0 12px',
             borderBottom: '1px solid var(--border)',
             marginBottom: 12,
             flexShrink: 0,
@@ -388,7 +402,7 @@ export default function InventoryTable({
           flexWrap: 'wrap',
           gap: 12,
           alignItems: 'center',
-          padding: '12px 0 16px',
+          padding: '10px 0 12px',
           borderBottom: '1px solid var(--border)',
           marginBottom: 12,
           flexShrink: 0,
@@ -504,7 +518,19 @@ export default function InventoryTable({
                       color: 'var(--text2)',
                     }}
                   >
-                    {p.category_id ? categoriesMap[p.category_id] ?? '—' : '—'}
+                    {p.category_id && categoriesMap[p.category_id] ? (
+                      categoriesMap[p.category_id]
+                    ) : (
+                      <span
+                        style={{
+                          color: 'var(--muted)',
+                          fontStyle: 'italic',
+                          fontSize: 11,
+                        }}
+                      >
+                        Sin categoría
+                      </span>
+                    )}
                   </td>
                   <td
                     style={{
@@ -531,6 +557,24 @@ export default function InventoryTable({
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
+                  </td>
+                  <td
+                    style={{
+                      fontSize: 12,
+                      padding: '10px 12px',
+                      color: 'var(--gold)',
+                      fontFamily: 'var(--font-syne)',
+                      fontWeight: 600,
+                      textAlign: 'right',
+                    }}
+                  >
+                    ${((p.current_stock ?? 0) * (p.unit_cost ?? 0)).toLocaleString(
+                      'es-EC',
+                      {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }
+                    )}
                   </td>
                   <td style={{ fontSize: 12, padding: '10px 12px', textAlign: 'right' }}>
                     {isOutOfStock ? (
@@ -601,7 +645,7 @@ export default function InventoryTable({
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: '12px 0 0',
-            marginTop: 12,
+            marginTop: 8,
             borderTop: '1px solid var(--border)',
             gap: 12,
             flexWrap: 'wrap',

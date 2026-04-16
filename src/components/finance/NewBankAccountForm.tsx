@@ -208,7 +208,7 @@ export default function NewBankAccountForm() {
                   border: '1px solid rgba(5,150,105,0.2)',
                   borderRadius: 8,
                   padding: '10px 14px',
-                  marginBottom: 16,
+                  marginBottom: 12,
                   fontSize: 12,
                   color: 'var(--green)',
                   fontWeight: 500,
@@ -225,7 +225,7 @@ export default function NewBankAccountForm() {
                   border: '1px solid rgba(220,38,38,0.2)',
                   borderRadius: 8,
                   padding: '8px 12px',
-                  marginBottom: 16,
+                  marginBottom: 12,
                   fontSize: 12,
                   color: 'var(--red)',
                 }}

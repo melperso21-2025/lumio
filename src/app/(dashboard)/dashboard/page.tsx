@@ -2,10 +2,20 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import { getUserData } from '@/lib/queries/getUser'
 import KpiCard from '@/components/ui/KpiCard'
 import AiInsightBox from '@/components/ui/AiInsightBox'
-import RegisterSaleButton from '@/components/dashboard/RegisterSaleButton'
+import QuickSaleForm from '@/components/sales/QuickSaleForm'
 import DateRangePicker from '@/components/ui/DateRangePicker'
+import InsightReminderModal, { type ModalScenario } from '@/components/dashboard/InsightReminderModal'
+import {
+  getWeeksInRange,
+  toLocalISO,
+  getPreviousPeriodRolling,
+  roundToFullWeeks,
+  isoWeekFromString,
+  formatBusinessDate,
+} from '@/lib/dateUtils'
 
 // ── Componente interno BlockHeader ──────────────────────────
 function BlockHeader({
@@ -25,8 +35,8 @@ function BlockHeader({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 10,
-        paddingBottom: 8,
+        marginBottom: 6,
+        paddingBottom: 5,
         borderBottom: '2px solid var(--border)',
       }}
     >
@@ -34,7 +44,7 @@ function BlockHeader({
         style={{
           fontFamily: 'var(--font-syne)',
           fontWeight: 700,
-          fontSize: 14,
+          fontSize: 13,
           color: 'var(--text)',
           display: 'flex',
           alignItems: 'center',
@@ -63,56 +73,25 @@ interface DashboardPageProps {
   searchParams: Promise<{ from?: string; to?: string }>
 }
 
-// Convierte rango de fechas a pares (year, week_number) para weekly_snapshots
-function getWeeksInRange(fromStr: string, toStr: string): { year: number; week_number: number }[] {
-  const from = new Date(fromStr)
-  const to = new Date(toStr)
-  const result: { year: number; week_number: number }[] = []
-  const day = from.getDay() || 7 // Lunes = 1
-  const monday = new Date(from)
-  monday.setDate(from.getDate() - day + 1)
-  monday.setHours(0, 0, 0, 0)
-  const endDate = new Date(to)
-  endDate.setHours(23, 59, 59, 999)
-  while (monday <= endDate) {
-    const thursday = new Date(monday)
-    thursday.setDate(monday.getDate() + 3)
-    const year = thursday.getFullYear()
-    const jan1 = new Date(year, 0, 1)
-    const weekNum = Math.ceil(
-      ((thursday.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 6) / 7
-    )
-    if (weekNum >= 1 && weekNum <= 53) {
-      result.push({ year, week_number: weekNum })
-    }
-    monday.setDate(monday.getDate() + 7)
-  }
-  return result
-}
-
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams
   const now = new Date()
+  const todayISO = toLocalISO(now)
   const day = now.getDay()
-  const monday = new Date(now)
-  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
-  const defaultFrom = monday.toISOString().slice(0, 10)
-  const defaultTo = now.toISOString().slice(0, 10)
+  const mondayLocal = new Date(now)
+  mondayLocal.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
+  mondayLocal.setHours(0, 0, 0, 0)
+  const rawFrom = toLocalISO(mondayLocal)
+  const { from: defaultFrom, to: defaultTo } = roundToFullWeeks(rawFrom, todayISO)
   const from = params.from ?? defaultFrom
   const to = params.to ?? defaultTo
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const userData = await getUserData()
+  if (!userData?.company_id) redirect('/login')
 
-  const { data: userData } = await supabase
-    .from('users')
-    .select('company_id')
-    .eq('id', user.id)
-    .single()
-  const companyId = userData?.company_id
+  const companyId = userData.company_id
+  const userRole  = userData.role ?? 'seller'
+  const supabase  = await createClient()
 
   if (!companyId) {
     return (
@@ -132,7 +111,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             Dashboard
           </div>
         </div>
-        <div style={{ padding: 20 }}>
+        <div style={{ padding: '14px 16px' }}>
           <p
             style={{
               fontFamily: 'var(--font-syne)',
@@ -146,6 +125,33 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       </>
     )
   }
+
+  const { data: customersList } = await supabase
+    .from('customers')
+    .select('id, full_name, customer_type, label')
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .order('full_name', { ascending: true })
+    .limit(300)
+
+  const { data: branchesList } = await supabase
+    .from('branches')
+    .select('id, name, type')
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+
+  const { data: channelsList } = await supabase
+    .from('sales_channels')
+    .select('id, name')
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .order('name', { ascending: true })
+
+  const customers = customersList ?? []
+  const branches  = branchesList ?? []
+  const channels  = channelsList ?? []
 
   // ── Semanas en el rango from-to para weekly_snapshots ─────
   const currentYear = now.getFullYear()
@@ -167,16 +173,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     {} as Record<number, number[]>
   )
 
-  // Período anterior (misma duración, antes de from) para deltas
-  const fromDate = new Date(from)
-  const toDate = new Date(to)
-  const daysDiff = Math.round((toDate.getTime() - fromDate.getTime()) / 86400000) + 1
-  const prevToDate = new Date(fromDate)
-  prevToDate.setDate(prevToDate.getDate() - 1)
-  const prevFromDate = new Date(prevToDate)
-  prevFromDate.setDate(prevFromDate.getDate() - daysDiff + 1)
-  const prevFrom = prevFromDate.toISOString().slice(0, 10)
-  const prevTo = prevToDate.toISOString().slice(0, 10)
+  const { prevFrom, prevTo } = getPreviousPeriodRolling(from, to)
   const prevWeeksInRange = getWeeksInRange(prevFrom, prevTo)
   const prevWeeksByYear = prevWeeksInRange.reduce(
     (acc, { year, week_number }) => {
@@ -336,7 +333,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const history = (historySnaps ?? []).reverse()
   const maxSales = Math.max(...history.map((h) => h.total_sales ?? 0), 1)
 
-  // ── Insight ──────────────────────────────────────────────
+  // ── Insight más reciente (para la caja del dashboard) ────
   const { data: insight } = await supabase
     .from('ai_insights')
     .select('executive_summary, week_number, year')
@@ -345,6 +342,89 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .order('week_number', { ascending: false })
     .limit(1)
     .single()
+
+  // ── Datos para el modal de recordatorio ──────────────────
+
+  // ¿Hay alguna venta registrada (global, sin filtro de período)?
+  const { count: globalSalesCount } = await supabase
+    .from('sales')
+    .select('id', { count: 'exact', head: true })
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+
+  const hasSalesData = (globalSalesCount ?? 0) > 0
+
+  // Diagnóstico inicial
+  const { data: initialInsightModal } = await supabase
+    .from('ai_insights')
+    .select('executive_summary, playbook, created_at')
+    .eq('company_id', companyId)
+    .eq('type', 'initial')
+    .maybeSingle()
+
+  // Insight semanal más reciente (week_number > 0)
+  const { data: lastWeeklyInsight } = await supabase
+    .from('ai_insights')
+    .select('executive_summary, playbook, week_number, year')
+    .eq('company_id', companyId)
+    .eq('type', 'weekly')
+    .gt('week_number', 0)
+    .order('year', { ascending: false })
+    .order('week_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  // Semana anterior completa (la que debería tener insights ya)
+  const prevWeekNumber = currentWeek > 1 ? currentWeek - 1 : 52
+  const prevWeekYear = currentWeek > 1 ? currentYear : currentYear - 1
+
+  // ── Determinar escenario del modal ────────────────────────
+  // Clave de dismiss: fecha del día actual (muestra una vez por día)
+  const today = now.toISOString().slice(0, 10)
+  const modalDismissKey = today
+
+  let modalScenario: ModalScenario = 'no-data'
+  let modalWeekNumber: number | undefined
+  let modalWeekYear: number | undefined
+  let modalWeeklySummary: string | null = null
+  let modalWeeklyPlaybook: unknown[] | null = null
+  let modalHasData = hasSalesData
+
+  if (!hasSalesData) {
+    // Sin datos en absoluto
+    modalScenario = 'no-data'
+  } else {
+    const lastInsightWeek = lastWeeklyInsight?.week_number ?? 0
+    const lastInsightYear = lastWeeklyInsight?.year ?? 0
+    const isNewWeek =
+      lastInsightYear < prevWeekYear ||
+      (lastInsightYear === prevWeekYear && lastInsightWeek < prevWeekNumber)
+
+    if (isNewWeek) {
+      modalWeekNumber = prevWeekNumber
+      modalWeekYear = prevWeekYear
+      if (
+        lastWeeklyInsight?.week_number === prevWeekNumber &&
+        lastWeeklyInsight?.year === prevWeekYear
+      ) {
+        // Semana anterior tiene insights
+        modalScenario = 'new-week-insight'
+        modalWeeklySummary = lastWeeklyInsight.executive_summary ?? null
+        modalWeeklyPlaybook = Array.isArray(lastWeeklyInsight.playbook)
+          ? (lastWeeklyInsight.playbook as unknown[])
+          : null
+      } else {
+        // Semana anterior sin insights
+        modalScenario = 'new-week-missing'
+        modalHasData = hasSalesData
+      }
+    } else if (initialInsightModal) {
+      // Todo al día — mostrar el diagnóstico inicial como recordatorio
+      modalScenario = 'initial-insight'
+    }
+    // Si no hay isNewWeek ni initialInsight, no se mostrará el modal
+    // (scenario queda como 'no-data' pero hasSalesData=true lo ajustaremos)
+  }
 
   // ── Ventas por canal ─────────────────────────────────────
   const { data: salesByChanData } = await supabase
@@ -436,11 +516,39 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const insightIsStale =
     insight && insight.week_number !== currentWeek
 
-  // ── Label del período ─────────────────────────────────────
-  const periodLabel = `${from} → ${to}`
+  // ── Label del período (semanas ISO + fechas legibles) ───────
+  const weekFrom = isoWeekFromString(from)
+  const weekTo = isoWeekFromString(to)
+  const fromLabel = formatBusinessDate(from)
+  const toLabel = formatBusinessDate(to)
+  const periodLabel =
+    weekFrom.year === weekTo.year && weekFrom.week === weekTo.week
+      ? `S${weekFrom.week} · ${fromLabel} → ${toLabel}`
+      : weekFrom.year === weekTo.year
+        ? `S${weekFrom.week}–S${weekTo.week} · ${fromLabel} → ${toLabel}`
+        : `S${weekFrom.week}/${weekFrom.year}–S${weekTo.week}/${weekTo.year} · ${fromLabel} → ${toLabel}`
 
   return (
     <>
+      {/* Modal de recordatorio — solo si aplica algún escenario */}
+      {(modalScenario !== 'no-data' || !hasSalesData) && (
+        <InsightReminderModal
+          scenario={modalScenario}
+          dismissKey={modalDismissKey}
+          hasData={modalHasData}
+          weekNumber={modalWeekNumber}
+          weekYear={modalWeekYear}
+          weeklySummary={modalWeeklySummary}
+          weeklyPlaybook={modalWeeklyPlaybook as Parameters<typeof InsightReminderModal>[0]['weeklyPlaybook']}
+          initialSummary={initialInsightModal?.executive_summary ?? null}
+          initialPlaybook={
+            Array.isArray(initialInsightModal?.playbook)
+              ? (initialInsightModal!.playbook as Parameters<typeof InsightReminderModal>[0]['initialPlaybook'])
+              : null
+          }
+        />
+      )}
+
       <div
         style={{
           background: 'var(--topbar-bg, var(--surface))',
@@ -470,7 +578,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Suspense fallback={null}>
-            <DateRangePicker />
+            <DateRangePicker snapToWeeks />
           </Suspense>
           <button
             type="button"
@@ -492,19 +600,25 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           >
             ⬇ Exportar
           </button>
-          <RegisterSaleButton companyId={companyId} />
+          <QuickSaleForm
+            companyId={companyId}
+            customers={customers}
+            branches={branches}
+            channels={channels}
+            userRole={userRole}
+          />
         </div>
       </div>
 
       <div
         style={{
-          padding: 20,
+          padding: '14px 16px 16px',
           display: 'flex',
           flexDirection: 'column',
           gap: 0,
         }}
       >
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 12 }}>
           <AiInsightBox
             variant={insightIsStale ? 'blue' : 'gold'}
             title={
@@ -522,6 +636,65 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </div>
 
         <BlockHeader
+          title="Financiero"
+          dotColor="#059669"
+          href="/profit-loss"
+          link="Ver P&G →"
+        />
+        {avgCashDays < 30 && avgCashDays > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            <AiInsightBox
+              variant={avgCashDays < 15 ? 'red' : 'gold'}
+              title={avgCashDays < 15 ? '🔴 Alerta crítica de caja' : '⚠ Días de caja bajos'}
+              text={`Tienes aproximadamente ${Math.round(avgCashDays)} días de caja disponibles. ${
+                avgCashDays < 15
+                  ? 'Acción urgente: revisar ingresos pendientes y reducir egresos no esenciales.'
+                  : 'Considera revisar tus CxC pendientes y planificar ingresos para las próximas semanas.'
+              }`}
+            />
+          </div>
+        )}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(5,1fr)',
+            gap: 8,
+            marginBottom: 14,
+          }}
+        >
+          <KpiCard
+            label="Ingresos vs Egresos"
+            prefix={balance >= 0 ? '+$' : '-$'}
+            value={Math.abs(balance).toFixed(0)}
+            compare={`Ing: $${totalIncome.toFixed(0)} / Egr: $${totalExpenses.toFixed(0)}`}
+          />
+          <KpiCard
+            label="CxC vencidas"
+            prefix="$"
+            value={String(overdueRec)}
+            compare="facturas >30 días"
+          />
+          <KpiCard
+            label="Días de caja"
+            value={avgCashDays.toFixed(0)}
+            compare="Óptimo: >30 días"
+          />
+          <KpiCard
+            label="Margen neto"
+            suffix="%"
+            value={avgNetMargin.toFixed(1)}
+            delta={calcDelta(avgNetMargin, prevAvgNetMargin)}
+          />
+          <KpiCard
+            label="Gastos fijos / Egr"
+            suffix="%"
+            value={fixedExpensesPct}
+            delta={calcDelta(fixedExpensesPct, Math.round(prevFixedVsTotal))}
+            compare="Benchmark: <55%"
+          />
+        </div>
+
+        <BlockHeader
           title="Ventas"
           dotColor="#E8A500"
           href="/sales"
@@ -531,18 +704,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(6,1fr)',
-            gap: 10,
-            marginBottom: 20,
+            gap: 8,
+            marginBottom: 14,
           }}
         >
           <KpiCard
             label="Ventas $"
             prefix="$"
-            value={totalSales.toFixed(2)}
+            value={Math.round(totalSales)}
             isGold
             delta={calcDelta(totalSales, prevTotalSales)}
             compare={
-              prevTotalSales > 0 ? `Ant: $${prevTotalSales.toFixed(0)}` : undefined
+              prevTotalSales > 0
+                ? `Ant: $${Math.round(prevTotalSales)}`
+                : undefined
             }
           />
           <KpiCard
@@ -590,330 +765,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           />
         </div>
 
-        <BlockHeader
-          title="Inventario"
-          dotColor="#2563EB"
-          href="/inventory"
-          link="Ver detalle →"
-        />
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3,1fr)',
-            gap: 10,
-            marginBottom: 20,
-          }}
-        >
-          <div
-            style={{
-              background: 'var(--card)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              padding: '13px 15px',
-            }}
-          >
-            <div
-              style={{
-                fontSize: 9,
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                color: 'var(--muted)',
-                marginBottom: 7,
-                fontWeight: 600,
-              }}
-            >
-              Top 3 sin movimiento
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-                marginTop: 4,
-              }}
-            >
-              {slowMovers.length === 0 ? (
-                <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                  Sin productos estancados ✓
-                </div>
-              ) : (
-                slowMovers.map((p) => (
-                  <div
-                    key={p.id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      fontSize: 11,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: 'var(--text2)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        maxWidth: '70%',
-                      }}
-                    >
-                      {p.name}
-                    </span>
-                    <span
-                      style={{
-                        color: 'var(--red)',
-                        fontWeight: 600,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {p.current_stock} u.
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-          <div
-            style={{
-              background: 'var(--card)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              padding: '13px 15px',
-            }}
-          >
-            <div
-              style={{
-                fontSize: 9,
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                color: 'var(--muted)',
-                marginBottom: 6,
-                fontWeight: 600,
-              }}
-            >
-              Capital paralizado
-            </div>
-            <div
-              className="font-syne font-bold"
-              style={{
-                fontSize: 22,
-                color: frozenCapital > 0 ? 'var(--red)' : 'var(--text)',
-                lineHeight: 1,
-              }}
-            >
-              ${frozenCapital.toFixed(0)}
-            </div>
-            <div style={{ fontSize: 9, color: 'var(--muted)', marginTop: 4 }}>
-              Liberable: liquidar o descontinuar
-            </div>
-          </div>
-          <div
-            style={{
-              background: 'var(--card)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              padding: '13px 15px',
-            }}
-          >
-            <div
-              style={{
-                fontSize: 9,
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                color: 'var(--muted)',
-                marginBottom: 7,
-                fontWeight: 600,
-              }}
-            >
-              Días de inventario
-            </div>
-            <div
-              className="font-syne font-bold"
-              style={{
-                fontSize: 22,
-                color: 'var(--text)',
-                lineHeight: 1,
-                marginBottom: 5,
-              }}
-            >
-              {inventoryDays} días
-            </div>
-            <div style={{ fontSize: 9, color: 'var(--muted)' }}>
-              Óptimo: 20–45 días
-            </div>
-            <div
-              style={{
-                height: 4,
-                background: 'var(--border)',
-                borderRadius: 2,
-                overflow: 'hidden',
-                marginTop: 8,
-              }}
-            >
-              <div
-                style={{
-                  height: '100%',
-                  borderRadius: 2,
-                  background:
-                    'linear-gradient(90deg,#F5C842,#F09A1A)',
-                  width: `${inventoryDaysPct}%`,
-                }}
-              />
-            </div>
-          </div>
-        </div>
-
-        <BlockHeader
-          title="Pautas Publicitarias"
-          dotColor="#E8A500"
-          href="/ad-campaigns"
-          link="Ver detalle →"
-        />
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(6,1fr)',
-            gap: 10,
-            marginBottom: 20,
-          }}
-        >
-          <KpiCard
-            label="Inversión"
-            prefix="$"
-            value={totalAdSpend.toFixed(2)}
-            delta={calcDelta(totalAdSpend, prevTotalAdSpend)}
-            compare={
-              prevTotalAdSpend > 0
-                ? `Ant: $${prevTotalAdSpend.toFixed(0)}`
-                : undefined
-            }
-          />
-          <KpiCard
-            label="ROAS"
-            value={avgRoas.toFixed(2)}
-            isGold
-            delta={calcDelta(avgRoas, prevAvgRoas)}
-            compare={
-              prevAvgRoas > 0 ? `Ant: ${prevAvgRoas.toFixed(2)}` : undefined
-            }
-          />
-          <KpiCard
-            label="Trans. digitales"
-            value={snaps.reduce(
-              (s, r) => s + Number(r.total_transactions ?? 0),
-              0
-            )}
-            delta={calcDelta(
-              snaps.reduce((s, r) => s + Number(r.total_transactions ?? 0), 0),
-              prevTotalTransactions
-            )}
-          />
-          <KpiCard
-            label="Leads generados"
-            value={totalLeads}
-            delta={calcDelta(totalLeads, prevTotalLeads)}
-            compare={
-              prevTotalLeads > 0 ? `Ant: ${prevTotalLeads}` : undefined
-            }
-          />
-          <KpiCard
-            label="Efectividad"
-            suffix="%"
-            value={avgEffectiveness.toFixed(1)}
-            delta={calcDelta(avgEffectiveness, prevAvgEffectiveness)}
-            compare={
-              prevAvgEffectiveness > 0
-                ? `Ant: ${prevAvgEffectiveness.toFixed(1)}%`
-                : undefined
-            }
-          />
-          <KpiCard
-            label="CTR"
-            suffix="%"
-            value={
-              snaps.length > 0
-                ? (
-                    snaps.reduce((s, r) => s + Number(r.avg_ctr ?? 0), 0) /
-                    snaps.length
-                  ).toFixed(2)
-                : '0'
-            }
-            delta={calcDelta(
-              snaps.length > 0
-                ? snaps.reduce((s, r) => s + Number(r.avg_ctr ?? 0), 0) /
-                    snaps.length
-                : 0,
-              prevAvgCtr
-            )}
-            compare={
-              prevAvgCtr > 0 ? `Ant: ${prevAvgCtr.toFixed(2)}%` : undefined
-            }
-          />
-        </div>
-
-        <BlockHeader
-          title="Financiero"
-          dotColor="#059669"
-          href="/profit-loss"
-          link="Ver P&G →"
-        />
-        {avgCashDays < 30 && avgCashDays > 0 && (
-          <div style={{ marginBottom: 12 }}>
-            <AiInsightBox
-              variant={avgCashDays < 15 ? 'red' : 'gold'}
-              title={avgCashDays < 15 ? '🔴 Alerta crítica de caja' : '⚠ Días de caja bajos'}
-              text={`Tienes aproximadamente ${Math.round(avgCashDays)} días de caja disponibles. ${
-                avgCashDays < 15
-                  ? 'Acción urgente: revisar ingresos pendientes y reducir egresos no esenciales.'
-                  : 'Considera revisar tus CxC pendientes y planificar ingresos para las próximas semanas.'
-              }`}
-            />
-          </div>
-        )}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(5,1fr)',
-            gap: 10,
-            marginBottom: 20,
-          }}
-        >
-          <KpiCard
-            label="Ingresos vs Egresos"
-            prefix={balance >= 0 ? '+$' : '-$'}
-            value={Math.abs(balance).toFixed(0)}
-            compare={`Ing: $${totalIncome.toFixed(0)} / Egr: $${totalExpenses.toFixed(0)}`}
-          />
-          <KpiCard
-            label="CxC vencidas"
-            prefix="$"
-            value={String(overdueRec)}
-            compare="facturas >30 días"
-          />
-          <KpiCard
-            label="Días de caja"
-            value={avgCashDays.toFixed(0)}
-            compare="Óptimo: >30 días"
-          />
-          <KpiCard
-            label="Margen neto"
-            suffix="%"
-            value={avgNetMargin.toFixed(1)}
-            delta={calcDelta(avgNetMargin, prevAvgNetMargin)}
-          />
-          <KpiCard
-            label="Gastos fijos / Egr"
-            suffix="%"
-            value={fixedExpensesPct}
-            delta={calcDelta(fixedExpensesPct, Math.round(prevFixedVsTotal))}
-            compare="Benchmark: <55%"
-          />
-        </div>
-
         <div
           style={{
             display: 'grid',
             gridTemplateColumns: '2fr 1fr',
-            gap: 14,
-            marginTop: 20,
+            gap: 8,
+            marginTop: 0,
+            marginBottom: 14,
           }}
         >
           <div
@@ -921,7 +779,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               background: 'var(--card)',
               border: '1px solid var(--border)',
               borderRadius: 10,
-              padding: 16,
+              padding: '12px 14px',
             }}
           >
             <div
@@ -929,7 +787,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               style={{
                 fontSize: 12,
                 color: 'var(--text)',
-                marginBottom: 14,
+                marginBottom: 10,
               }}
             >
               Ventas — últimas {history.length} semanas
@@ -953,8 +811,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   display: 'flex',
                   alignItems: 'flex-end',
                   gap: 5,
-                  height: '160px',
-                  padding: '18px',
+                  height: '136px',
+                  padding: '12px 14px',
                 }}
               >
                 {(() => {
@@ -1037,7 +895,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               background: 'var(--card)',
               border: '1px solid var(--border)',
               borderRadius: 10,
-              padding: 16,
+              padding: '12px 14px',
             }}
           >
             <div
@@ -1045,7 +903,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               style={{
                 fontSize: 12,
                 color: 'var(--text)',
-                marginBottom: 14,
+                marginBottom: 10,
               }}
             >
               Ventas por canal
@@ -1056,7 +914,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   fontSize: 12,
                   color: 'var(--muted)',
                   textAlign: 'center',
-                  padding: '20px 0',
+                  padding: '14px 0',
                 }}
               >
                 Sin datos de canales
@@ -1066,7 +924,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 10,
+                  gap: 8,
                 }}
               >
                 {channelData.map((ch) => {
@@ -1098,7 +956,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                             fontWeight: 600,
                           }}
                         >
-                          ${ch.total.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · {pct}%
+                          {`$${Math.round(ch.total).toLocaleString('es-EC', {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0,
+                          })} · ${pct}%`}
                         </span>
                       </div>
                       <div
@@ -1125,6 +986,268 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             )}
           </div>
+        </div>
+
+        <BlockHeader
+          title="Inventario"
+          dotColor="#2563EB"
+          href="/inventory"
+          link="Ver detalle →"
+        />
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3,1fr)',
+            gap: 8,
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              padding: '10px 12px',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 9,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: 'var(--muted)',
+                marginBottom: 5,
+                fontWeight: 600,
+              }}
+            >
+              Top 3 sin movimiento
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                marginTop: 2,
+              }}
+            >
+              {slowMovers.length === 0 ? (
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                  Sin productos estancados ✓
+                </div>
+              ) : (
+                slowMovers.map((p) => (
+                  <div
+                    key={p.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: 11,
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: 'var(--text2)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        maxWidth: '70%',
+                      }}
+                    >
+                      {p.name}
+                    </span>
+                    <span
+                      style={{
+                        color: 'var(--red)',
+                        fontWeight: 600,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {p.current_stock} u.
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <div
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              padding: '10px 12px',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 9,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: 'var(--muted)',
+                marginBottom: 5,
+                fontWeight: 600,
+              }}
+            >
+              Capital paralizado
+            </div>
+            <div
+              className="font-syne font-bold"
+              style={{
+                fontSize: 20,
+                color: frozenCapital > 0 ? 'var(--red)' : 'var(--text)',
+                lineHeight: 1,
+              }}
+            >
+              {`$${Math.round(frozenCapital).toLocaleString('es-EC', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+              })}`}
+            </div>
+            <div style={{ fontSize: 9, color: 'var(--muted)', marginTop: 3 }}>
+              Liberable: liquidar o descontinuar
+            </div>
+          </div>
+          <div
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              padding: '10px 12px',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 9,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: 'var(--muted)',
+                marginBottom: 5,
+                fontWeight: 600,
+              }}
+            >
+              Días de inventario
+            </div>
+            <div
+              className="font-syne font-bold"
+              style={{
+                fontSize: 20,
+                color: 'var(--text)',
+                lineHeight: 1,
+                marginBottom: 4,
+              }}
+            >
+              {inventoryDays} días
+            </div>
+            <div style={{ fontSize: 9, color: 'var(--muted)' }}>
+              Óptimo: 20–45 días
+            </div>
+            <div
+              style={{
+                height: 4,
+                background: 'var(--border)',
+                borderRadius: 2,
+                overflow: 'hidden',
+                marginTop: 6,
+              }}
+            >
+              <div
+                style={{
+                  height: '100%',
+                  borderRadius: 2,
+                  background:
+                    'linear-gradient(90deg,#F5C842,#F09A1A)',
+                  width: `${inventoryDaysPct}%`,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <BlockHeader
+          title="Pautas Publicitarias"
+          dotColor="#E8A500"
+          href="/ad-campaigns"
+          link="Ver detalle →"
+        />
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(6,1fr)',
+            gap: 8,
+            marginBottom: 14,
+          }}
+        >
+          <KpiCard
+            label="Inversión"
+            prefix="$"
+            value={Math.round(totalAdSpend)}
+            delta={calcDelta(totalAdSpend, prevTotalAdSpend)}
+            compare={
+              prevTotalAdSpend > 0
+                ? `Ant: $${Math.round(prevTotalAdSpend)}`
+                : undefined
+            }
+          />
+          <KpiCard
+            label="ROAS"
+            value={avgRoas.toFixed(2)}
+            isGold
+            delta={calcDelta(avgRoas, prevAvgRoas)}
+            compare={
+              prevAvgRoas > 0 ? `Ant: ${prevAvgRoas.toFixed(2)}` : undefined
+            }
+          />
+          <KpiCard
+            label="Trans. digitales"
+            value={snaps.reduce(
+              (s, r) => s + Number(r.total_transactions ?? 0),
+              0
+            )}
+            delta={calcDelta(
+              snaps.reduce((s, r) => s + Number(r.total_transactions ?? 0), 0),
+              prevTotalTransactions
+            )}
+          />
+          <KpiCard
+            label="Leads generados"
+            value={totalLeads}
+            delta={calcDelta(totalLeads, prevTotalLeads)}
+            compare={
+              prevTotalLeads > 0 ? `Ant: ${prevTotalLeads}` : undefined
+            }
+          />
+          <KpiCard
+            label="Efectividad"
+            suffix="%"
+            value={avgEffectiveness.toFixed(1)}
+            delta={calcDelta(avgEffectiveness, prevAvgEffectiveness)}
+            compare={
+              prevAvgEffectiveness > 0
+                ? `Ant: ${prevAvgEffectiveness.toFixed(1)}%`
+                : undefined
+            }
+          />
+          <KpiCard
+            label="CTR"
+            suffix="%"
+            value={
+              snaps.length > 0
+                ? (
+                    snaps.reduce((s, r) => s + Number(r.avg_ctr ?? 0), 0) /
+                    snaps.length
+                  ).toFixed(2)
+                : '0'
+            }
+            delta={calcDelta(
+              snaps.length > 0
+                ? snaps.reduce((s, r) => s + Number(r.avg_ctr ?? 0), 0) /
+                    snaps.length
+                : 0,
+              prevAvgCtr
+            )}
+            compare={
+              prevAvgCtr > 0 ? `Ant: ${prevAvgCtr.toFixed(2)}%` : undefined
+            }
+          />
         </div>
       </div>
     </>

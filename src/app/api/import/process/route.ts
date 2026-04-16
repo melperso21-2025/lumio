@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { toLocalISO } from '@/lib/dateUtils'
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const today = new Date().toISOString().slice(0, 10)
+    const today = toLocalISO(new Date())
     let success = 0
     const errors: { row: number; message: string }[] = []
 
@@ -58,6 +59,30 @@ export async function POST(request: NextRequest) {
           channelsMap[c.name.toLowerCase().trim()] = c.id
         })
       }
+
+      // Mapas nombre (minúsculas) → id para columnas cliente / sucursal
+      const customersMap: Record<string, string> = {}
+      const { data: customersData } = await supabase
+        .from('customers')
+        .select('id, full_name')
+        .eq('company_id', companyId)
+        .is('deleted_at', null)
+      customersData?.forEach((c) => {
+        const key = (c.full_name ?? '').toLowerCase().trim()
+        if (key) customersMap[key] = c.id
+      })
+
+      const branchesMap: Record<string, string> = {}
+      const { data: branchesData } = await supabase
+        .from('branches')
+        .select('id, name')
+        .eq('company_id', companyId)
+        .is('deleted_at', null)
+        .eq('is_active', true)
+      branchesData?.forEach((b) => {
+        const key = (b.name ?? '').toLowerCase().trim()
+        if (key) branchesMap[key] = b.id
+      })
 
       const validStatuses = ['cerrada', 'revision', 'contacto', 'anulada']
       const statusMap: Record<string, string> = {
@@ -101,6 +126,26 @@ export async function POST(request: NextRequest) {
             : 'closed'
         const notes = row[7]?.trim() || null
 
+        const customerName = row[8]?.trim().toLowerCase()
+        const customerId = customerName ? customersMap[customerName] : null
+        const branchName = row[9]?.trim().toLowerCase()
+        const branchId = branchName ? branchesMap[branchName] : null
+
+        if (!customerId) {
+          errors.push({
+            row: rowNum,
+            message: `Cliente no encontrado: "${row[8] ?? ''}". Debe coincidir exactamente con un cliente registrado en Lumio.`,
+          })
+          continue
+        }
+        if (!branchId) {
+          errors.push({
+            row: rowNum,
+            message: `Sucursal no encontrada: "${row[9] ?? ''}". Debe coincidir exactamente con una sucursal registrada en Lumio.`,
+          })
+          continue
+        }
+
         const { error: insertError } = await supabase.from('sales').insert({
           company_id: companyId,
           sale_date: saleDate,
@@ -111,6 +156,8 @@ export async function POST(request: NextRequest) {
           channel_id: channelId || null,
           status,
           notes,
+          customer_id: customerId,
+          branch_id: branchId,
         })
 
         if (insertError) {
