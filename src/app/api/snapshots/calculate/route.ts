@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
   // Recalcular todas las filas históricas en weekly_snapshots (misma empresa + año + semana)
   if (body.all === true && body.recalculateAll === true) {
-    const { data: existingSnaps, error: snapsError } = await supabase
+    const { data: existingSnapsRaw, error: snapsError } = await supabase
       .from('weekly_snapshots')
       .select('company_id, year, week_number')
       .order('year', { ascending: true })
@@ -63,10 +63,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    type SnapKey = { company_id: string; year: number; week_number: number }
+    const existingSnaps = (existingSnapsRaw ?? []) as unknown as SnapKey[]
+
     const seen = new Set<string>()
-    const unique: { company_id: string; year: number; week_number: number }[] =
-      []
-    for (const row of existingSnaps ?? []) {
+    const unique: SnapKey[] = []
+    for (const row of existingSnaps) {
       const key = `${row.company_id}|${row.year}|${row.week_number}`
       if (seen.has(key)) continue
       seen.add(key)

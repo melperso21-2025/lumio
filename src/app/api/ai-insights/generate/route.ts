@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
+import type { Database } from '@/lib/supabase/database.types'
+
+type WeeklySnapshotRow = Database['public']['Tables']['weekly_snapshots']['Row']
 
 // ── Helper: fechas ISO correctas de una semana ────────────────────────────────
 // El 4 de enero siempre cae en la semana 1 ISO, lo que ancla el cálculo
@@ -119,8 +122,9 @@ export async function POST(request: NextRequest) {
       .in('week_number', [weekNumber, weekNumber - 1])
       .order('week_number', { ascending: false })
 
-    const currentSnap = snapData?.find((s) => s.week_number === weekNumber)
-    const prevSnap = snapData?.find((s) => s.week_number === weekNumber - 1)
+    const snaps = (snapData ?? []) as unknown as WeeklySnapshotRow[]
+    const currentSnap = snaps.find((s) => s.week_number === weekNumber)
+    const prevSnap = snaps.find((s) => s.week_number === weekNumber - 1)
 
     const { data: salesData } = await supabase
       .from('sales')
