@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -18,23 +18,34 @@ export default function LoginPage() {
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState<string | null>(null)
 
+  // Leer mensajes de error provenientes del middleware via ?error=
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const errorParam = params.get('error')
+    if (errorParam === 'session_expired') {
+      setError('Tu sesión expiró. Inicia sesión de nuevo.')
+    } else if (errorParam === 'session_replaced') {
+      setError(
+        'Tu sesión fue iniciada en otro dispositivo. Por seguridad, fuiste desconectado.'
+      )
+    }
+  }, [])
+
   // ── Login con email + contraseña ──────────────────────────
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
     })
 
-    if (error) {
-      setError(
-        error.message === 'Invalid login credentials'
-          ? 'Email o contraseña incorrectos. Verifica tus datos.'
-          : 'Ocurrió un error. Intenta de nuevo.'
-      )
+    if (!res.ok) {
+      const data = (await res.json()) as { message?: string }
+      setError(data.message ?? 'Error al iniciar sesión')
       setLoading(false)
       return
     }

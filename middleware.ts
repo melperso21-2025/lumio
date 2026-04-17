@@ -28,11 +28,18 @@ export async function middleware(request: NextRequest) {
   )
 
   // Refrescar sesión — importante no eliminar esto
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   // Rutas públicas que no requieren autenticación
-  const publicRoutes = ['/login', '/auth/callback']
-  const isPublicRoute = publicRoutes.some(route =>
+  const publicRoutes = [
+    '/login',
+    '/auth/callback',
+    '/auth/update-password',
+    '/api/auth/', // login, logout, verify-session — evitar loops
+  ]
+  const isPublicRoute = publicRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   )
 
@@ -48,6 +55,42 @@ export async function middleware(request: NextRequest) {
     const dashboardUrl = request.nextUrl.clone()
     dashboardUrl.pathname = '/dashboard'
     return NextResponse.redirect(dashboardUrl)
+  }
+
+  // Verificar session token solo para rutas autenticadas no-API
+  if (user && !isPublicRoute && !request.nextUrl.pathname.startsWith('/api/')) {
+    const sessionToken = request.cookies.get('lumio-session-token')?.value
+
+    if (!sessionToken) {
+      // Cookie ausente → sesión expirada o inválida
+      const loginUrl = new URL('/login?error=session_expired', request.url)
+      return NextResponse.redirect(loginUrl)
+    }
+
+    // Verificar token contra la BD a través del API route interno
+    try {
+      const verifyUrl = new URL('/api/auth/verify-session', request.url)
+      const verifyRes = await fetch(verifyUrl.toString(), {
+        headers: {
+          'x-user-id': user.id,
+          'x-session-token': sessionToken,
+        },
+      })
+
+      if (verifyRes.ok) {
+        const { valid } = (await verifyRes.json()) as { valid: boolean }
+
+        if (!valid) {
+          // Token no coincide → sesión reemplazada por otro dispositivo
+          const loginUrl = new URL('/login?error=session_replaced', request.url)
+          const res = NextResponse.redirect(loginUrl)
+          res.cookies.delete('lumio-session-token')
+          return res
+        }
+      }
+    } catch {
+      // Si falla la verificación, dejar pasar (evitar bloqueo por error de red)
+    }
   }
 
   return supabaseResponse

@@ -50,6 +50,8 @@ Usuarios del sistema. Pueden ser empleados de una empresa o admins de Pulse.
 | last_seen_at | timestamp | Última vez que inició sesión |
 | onboarded_at | timestamp | Fecha en que completó el onboarding |
 | metadata | jsonb | Datos extra sin esquema fijo |
+| session_token | text | Token único de la sesión activa (sesión única por dispositivo) |
+| session_token_created_at | timestamptz | Fecha de creación del session_token actual |
 | created_at | timestamp | Auto-gestionado por trigger `set_updated_at` |
 | updated_at | timestamp | Auto-gestionado por trigger `set_updated_at` |
 | deleted_at | timestamp | Soft delete |

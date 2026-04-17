@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import DateRangePicker from '@/components/ui/DateRangePicker'
 import { useUser } from '@/lib/context/UserContext'
-import { createClient } from '@/lib/supabase/client'
-
 // ── Tipos ──────────────────────────────────────────────────
 
 export interface TopbarProps {
@@ -82,8 +80,7 @@ export function UserMenu() {
   }, [open])
 
   const handleLogout = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    await fetch('/api/auth/logout', { method: 'POST' })
     router.push('/login')
   }
 
