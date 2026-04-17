@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toLocalISO } from '@/lib/dateUtils'
+import PhoneInput from '@/components/ui/PhoneInput'
 
 // ── Estilos base (igual que QuickSaleForm) ─────────────────────
 const inputStyle: React.CSSProperties = {
@@ -262,15 +263,10 @@ export default function NewCustomerForm() {
                 <label htmlFor="nc-phone" style={labelStyle}>
                   Teléfono
                 </label>
-                <input
+                <PhoneInput
                   id="nc-phone"
-                  type="text"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+593 99 000 0000"
-                  style={inputStyle}
-                  onFocus={onFocus}
-                  onBlur={onBlur}
+                  onChange={setPhone}
                 />
               </div>
 

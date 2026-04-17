@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/context/UserContext'
+import PhoneInput from '@/components/ui/PhoneInput'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -14,6 +15,7 @@ export interface ProfileData {
   role: string
   job_title: string | null
   phone: string | null
+  alias: string | null
   avatar_url: string | null
   notify_whatsapp: boolean | null
   notify_email: boolean | null
@@ -200,6 +202,7 @@ export default function ProfileForm({ profile }: { profile: ProfileData }) {
   const [initialFirst, initialLast] = splitFullName(profile.full_name ?? '')
   const [firstName,      setFirstName]      = useState(initialFirst)
   const [lastName,       setLastName]       = useState(initialLast)
+  const [alias,          setAlias]          = useState(profile.alias ?? '')
   const [phone,          setPhone]          = useState(profile.phone ?? '')
   const [notifyWhatsapp, setNotifyWhatsapp] = useState(profile.notify_whatsapp ?? false)
   const [notifyEmail,    setNotifyEmail]    = useState(profile.notify_email ?? true)
@@ -290,7 +293,8 @@ export default function ProfileForm({ profile }: { profile: ProfileData }) {
 
       const body: Record<string, unknown> = {
         full_name:       fullName,
-        phone:           phone,
+        alias:           alias.trim() || null,
+        phone:           phone || null,
         notify_whatsapp: notifyWhatsapp,
         notify_email:    notifyEmail,
       }
@@ -445,12 +449,20 @@ export default function ProfileForm({ profile }: { profile: ProfileData }) {
             />
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
-            <Label>Celular</Label>
+            <Label>Alias (¿cómo te gusta que te llamen?)</Label>
             <TextInput
+              id="alias"
+              value={alias}
+              onChange={(v) => setAlias(v.slice(0, 30))}
+              placeholder="Ej: Isma, Mel, Nacho"
+            />
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <Label>Celular</Label>
+            <PhoneInput
               id="phone"
               value={phone}
               onChange={setPhone}
-              placeholder="+593 99 999 9999"
             />
           </div>
         </div>

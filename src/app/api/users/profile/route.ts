@@ -23,8 +23,9 @@ export async function PATCH(request: NextRequest) {
     // 2. Leer body
     const body = (await request.json()) as {
       full_name?: string
+      alias?: string | null
       job_title?: string
-      phone?: string
+      phone?: string | null
       notify_whatsapp?: boolean
       notify_email?: boolean
       avatar_url?: string
@@ -33,8 +34,9 @@ export async function PATCH(request: NextRequest) {
     // 3. Construir payload — solo campos permitidos
     const payload: Record<string, unknown> = {}
     if (body.full_name    !== undefined) payload.full_name    = body.full_name.trim()
+    if (body.alias        !== undefined) payload.alias        = body.alias ? body.alias.trim() : null
     if (body.job_title    !== undefined) payload.job_title    = body.job_title.trim()
-    if (body.phone        !== undefined) payload.phone        = body.phone.trim()
+    if (body.phone        !== undefined) payload.phone        = body.phone ? body.phone.trim() : null
     if (body.notify_whatsapp !== undefined) payload.notify_whatsapp = body.notify_whatsapp
     if (body.notify_email    !== undefined) payload.notify_email    = body.notify_email
     if (body.avatar_url   !== undefined) payload.avatar_url   = body.avatar_url
