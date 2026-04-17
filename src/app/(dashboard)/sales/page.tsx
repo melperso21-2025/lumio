@@ -15,7 +15,7 @@ export default async function SalesPage({
   if (!userData?.company_id) redirect('/login')
 
   const companyId = userData.company_id
-  const userRole  = userData.role ?? 'seller'
+  const userRole  = userData.role ?? 'operator'
   const supabase  = await createClient()
   const defaults = getDefaultDateRange()
   const from = params.from ?? defaults.from

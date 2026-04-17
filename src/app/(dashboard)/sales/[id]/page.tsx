@@ -17,7 +17,7 @@ export default async function SaleDetailPage({
   if (!userData?.company_id) redirect('/login')
 
   const companyId = userData.company_id
-  const userRole = userData.role ?? 'seller'
+  const userRole = userData.role ?? 'operator'
   const supabase = await createClient()
 
   // ── Main sale query (sales + joins typed; sale_items via as-any) ──

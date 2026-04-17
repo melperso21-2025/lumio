@@ -25,7 +25,7 @@ export interface ProfileData {
 const ROLE_COLORS: Record<string, { bg: string; color: string; label: string }> = {
   admin:   { bg: '#2D1B5E', color: '#C084FC', label: 'Admin' },
   manager: { bg: '#1A3A2A', color: '#4ADE80', label: 'Manager' },
-  seller:  { bg: '#1A2E44', color: '#60A5FA', label: 'Vendedor' },
+  operator: { bg: '#1A2E44', color: '#60A5FA', label: 'Operativo' },
 }
 function getRoleStyle(role: string) {
   return ROLE_COLORS[role] ?? { bg: 'var(--hover)', color: 'var(--muted)', label: role }

@@ -40,7 +40,7 @@ Usuarios del sistema. Pueden ser empleados de una empresa o admins de Pulse.
 | company_id | uuid | FK → companies |
 | email | text | UNIQUE |
 | full_name | text | Nombre completo (concatenado) |
-| role | text | Roles: `admin`, `manager`, `seller` |
+| role | text | Roles válidos: `admin`, `manager`, `operator` · CHECK role IN ('admin', 'manager', 'operator') |
 | is_pulse_admin | boolean | Solo admins de Pulse tienen `true` |
 | job_title | text | Cargo del usuario |
 | phone | text | Teléfono / celular |
