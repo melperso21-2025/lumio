@@ -19,6 +19,7 @@ type DashboardShellProps = {
   userRole?: string | null
   companyName?: string | null
   isPulseAdmin?: boolean
+  avatarUrl?: string | null
 }
 
 export default function DashboardShell({
@@ -27,6 +28,7 @@ export default function DashboardShell({
   userRole,
   companyName,
   isPulseAdmin,
+  avatarUrl,
 }: DashboardShellProps) {
   const router = useRouter()
   const [sidebarHidden, setSidebarHidden] = useState(false)
@@ -101,6 +103,7 @@ export default function DashboardShell({
       userRole={userRole}
       companyName={companyName}
       isPulseAdmin={isPulseAdmin}
+      avatarUrl={avatarUrl}
     >
       {/* Modal de advertencia de inactividad */}
       {showWarning && (

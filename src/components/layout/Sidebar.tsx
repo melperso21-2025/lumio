@@ -79,14 +79,14 @@ export default function Sidebar({
       items: [
         { href: '/sales',     label: 'Ventas',     icon: '💰' },
         { href: '/customers', label: 'Clientes',   icon: '👥' },
-        { href: '/inventory', label: 'Inventario', icon: '📦', roles: ['manager', 'admin'] },
+        { href: '/inventory', label: 'Inventario', icon: '📦', roles: ['seller', 'manager', 'admin'] },
         { href: '/finance',   label: 'Bancos',     icon: '🏦', roles: ['manager', 'admin'] },
       ],
     },
     {
       label: 'Analítica',
       items: [
-        { href: '/ad-campaigns', label: 'Pautas', icon: '📣', badge: '★', roles: ['manager', 'admin'] },
+        { href: '/ad-campaigns', label: 'Pautas', icon: '📣', badge: '★', roles: ['seller', 'manager', 'admin'] },
         { href: '/profit-loss',  label: 'P&G',    icon: '📈',             roles: ['manager', 'admin'] },
       ],
     },

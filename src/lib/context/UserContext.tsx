@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useState, type ReactNode } from 'react'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -9,6 +9,9 @@ export interface UserContextValue {
   userRole: string
   companyName: string
   isPulseAdmin: boolean
+  avatarUrl: string | null
+  /** Actualiza campos del contexto en cliente (p. ej. tras editar perfil) */
+  refreshUser: (updates: Partial<Omit<UserContextValue, 'refreshUser'>>) => void
 }
 
 // ── Context + hook ─────────────────────────────────────────────────────────
@@ -29,6 +32,7 @@ interface UserProviderProps {
   userRole?: string | null
   companyName?: string | null
   isPulseAdmin?: boolean
+  avatarUrl?: string | null
 }
 
 export function UserProvider({
@@ -37,13 +41,25 @@ export function UserProvider({
   userRole,
   companyName,
   isPulseAdmin,
+  avatarUrl,
 }: UserProviderProps) {
-  const value: UserContextValue = {
-    userName: userName ?? 'Usuario',
-    userRole: userRole ?? 'admin',
+  const [data, setData] = useState({
+    userName:    userName    ?? 'Usuario',
+    userRole:    userRole    ?? 'admin',
     companyName: companyName ?? '',
     isPulseAdmin: isPulseAdmin ?? false,
+    avatarUrl:   avatarUrl   ?? null,
+  })
+
+  const refreshUser = (
+    updates: Partial<Omit<UserContextValue, 'refreshUser'>>
+  ) => {
+    setData((prev) => ({ ...prev, ...updates }))
   }
 
-  return <UserContext.Provider value={value}>{children}</UserContext.Provider>
+  return (
+    <UserContext.Provider value={{ ...data, refreshUser }}>
+      {children}
+    </UserContext.Provider>
+  )
 }

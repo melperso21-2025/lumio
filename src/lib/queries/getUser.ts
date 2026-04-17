@@ -18,7 +18,7 @@ export const getUserData = cache(async () => {
 
   const { data } = await supabase
     .from('users')
-    .select('company_id, full_name, role, is_pulse_admin')
+    .select('company_id, full_name, role, is_pulse_admin, avatar_url')
     .eq('id', user.id)
     .single()
 

@@ -27,6 +27,7 @@ export default async function DashboardLayout({
       userRole={userData.role}
       companyName={companyData?.name}
       isPulseAdmin={userData.is_pulse_admin}
+      avatarUrl={userData.avatar_url}
     >
       {children}
     </DashboardShell>

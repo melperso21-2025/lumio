@@ -55,7 +55,7 @@ const goldButtonStyle: React.CSSProperties = {
 // ── UserMenu ────────────────────────────────────────────────
 
 function UserMenu() {
-  const { userName, userRole, companyName, isPulseAdmin } = useUser()
+  const { userName, userRole, companyName, isPulseAdmin, avatarUrl } = useUser()
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -98,7 +98,7 @@ function UserMenu() {
           width: 32,
           height: 32,
           borderRadius: '50%',
-          background: 'linear-gradient(135deg, #F5C842, #F09A1A)',
+          background: avatarUrl ? 'transparent' : 'linear-gradient(135deg, #F5C842, #F09A1A)',
           color: '#1A1B2E',
           fontFamily: 'var(--font-syne)',
           fontWeight: 700,
@@ -110,9 +110,20 @@ function UserMenu() {
           justifyContent: 'center',
           transition: 'border-color 0.15s',
           flexShrink: 0,
+          overflow: 'hidden',
+          padding: 0,
         }}
       >
-        {initials || '?'}
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatarUrl}
+            alt={userName}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        ) : (
+          initials || '?'
+        )}
       </button>
 
       {/* Dropdown */}

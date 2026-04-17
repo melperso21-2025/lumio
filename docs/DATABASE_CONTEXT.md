@@ -39,8 +39,20 @@ Usuarios del sistema. Pueden ser empleados de una empresa o admins de Pulse.
 | id | uuid | PK |
 | company_id | uuid | FK → companies |
 | email | text | UNIQUE |
-| role | text | Roles: `admin`, `manager`, `seller`, etc. |
+| full_name | text | Nombre completo (concatenado) |
+| role | text | Roles: `admin`, `manager`, `seller` |
 | is_pulse_admin | boolean | Solo admins de Pulse tienen `true` |
+| job_title | text | Cargo del usuario |
+| phone | text | Teléfono / celular |
+| avatar_url | text | URL pública en Storage bucket `avatars` |
+| notify_whatsapp | boolean | Acepta notificaciones por WhatsApp |
+| notify_email | boolean | Acepta notificaciones por email |
+| last_seen_at | timestamp | Última vez que inició sesión |
+| onboarded_at | timestamp | Fecha en que completó el onboarding |
+| metadata | jsonb | Datos extra sin esquema fijo |
+| created_at | timestamp | Auto-gestionado por trigger `set_updated_at` |
+| updated_at | timestamp | Auto-gestionado por trigger `set_updated_at` |
+| deleted_at | timestamp | Soft delete |
 
 ---
 
