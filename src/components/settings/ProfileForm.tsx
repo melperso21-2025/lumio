@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/context/UserContext'
 
@@ -181,17 +182,27 @@ function Toggle({
 
 // ── Componente principal ───────────────────────────────────────────────────
 
+// Divide full_name en primera palabra (firstName) y el resto (lastName)
+function splitFullName(full: string): [string, string] {
+  const trimmed = full.trim()
+  const idx = trimmed.indexOf(' ')
+  if (idx === -1) return [trimmed, '']
+  return [trimmed.slice(0, idx), trimmed.slice(idx + 1).trim()]
+}
+
 export default function ProfileForm({ profile }: { profile: ProfileData }) {
   const { refreshUser } = useUser()
+  const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
 
   // ── Estado del formulario ────────────────────────────────────────────────
-  const [fullName,        setFullName]        = useState(profile.full_name ?? '')
-  const [jobTitle,        setJobTitle]        = useState(profile.job_title ?? '')
-  const [phone,           setPhone]           = useState(profile.phone ?? '')
-  const [notifyWhatsapp,  setNotifyWhatsapp]  = useState(profile.notify_whatsapp ?? false)
-  const [notifyEmail,     setNotifyEmail]     = useState(profile.notify_email ?? true)
+  const [initialFirst, initialLast] = splitFullName(profile.full_name ?? '')
+  const [firstName,      setFirstName]      = useState(initialFirst)
+  const [lastName,       setLastName]       = useState(initialLast)
+  const [phone,          setPhone]          = useState(profile.phone ?? '')
+  const [notifyWhatsapp, setNotifyWhatsapp] = useState(profile.notify_whatsapp ?? false)
+  const [notifyEmail,    setNotifyEmail]    = useState(profile.notify_email ?? true)
 
   // ── Estado del avatar ────────────────────────────────────────────────────
   const [avatarPreview,   setAvatarPreview]   = useState<string | null>(profile.avatar_url)
@@ -204,12 +215,10 @@ export default function ProfileForm({ profile }: { profile: ProfileData }) {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saved,     setSaved]     = useState(false)
 
-  const initials = fullName
-    .split(' ')
-    .map((w) => w[0])
+  const initials = [firstName[0], lastName[0]]
+    .filter(Boolean)
     .join('')
-    .toUpperCase()
-    .slice(0, 2)
+    .toUpperCase() || '?'
 
   const roleStyle = getRoleStyle(profile.role)
 
@@ -277,9 +286,10 @@ export default function ProfileForm({ profile }: { profile: ProfileData }) {
         newAvatarUrl = await uploadAvatar()
       }
 
+      const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ')
+
       const body: Record<string, unknown> = {
         full_name:       fullName,
-        job_title:       jobTitle,
         phone:           phone,
         notify_whatsapp: notifyWhatsapp,
         notify_email:    notifyEmail,
@@ -303,7 +313,8 @@ export default function ProfileForm({ profile }: { profile: ProfileData }) {
 
       setAvatarBlob(null)
       setSaved(true)
-      setTimeout(() => setSaved(false), 4000)
+      // Mostrar banner 1 segundo y luego volver a la página anterior
+      setTimeout(() => router.back(), 1000)
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Error desconocido')
     } finally {
@@ -415,31 +426,31 @@ export default function ProfileForm({ profile }: { profile: ProfileData }) {
       <div style={cardStyle}>
         {sectionTitle('Datos personales')}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <div style={{ gridColumn: '1 / -1' }}>
-            <Label>Nombre completo</Label>
+          <div>
+            <Label>Nombre</Label>
             <TextInput
-              id="full_name"
-              value={fullName}
-              onChange={setFullName}
-              placeholder="Tu nombre completo"
+              id="first_name"
+              value={firstName}
+              onChange={setFirstName}
+              placeholder="Tu nombre"
             />
           </div>
           <div>
+            <Label>Apellido</Label>
+            <TextInput
+              id="last_name"
+              value={lastName}
+              onChange={setLastName}
+              placeholder="Tu apellido"
+            />
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
             <Label>Celular</Label>
             <TextInput
               id="phone"
               value={phone}
               onChange={setPhone}
               placeholder="+593 99 999 9999"
-            />
-          </div>
-          <div>
-            <Label>Cargo</Label>
-            <TextInput
-              id="job_title"
-              value={jobTitle}
-              onChange={setJobTitle}
-              placeholder="Ej: Gerente de Ventas"
             />
           </div>
         </div>

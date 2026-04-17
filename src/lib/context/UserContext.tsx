@@ -18,10 +18,20 @@ export interface UserContextValue {
 
 const UserContext = createContext<UserContextValue | null>(null)
 
+const USER_DEFAULTS: UserContextValue = {
+  userName:     'Usuario',
+  userRole:     'admin',
+  companyName:  '',
+  isPulseAdmin: false,
+  avatarUrl:    null,
+  refreshUser:  () => {},
+}
+
 export function useUser(): UserContextValue {
-  const ctx = useContext(UserContext)
-  if (!ctx) throw new Error('useUser must be used inside <UserProvider>')
-  return ctx
+  // Devuelve defaults en lugar de lanzar para que los componentes
+  // (Topbar, Sidebar) no fallen silenciosamente si el Provider
+  // no está disponible durante la hidratación inicial.
+  return useContext(UserContext) ?? USER_DEFAULTS
 }
 
 // ── Provider ───────────────────────────────────────────────────────────────

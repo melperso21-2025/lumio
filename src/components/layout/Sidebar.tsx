@@ -56,12 +56,14 @@ export default function Sidebar({
   }
 
   // ── Reglas de visibilidad ────────────────────────────────
-  // roles vacío/undefined → visible para todos
-  // 'pulse' → solo isPulseAdmin
-  // resto → se compara con userRole
+  // Sin roles → visible para todos
+  // 'pulse' → SOLO cuando isPulseAdmin=true (Panel Pulse no se
+  //            muestra por tener role='admin' de empresa)
+  // Resto → se compara con userRole; isPulseAdmin ve todo lo demás
   const canSee = (item: NavItem): boolean => {
     if (!item.roles || item.roles.length === 0) return true
     if (item.roles.includes('pulse')) return isPulseAdmin
+    if (isPulseAdmin) return true        // Pulse admins ven todos los items no-pulse
     return item.roles.includes(userRole)
   }
 
