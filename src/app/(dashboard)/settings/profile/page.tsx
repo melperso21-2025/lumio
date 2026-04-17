@@ -7,6 +7,12 @@ import type { Database } from '@/lib/supabase/database.types'
 
 type UserRow = Database['public']['Tables']['users']['Row']
 
+// Extiende UserRow con campos que existen en la DB pero aún no
+// están en los tipos generados (alias, first_name, last_name)
+type ProfileRow = UserRow & {
+  alias: string | null
+}
+
 export default async function ProfilePage() {
   const userData = await getUserData()
   if (!userData) redirect('/login')
@@ -24,7 +30,7 @@ export default async function ProfilePage() {
   const { data: profileRaw, error: profileError } = await supabase
     .from('users')
     .select(
-      'id, full_name, email, role, job_title, phone, avatar_url, ' +
+      'id, full_name, alias, email, role, job_title, phone, avatar_url, ' +
         'notify_whatsapp, notify_email, company_id'
     )
     .eq('id', authUser.id)
@@ -32,7 +38,7 @@ export default async function ProfilePage() {
 
   if (profileError || !profileRaw) redirect('/dashboard')
 
-  const profile = profileRaw as unknown as UserRow
+  const profile = profileRaw as unknown as ProfileRow
 
   // Obtener nombre de empresa
   const { data: companyData } = await supabase
@@ -44,6 +50,7 @@ export default async function ProfilePage() {
   const profileData: ProfileData = {
     id:              profile.id,
     full_name:       profile.full_name,
+    alias:           profile.alias,
     email:           profile.email,
     role:            profile.role,
     job_title:       profile.job_title,
