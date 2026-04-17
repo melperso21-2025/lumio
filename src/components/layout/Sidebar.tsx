@@ -3,14 +3,13 @@
 import type { CSSProperties } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useUser } from '@/lib/context/UserContext'
 
 // ── Tipos ──────────────────────────────────────────────────
 
 export interface SidebarProps {
   userName?: string
-  userRole?: string
   companyName?: string
-  isPulseAdmin?: boolean
   /** Oculta la barra (p. ej. guarda preferencia en DashboardShell) */
   onRequestHide?: () => void
 }
@@ -20,6 +19,12 @@ interface NavItem {
   label: string
   icon: string
   badge?: string | '★'
+  /**
+   * Roles que pueden ver este item.
+   * Si está vacío o undefined → todos lo ven.
+   * 'pulse' es un pseudo-rol que sólo aplica cuando isPulseAdmin=true.
+   */
+  roles?: string[]
 }
 
 interface NavSection {
@@ -31,14 +36,13 @@ interface NavSection {
 
 export default function Sidebar({
   userName = 'Usuario',
-  userRole = 'Admin',
   companyName,
-  isPulseAdmin = false,
   onRequestHide,
 }: SidebarProps) {
   const pathname = usePathname()
+  const { userRole, isPulseAdmin } = useUser()
 
-  // Extrae iniciales para el avatar (primera letra de cada palabra)
+  // Extrae iniciales para el avatar
   const initials = userName
     .split(' ')
     .map((w) => w[0])
@@ -51,55 +55,66 @@ export default function Sidebar({
     return pathname.startsWith(href)
   }
 
+  // ── Reglas de visibilidad ────────────────────────────────
+  // roles vacío/undefined → visible para todos
+  // 'pulse' → solo isPulseAdmin
+  // resto → se compara con userRole
+  const canSee = (item: NavItem): boolean => {
+    if (!item.roles || item.roles.length === 0) return true
+    if (item.roles.includes('pulse')) return isPulseAdmin
+    return item.roles.includes(userRole)
+  }
+
+  // ── Definición de secciones con roles ───────────────────
   const sections: NavSection[] = [
     {
       label: 'Principal',
-      items: [{ href: '/dashboard', label: 'Dashboard', icon: '◈' }],
+      items: [
+        { href: '/dashboard', label: 'Dashboard', icon: '◈' },
+        // todos los roles ven Dashboard → sin roles[]
+      ],
     },
     {
       label: 'Operaciones',
       items: [
-        { href: '/sales', label: 'Ventas', icon: '💰' },
-        { href: '/customers', label: 'Clientes', icon: '👥' },
-        { href: '/inventory', label: 'Inventario', icon: '📦' },
-        { href: '/finance', label: 'Bancos', icon: '🏦' },
+        { href: '/sales',     label: 'Ventas',     icon: '💰' },
+        { href: '/customers', label: 'Clientes',   icon: '👥' },
+        { href: '/inventory', label: 'Inventario', icon: '📦', roles: ['manager', 'admin'] },
+        { href: '/finance',   label: 'Bancos',     icon: '🏦', roles: ['manager', 'admin'] },
       ],
     },
     {
       label: 'Analítica',
       items: [
-        { href: '/ad-campaigns', label: 'Pautas', icon: '📣', badge: '★' },
-        { href: '/profit-loss', label: 'P&G', icon: '📈' },
+        { href: '/ad-campaigns', label: 'Pautas', icon: '📣', badge: '★', roles: ['manager', 'admin'] },
+        { href: '/profit-loss',  label: 'P&G',    icon: '📈',             roles: ['manager', 'admin'] },
       ],
     },
     {
       label: 'Inteligencia',
       items: [
-        {
-          href: '/ai-insights',
-          label: 'IA Insights',
-          icon: '✦',
-          badge: 'New',
-        },
+        { href: '/ai-insights', label: 'IA Insights', icon: '✦', badge: 'New', roles: ['manager', 'admin'] },
       ],
     },
     {
       label: 'Configuración',
       items: [
-        { href: '/settings/users', label: 'Usuarios & Roles', icon: '🔐' },
-        { href: '/settings/import', label: 'Importar datos', icon: '⬆' },
+        { href: '/settings/users',  label: 'Usuarios & Roles', icon: '🔐', roles: ['admin'] },
+        { href: '/settings/import', label: 'Importar datos',   icon: '⬆',  roles: ['admin'] },
+      ],
+    },
+    {
+      label: '● Pulse Admin',
+      items: [
+        { href: '/pulse-admin', label: 'Panel Pulse', icon: '🏢', roles: ['pulse'] },
       ],
     },
   ]
 
-  const pulseSection: NavSection = {
-    label: '● Pulse Admin',
-    items: [{ href: '/pulse-admin', label: 'Panel Pulse', icon: '🏢' }],
-  }
-
-  const allSections = isPulseAdmin
-    ? [...sections, pulseSection]
-    : sections
+  // Filtra items por rol y elimina secciones vacías
+  const visibleSections = sections
+    .map((section) => ({ ...section, items: section.items.filter(canSee) }))
+    .filter((section) => section.items.length > 0)
 
   const hideBtnStyle: CSSProperties = {
     flexShrink: 0,
@@ -131,9 +146,7 @@ export default function Sidebar({
       {/* Contenedor superior: logo + navegación */}
       <div className="flex flex-col flex-1 min-h-0">
         {/* Logo + ocultar barra */}
-        <div
-          className="shrink-0 flex items-start justify-between gap-1 pt-2.5 px-2.5 pb-2"
-        >
+        <div className="shrink-0 flex items-start justify-between gap-1 pt-2.5 px-2.5 pb-2">
           <Link href="/dashboard" className="block min-w-0">
             <div
               className="font-syne font-extrabold text-lg tracking-tight leading-tight"
@@ -163,7 +176,7 @@ export default function Sidebar({
 
         {/* Navegación — scroll interno si hay mucho contenido */}
         <nav className="flex-1 overflow-y-auto px-1.5 pb-3">
-          {allSections.map((section) => (
+          {visibleSections.map((section) => (
             <div key={section.label} className="mb-3">
               <div
                 className="px-2 mb-1 text-[8px] uppercase tracking-wide"
@@ -188,14 +201,10 @@ export default function Sidebar({
                             : '2px solid transparent',
                         }}
                         onMouseEnter={(e) => {
-                          if (!active) {
-                            e.currentTarget.style.background = 'var(--hover)'
-                          }
+                          if (!active) e.currentTarget.style.background = 'var(--hover)'
                         }}
                         onMouseLeave={(e) => {
-                          if (!active) {
-                            e.currentTarget.style.background = 'transparent'
-                          }
+                          if (!active) e.currentTarget.style.background = 'transparent'
                         }}
                       >
                         <span className="flex items-center gap-1.5 min-w-0 truncate">
