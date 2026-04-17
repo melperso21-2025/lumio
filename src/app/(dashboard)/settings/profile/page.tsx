@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserData } from '@/lib/queries/getUser'
 import Topbar from '@/components/layout/Topbar'
 import ProfileForm, { type ProfileData } from '@/components/settings/ProfileForm'
+import type { Database } from '@/lib/supabase/database.types'
+
+type UserRow = Database['public']['Tables']['users']['Row']
 
 export default async function ProfilePage() {
   const userData = await getUserData()
@@ -10,17 +13,26 @@ export default async function ProfilePage() {
 
   const supabase = await createClient()
 
+  // Obtener el id del usuario autenticado antes de usarlo en queries
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
+
+  if (!authUser) redirect('/login')
+
   // Obtener todos los campos de perfil del usuario
-  const { data: profile } = await supabase
+  const { data: profileRaw, error: profileError } = await supabase
     .from('users')
     .select(
       'id, full_name, email, role, job_title, phone, avatar_url, ' +
         'notify_whatsapp, notify_email, company_id'
     )
-    .eq('id', (await supabase.auth.getUser()).data.user!.id)
+    .eq('id', authUser.id)
     .single()
 
-  if (!profile) redirect('/dashboard')
+  if (profileError || !profileRaw) redirect('/dashboard')
+
+  const profile = profileRaw as unknown as UserRow
 
   // Obtener nombre de empresa
   const { data: companyData } = await supabase
