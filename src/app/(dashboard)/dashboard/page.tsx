@@ -6,6 +6,7 @@ import { getUserData } from '@/lib/queries/getUser'
 import KpiCard from '@/components/ui/KpiCard'
 import AiInsightBox from '@/components/ui/AiInsightBox'
 import QuickSaleForm from '@/components/sales/QuickSaleForm'
+import { UserMenu } from '@/components/layout/Topbar'
 import DateRangePicker from '@/components/ui/DateRangePicker'
 import InsightReminderModal, { type ModalScenario } from '@/components/dashboard/InsightReminderModal'
 import {
@@ -607,6 +608,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             channels={channels}
             userRole={userRole}
           />
+          {/* Separador + menú de usuario — siempre el último elemento */}
+          <div
+            style={{
+              marginLeft: 4,
+              paddingLeft: 8,
+              borderLeft: '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <UserMenu />
+          </div>
         </div>
       </div>
 

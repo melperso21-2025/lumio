@@ -54,7 +54,7 @@ const goldButtonStyle: React.CSSProperties = {
 
 // ── UserMenu ────────────────────────────────────────────────
 
-function UserMenu() {
+export function UserMenu() {
   const { userName, userRole, companyName, isPulseAdmin, avatarUrl } = useUser()
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -301,8 +301,18 @@ export default function Topbar({
           </>
         )}
 
-        {/* Menú de usuario — siempre visible */}
-        <UserMenu />
+        {/* Menú de usuario — siempre el último elemento, separado del resto */}
+        <div
+          style={{
+            marginLeft: hasRightSection ? 4 : 0,
+            paddingLeft: hasRightSection ? 8 : 0,
+            borderLeft: hasRightSection ? '1px solid var(--border)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          <UserMenu />
+        </div>
       </div>
     </header>
   )
