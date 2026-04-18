@@ -4,21 +4,8 @@ import { useState, useMemo } from 'react'
 import KpiCard from '@/components/ui/KpiCard'
 import ExportButton from '@/components/ui/ExportButton'
 import NewCustomerForm from '@/components/customers/NewCustomerForm'
-import CustomersTable from '@/components/customers/CustomersTable'
+import CustomersTable, { type CustomerRow, type CatalogItem } from '@/components/customers/CustomersTable'
 import AiInsightBox from '@/components/ui/AiInsightBox'
-
-type CustomerRow = {
-  id: string
-  full_name: string | null
-  phone: string | null
-  email: string | null
-  customer_type: string | null
-  label: string | null
-  lifetime_value: number | null
-  last_purchase_at: string | null
-  registered_since: string | null
-  created_at: string
-}
 
 function calcDelta(
   current: number,
@@ -32,6 +19,8 @@ function calcDelta(
 interface CustomersOverviewProps {
   customers: CustomerRow[]
   prevCustomers: CustomerRow[]
+  customerTypes: CatalogItem[]
+  customerLabels: CatalogItem[]
   from: string
   to: string
   prevFrom: string
@@ -41,83 +30,101 @@ interface CustomersOverviewProps {
 export default function CustomersOverview({
   customers,
   prevCustomers,
+  customerTypes,
+  customerLabels,
   from,
   to,
   prevFrom,
   prevTo,
 }: CustomersOverviewProps) {
-  const [filterName, setFilterName] = useState<string>('')
-  const [filterPhone, setFilterPhone] = useState<string>('')
-  const [filterType, setFilterType] = useState<string>('')
-  const [filterLabel, setFilterLabel] = useState<string>('')
+  const [filterText, setFilterText] = useState('')
+  const [filterType, setFilterType] = useState('')
+  const [filterLabel, setFilterLabel] = useState('')
+  const [filterIsCompany, setFilterIsCompany] = useState<boolean | null>(null)
+
+  // Build catalog maps for KPI lookup
+  const typeMap = useMemo(() => {
+    const m = new Map<string, CatalogItem>()
+    customerTypes.forEach((t) => m.set(t.id, t))
+    return m
+  }, [customerTypes])
 
   const filteredCustomers = useMemo(() => {
+    const txt = filterText.toLowerCase()
     return customers.filter((c) => {
-      const name = (c.full_name ?? '').toLowerCase()
-      const phoneStr = (c.phone ?? '').toLowerCase()
-      if (filterName && !name.includes(filterName.toLowerCase())) return false
-      if (filterPhone && !phoneStr.includes(filterPhone.toLowerCase())) return false
+      if (txt) {
+        const name  = (c.full_name ?? '').toLowerCase()
+        const email = (c.email ?? '').toLowerCase()
+        const taxId = (c.tax_id ?? '').toLowerCase()
+        if (!name.includes(txt) && !email.includes(txt) && !taxId.includes(txt)) return false
+      }
       if (filterType && (c.customer_type ?? '') !== filterType) return false
       if (filterLabel && (c.label ?? '') !== filterLabel) return false
+      if (filterIsCompany !== null && (c.is_company ?? false) !== filterIsCompany) return false
       return true
     })
-  }, [customers, filterName, filterPhone, filterType, filterLabel])
+  }, [customers, filterText, filterType, filterLabel, filterIsCompany])
 
   const filteredPrevCustomers = useMemo(() => {
+    const txt = filterText.toLowerCase()
     return prevCustomers.filter((c) => {
-      const name = (c.full_name ?? '').toLowerCase()
-      const phoneStr = (c.phone ?? '').toLowerCase()
-      if (filterName && !name.includes(filterName.toLowerCase())) return false
-      if (filterPhone && !phoneStr.includes(filterPhone.toLowerCase())) return false
+      if (txt) {
+        const name  = (c.full_name ?? '').toLowerCase()
+        const email = (c.email ?? '').toLowerCase()
+        const taxId = (c.tax_id ?? '').toLowerCase()
+        if (!name.includes(txt) && !email.includes(txt) && !taxId.includes(txt)) return false
+      }
       if (filterType && (c.customer_type ?? '') !== filterType) return false
       if (filterLabel && (c.label ?? '') !== filterLabel) return false
+      if (filterIsCompany !== null && (c.is_company ?? false) !== filterIsCompany) return false
       return true
     })
-  }, [prevCustomers, filterName, filterPhone, filterType, filterLabel])
+  }, [prevCustomers, filterText, filterType, filterLabel, filterIsCompany])
 
-  const total_customers = filteredCustomers.length
-  const vip_count = filteredCustomers.filter((c) => c.label === 'vip').length
-  const wholesale_count = filteredCustomers.filter(
-    (c) => c.customer_type === 'wholesale'
-  ).length
-  const total_ltv = filteredCustomers.reduce(
-    (s, c) => s + (c.lifetime_value ?? 0),
-    0
+  // KPIs — count by label id or type id from catalog
+  const vipLabelId = useMemo(
+    () => customerLabels.find((l) => l.name.toLowerCase() === 'vip')?.id ?? '__none__',
+    [customerLabels]
   )
+  const wholesaleTypeId = useMemo(
+    () => customerTypes.find((t) => t.name.toLowerCase().includes('mayor'))?.id ?? '__none__',
+    [customerTypes]
+  )
+
+  const total_customers    = filteredCustomers.length
+  const company_count      = filteredCustomers.filter((c) => c.is_company).length
+  const total_ltv          = filteredCustomers.reduce((s, c) => s + (c.lifetime_value ?? 0), 0)
 
   const prev_total_customers = filteredPrevCustomers.length
-  const prev_vip_count = filteredPrevCustomers.filter((c) => c.label === 'vip').length
-  const prev_wholesale_count = filteredPrevCustomers.filter(
-    (c) => c.customer_type === 'wholesale'
-  ).length
-  const prev_total_ltv = filteredPrevCustomers.reduce(
-    (s, c) => s + (c.lifetime_value ?? 0),
-    0
-  )
+  const prev_total_ltv       = filteredPrevCustomers.reduce((s, c) => s + (c.lifetime_value ?? 0), 0)
 
   const hasPrevData = filteredPrevCustomers.length > 0
 
   const exportData = filteredCustomers.map((c) => ({
     Nombre: c.full_name ?? '',
+    'Tipo ID': c.id_type ?? '',
+    'N° ID': c.tax_id ?? '',
     Teléfono: c.phone ?? '',
     Email: c.email ?? '',
-    Tipo: c.customer_type ?? '',
+    Dirección: c.address ?? '',
+    Tipo: typeMap.get(c.customer_type ?? '')?.name ?? c.customer_type ?? '',
     Etiqueta: c.label ?? '',
     LTV: c.lifetime_value ?? 0,
+    Empresa: c.is_company ? 'Sí' : 'No',
     'Última compra': c.last_purchase_at ?? '',
     'Cliente desde': c.registered_since ?? '',
   }))
 
   function handleFilterChange(
-    name: string,
-    phone: string,
+    text: string,
     type: string,
-    label: string
+    label: string,
+    isCompany: boolean | null
   ) {
-    setFilterName(name)
-    setFilterPhone(phone)
+    setFilterText(text)
     setFilterType(type)
     setFilterLabel(label)
+    setFilterIsCompany(isCompany)
   }
 
   return (
@@ -130,7 +137,7 @@ export default function CustomersOverview({
         minHeight: 0,
       }}
     >
-      {/* KPIs (estáticos, con deltas) */}
+      {/* KPIs */}
       <div
         style={{
           display: 'grid',
@@ -144,27 +151,12 @@ export default function CustomersOverview({
           value={total_customers}
           delta={calcDelta(total_customers, prev_total_customers, hasPrevData)}
           compare={
-            prev_total_customers > 0
-              ? `Ant: ${prev_total_customers}`
-              : undefined
+            prev_total_customers > 0 ? `Ant: ${prev_total_customers}` : undefined
           }
         />
         <KpiCard
-          label="VIP"
-          value={vip_count}
-          isGold
-          delta={calcDelta(vip_count, prev_vip_count, hasPrevData)}
-          compare={
-            prev_vip_count > 0 ? `Ant: ${prev_vip_count}` : undefined
-          }
-        />
-        <KpiCard
-          label="Mayoristas"
-          value={wholesale_count}
-          delta={calcDelta(wholesale_count, prev_wholesale_count, hasPrevData)}
-          compare={
-            prev_wholesale_count > 0 ? `Ant: ${prev_wholesale_count}` : undefined
-          }
+          label="Empresas"
+          value={company_count}
         />
         <KpiCard
           label="LTV total"
@@ -172,14 +164,21 @@ export default function CustomersOverview({
           value={Math.round(total_ltv)}
           delta={calcDelta(total_ltv, prev_total_ltv, hasPrevData)}
           compare={
-            prev_total_ltv > 0
-              ? `Ant: $${Math.round(prev_total_ltv)}`
-              : undefined
+            prev_total_ltv > 0 ? `Ant: $${Math.round(prev_total_ltv)}` : undefined
+          }
+        />
+        <KpiCard
+          label="Ticket promedio"
+          prefix="$"
+          value={
+            total_customers > 0
+              ? Math.round(total_ltv / total_customers)
+              : 0
           }
         />
       </div>
 
-      {/* Card directorio */}
+      {/* Directorio card */}
       <div
         style={{
           borderRadius: 12,
@@ -234,10 +233,12 @@ export default function CustomersOverview({
           >
             <CustomersTable
               customers={customers}
-              filterName={filterName}
-              filterPhone={filterPhone}
+              customerTypes={customerTypes}
+              customerLabels={customerLabels}
+              filterText={filterText}
               filterType={filterType}
               filterLabel={filterLabel}
+              filterIsCompany={filterIsCompany}
               onFilterChange={handleFilterChange}
             />
           </div>

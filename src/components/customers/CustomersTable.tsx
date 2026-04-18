@@ -1,40 +1,43 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Link from 'next/link'
 import { formatBusinessDate } from '@/lib/dateUtils'
+import { useUser } from '@/lib/context/UserContext'
 
 const PAGE_SIZE = 20
 
-const typeConfig: Record<string, { bg: string; color: string; label: string }> = {
-  retail: { bg: 'rgba(37,99,235,0.1)', color: 'var(--blue)', label: 'Retail' },
-  wholesale: { bg: 'rgba(124,58,237,0.1)', color: '#7C3AED', label: 'Mayorista' },
-  occasional: { bg: 'rgba(146,148,172,0.1)', color: 'var(--muted)', label: 'Eventual' },
-  b2b: { bg: 'rgba(5,150,105,0.1)', color: 'var(--green)', label: 'B2B' },
-}
+// ── Types ──────────────────────────────────────────────────────────────────
 
-const labelConfig: Record<string, { bg: string; color: string; label: string }> = {
-  vip: { bg: 'var(--gold-bg)', color: 'var(--gold)', label: 'VIP' },
-  frequent: { bg: 'rgba(5,150,105,0.1)', color: 'var(--green)', label: 'Frecuente' },
-  new: { bg: 'rgba(37,99,235,0.1)', color: 'var(--blue)', label: 'Nuevo' },
-  recovery: { bg: 'rgba(217,119,6,0.1)', color: 'var(--orange)', label: 'Recuperar' },
-}
-
-type CustomerRow = {
+export type CustomerRow = {
   id: string
   full_name: string | null
   phone: string | null
   email: string | null
+  tax_id: string | null
+  id_type: string | null
   customer_type: string | null
   label: string | null
   lifetime_value: number | null
   last_purchase_at: string | null
   registered_since: string | null
+  is_company: boolean | null
+  contact_name: string | null
+  address: string | null
   created_at: string
+}
+
+export type CatalogItem = {
+  id: string
+  name: string
+  color: string
 }
 
 type SortKey =
   | 'full_name'
+  | 'tax_id'
   | 'phone'
+  | 'email'
   | 'customer_type'
   | 'label'
   | 'lifetime_value'
@@ -42,84 +45,109 @@ type SortKey =
   | 'registered_since'
 
 const COLUMNS: { key: SortKey; label: string; align: 'left' | 'right' }[] = [
-  { key: 'full_name', label: 'Nombre', align: 'left' },
-  { key: 'phone', label: 'Teléfono', align: 'left' },
-  { key: 'customer_type', label: 'Tipo', align: 'left' },
-  { key: 'label', label: 'Etiqueta', align: 'left' },
-  { key: 'lifetime_value', label: 'LTV', align: 'right' },
-  { key: 'last_purchase_at', label: 'Última compra', align: 'left' },
-  { key: 'registered_since', label: 'Cliente desde', align: 'left' },
+  { key: 'full_name',       label: 'Nombre',        align: 'left'  },
+  { key: 'tax_id',          label: 'Identificación', align: 'left'  },
+  { key: 'phone',           label: 'Teléfono',      align: 'left'  },
+  { key: 'email',           label: 'Email',         align: 'left'  },
+  { key: 'customer_type',   label: 'Tipo',          align: 'left'  },
+  { key: 'label',           label: 'Etiqueta',      align: 'left'  },
+  { key: 'lifetime_value',  label: 'LTV',           align: 'right' },
+  { key: 'last_purchase_at',label: 'Última compra', align: 'left'  },
 ]
 
 function getSortValue(c: CustomerRow, key: SortKey): string | number {
   switch (key) {
-    case 'full_name':
-      return (c.full_name ?? '').toLowerCase()
-    case 'phone':
-      return (c.phone ?? '').toLowerCase()
-    case 'customer_type':
-      return (c.customer_type ?? '').toLowerCase()
-    case 'label':
-      return (c.label ?? '').toLowerCase()
-    case 'lifetime_value':
-      return c.lifetime_value ?? 0
-    case 'last_purchase_at':
-      return c.last_purchase_at ?? ''
-    case 'registered_since':
-      return c.registered_since ?? ''
-    default:
-      return ''
+    case 'full_name':       return (c.full_name ?? '').toLowerCase()
+    case 'tax_id':          return (c.tax_id ?? '').toLowerCase()
+    case 'phone':           return (c.phone ?? '').toLowerCase()
+    case 'email':           return (c.email ?? '').toLowerCase()
+    case 'customer_type':   return (c.customer_type ?? '').toLowerCase()
+    case 'label':           return (c.label ?? '').toLowerCase()
+    case 'lifetime_value':  return c.lifetime_value ?? 0
+    case 'last_purchase_at':return c.last_purchase_at ?? ''
+    case 'registered_since':return c.registered_since ?? ''
+    default:                return ''
   }
 }
 
+// ── Filter bar shared styles ───────────────────────────────────────────────
+
+const filterInputStyle: React.CSSProperties = {
+  padding: '5px 10px',
+  fontSize: 11,
+  borderRadius: 6,
+  border: '1px solid var(--border2)',
+  background: 'var(--surface)',
+  color: 'var(--text)',
+  fontFamily: 'var(--font-jakarta)',
+  minWidth: 100,
+}
+
+// ── Props ──────────────────────────────────────────────────────────────────
+
 interface CustomersTableProps {
   customers: CustomerRow[]
-  filterName: string
-  filterPhone: string
+  customerTypes: CatalogItem[]
+  customerLabels: CatalogItem[]
+  filterText: string
   filterType: string
   filterLabel: string
-  onFilterChange: (name: string, phone: string, type: string, label: string) => void
+  filterIsCompany: boolean | null
+  onFilterChange: (
+    text: string,
+    type: string,
+    label: string,
+    isCompany: boolean | null
+  ) => void
 }
+
+// ── Component ──────────────────────────────────────────────────────────────
 
 export default function CustomersTable({
   customers,
-  filterName,
-  filterPhone,
+  customerTypes,
+  customerLabels,
+  filterText,
   filterType,
   filterLabel,
+  filterIsCompany,
   onFilterChange,
 }: CustomersTableProps) {
+  const { userRole } = useUser()
+  const canEdit = userRole === 'admin' || userRole === 'manager'
+
   const [sortBy, setSortBy] = useState<SortKey>('full_name')
   const [sortAsc, setSortAsc] = useState(false)
   const [page, setPage] = useState(0)
 
-  const uniqueTypes = useMemo(() => {
-    const set = new Set<string>()
-    customers.forEach((c) => {
-      if (c.customer_type) set.add(c.customer_type)
-    })
-    return Array.from(set).sort()
-  }, [customers])
+  // Build lookup maps from catalogs
+  const typeMap = useMemo(() => {
+    const m = new Map<string, CatalogItem>()
+    customerTypes.forEach((t) => m.set(t.id, t))
+    return m
+  }, [customerTypes])
 
-  const uniqueLabels = useMemo(() => {
-    const set = new Set<string>()
-    customers.forEach((c) => {
-      if (c.label) set.add(c.label)
-    })
-    return Array.from(set).sort()
-  }, [customers])
+  const labelMap = useMemo(() => {
+    const m = new Map<string, CatalogItem>()
+    customerLabels.forEach((l) => m.set(l.id, l))
+    return m
+  }, [customerLabels])
 
   const filteredCustomers = useMemo(() => {
+    const txt = filterText.toLowerCase()
     return customers.filter((c) => {
-      const name = (c.full_name ?? '').toLowerCase()
-      const phoneStr = (c.phone ?? '').toLowerCase()
-      if (filterName && !name.includes(filterName.toLowerCase())) return false
-      if (filterPhone && !phoneStr.includes(filterPhone.toLowerCase())) return false
+      if (txt) {
+        const name  = (c.full_name ?? '').toLowerCase()
+        const email = (c.email ?? '').toLowerCase()
+        const taxId = (c.tax_id ?? '').toLowerCase()
+        if (!name.includes(txt) && !email.includes(txt) && !taxId.includes(txt)) return false
+      }
       if (filterType && (c.customer_type ?? '') !== filterType) return false
       if (filterLabel && (c.label ?? '') !== filterLabel) return false
+      if (filterIsCompany !== null && (c.is_company ?? false) !== filterIsCompany) return false
       return true
     })
-  }, [customers, filterName, filterPhone, filterType, filterLabel])
+  }, [customers, filterText, filterType, filterLabel, filterIsCompany])
 
   const sortedCustomers = useMemo(() => {
     return [...filteredCustomers].sort((a, b) => {
@@ -140,191 +168,29 @@ export default function CustomersTable({
   )
 
   function handleSort(key: SortKey) {
-    if (sortBy === key) {
-      setSortAsc((prev) => !prev)
-    } else {
-      setSortBy(key)
-      setSortAsc(false)
-    }
+    if (sortBy === key) setSortAsc((p) => !p)
+    else { setSortBy(key); setSortAsc(false) }
     setPage(0)
   }
 
-  const hasActiveFilters = filterName || filterPhone || filterType || filterLabel
+  const hasActiveFilters =
+    filterText || filterType || filterLabel || filterIsCompany !== null
 
-  if (customers.length === 0) {
-    return (
-      <p
-        style={{
-          textAlign: 'center',
-          color: 'var(--muted)',
-          fontSize: 14,
-          padding: 32,
-        }}
-      >
-        No hay clientes en el directorio.
-      </p>
-    )
+  const idTypeLabel: Record<string, string> = {
+    cedula: 'CI',
+    ruc: 'RUC',
+    pasaporte: 'PAS',
   }
 
-  if (filteredCustomers.length === 0) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          minHeight: 0,
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 12,
-            alignItems: 'center',
-            padding: '10px 0 12px',
-            borderBottom: '1px solid var(--border)',
-            marginBottom: 12,
-            flexShrink: 0,
-          }}
-        >
-          <span
-            style={{
-              fontSize: 10,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              color: 'var(--muted)',
-              fontWeight: 600,
-            }}
-          >
-            Filtros
-          </span>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, color: 'var(--text2)' }}>Nombre</span>
-            <input
-              type="text"
-              value={filterName}
-              onChange={(e) => onFilterChange(e.target.value, filterPhone, filterType, filterLabel)}
-              placeholder="Buscar..."
-              style={{
-                padding: '5px 10px',
-                fontSize: 11,
-                borderRadius: 6,
-                border: '1px solid var(--border2)',
-                background: 'var(--surface)',
-                fontFamily: 'var(--font-jakarta)',
-                minWidth: 100,
-              }}
-            />
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, color: 'var(--text2)' }}>Teléfono</span>
-            <input
-              type="text"
-              value={filterPhone}
-              onChange={(e) => onFilterChange(filterName, e.target.value, filterType, filterLabel)}
-              placeholder="Buscar..."
-              style={{
-                padding: '5px 10px',
-                fontSize: 11,
-                borderRadius: 6,
-                border: '1px solid var(--border2)',
-                background: 'var(--surface)',
-                fontFamily: 'var(--font-jakarta)',
-                minWidth: 100,
-              }}
-            />
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, color: 'var(--text2)' }}>Tipo</span>
-            <select
-              value={filterType}
-              onChange={(e) => onFilterChange(filterName, filterPhone, e.target.value, filterLabel)}
-              style={{
-                padding: '5px 10px',
-                fontSize: 11,
-                borderRadius: 6,
-                border: '1px solid var(--border2)',
-                background: 'var(--surface)',
-                fontFamily: 'var(--font-jakarta)',
-                minWidth: 100,
-              }}
-            >
-              <option value="">Todos</option>
-              {uniqueTypes.map((t) => (
-                <option key={t} value={t}>{typeConfig[t]?.label ?? t}</option>
-              ))}
-            </select>
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, color: 'var(--text2)' }}>Etiqueta</span>
-            <select
-              value={filterLabel}
-              onChange={(e) => onFilterChange(filterName, filterPhone, filterType, e.target.value)}
-              style={{
-                padding: '5px 10px',
-                fontSize: 11,
-                borderRadius: 6,
-                border: '1px solid var(--border2)',
-                background: 'var(--surface)',
-                fontFamily: 'var(--font-jakarta)',
-                minWidth: 100,
-              }}
-            >
-              <option value="">Todas</option>
-              {uniqueLabels.map((l) => (
-                <option key={l} value={l}>{labelConfig[l]?.label ?? l}</option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            onClick={() => {
-              onFilterChange('', '', '', '')
-              setPage(0)
-            }}
-            style={{
-              padding: '5px 10px',
-              fontSize: 11,
-              borderRadius: 6,
-              border: '1px solid var(--border2)',
-              background: 'var(--hover)',
-              color: 'var(--text2)',
-              fontFamily: 'var(--font-jakarta)',
-              cursor: 'pointer',
-            }}
-          >
-            Limpiar
-          </button>
-        </div>
-        <p
-          style={{
-            textAlign: 'center',
-            color: 'var(--muted)',
-            fontSize: 14,
-            padding: 32,
-          }}
-        >
-          No hay clientes que coincidan con los filtros.
-        </p>
-      </div>
-    )
-  }
+  // ── Filter bar ──────────────────────────────────────────────────────────
 
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        minHeight: 0,
-      }}
-    >
+  function FilterBar() {
+    return (
       <div
         style={{
           display: 'flex',
           flexWrap: 'wrap',
-          gap: 12,
+          gap: 10,
           alignItems: 'center',
           padding: '10px 0 12px',
           borderBottom: '1px solid var(--border)',
@@ -343,143 +209,132 @@ export default function CustomersTable({
         >
           Filtros
         </span>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, color: 'var(--text2)' }}>Nombre</span>
-          <input
-            type="text"
-            value={filterName}
-            onChange={(e) => {
-              onFilterChange(e.target.value, filterPhone, filterType, filterLabel)
-              setPage(0)
-            }}
-            placeholder="Buscar..."
-            style={{
-              padding: '5px 10px',
-              fontSize: 11,
-              borderRadius: 6,
-              border: '1px solid var(--border2)',
-              background: 'var(--surface)',
-              color: 'var(--text)',
-              fontFamily: 'var(--font-jakarta)',
-              minWidth: 100,
-            }}
-          />
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, color: 'var(--text2)' }}>Teléfono</span>
-          <input
-            type="text"
-            value={filterPhone}
-            onChange={(e) => {
-              onFilterChange(filterName, e.target.value, filterType, filterLabel)
-              setPage(0)
-            }}
-            placeholder="Buscar..."
-            style={{
-              padding: '5px 10px',
-              fontSize: 11,
-              borderRadius: 6,
-              border: '1px solid var(--border2)',
-              background: 'var(--surface)',
-              color: 'var(--text)',
-              fontFamily: 'var(--font-jakarta)',
-              minWidth: 100,
-            }}
-          />
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, color: 'var(--text2)' }}>Tipo</span>
-          <select
-            value={filterType}
-            onChange={(e) => {
-              onFilterChange(filterName, filterPhone, e.target.value, filterLabel)
-              setPage(0)
-            }}
-            style={{
-              padding: '5px 10px',
-              fontSize: 11,
-              borderRadius: 6,
-              border: '1px solid var(--border2)',
-              background: 'var(--surface)',
-              color: 'var(--text)',
-              fontFamily: 'var(--font-jakarta)',
-              cursor: 'pointer',
-              minWidth: 100,
-            }}
-          >
-            <option value="">Todos</option>
-            {uniqueTypes.map((t) => (
-              <option key={t} value={t}>{typeConfig[t]?.label ?? t}</option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, color: 'var(--text2)' }}>Etiqueta</span>
-          <select
-            value={filterLabel}
-            onChange={(e) => {
-              onFilterChange(filterName, filterPhone, filterType, e.target.value)
-              setPage(0)
-            }}
-            style={{
-              padding: '5px 10px',
-              fontSize: 11,
-              borderRadius: 6,
-              border: '1px solid var(--border2)',
-              background: 'var(--surface)',
-              color: 'var(--text)',
-              fontFamily: 'var(--font-jakarta)',
-              cursor: 'pointer',
-              minWidth: 100,
-            }}
-          >
-            <option value="">Todas</option>
-            {uniqueLabels.map((l) => (
-              <option key={l} value={l}>{labelConfig[l]?.label ?? l}</option>
-            ))}
-          </select>
-        </label>
+
+        {/* Text search */}
+        <input
+          type="text"
+          value={filterText}
+          onChange={(e) => {
+            onFilterChange(e.target.value, filterType, filterLabel, filterIsCompany)
+            setPage(0)
+          }}
+          placeholder="Nombre, email o ID…"
+          style={{ ...filterInputStyle, minWidth: 160 }}
+        />
+
+        {/* Type filter */}
+        <select
+          value={filterType}
+          onChange={(e) => {
+            onFilterChange(filterText, e.target.value, filterLabel, filterIsCompany)
+            setPage(0)
+          }}
+          style={filterInputStyle}
+        >
+          <option value="">Todos los tipos</option>
+          {customerTypes.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+
+        {/* Label filter */}
+        <select
+          value={filterLabel}
+          onChange={(e) => {
+            onFilterChange(filterText, filterType, e.target.value, filterIsCompany)
+            setPage(0)
+          }}
+          style={filterInputStyle}
+        >
+          <option value="">Todas las etiquetas</option>
+          {customerLabels.map((l) => (
+            <option key={l.id} value={l.id}>{l.name}</option>
+          ))}
+        </select>
+
+        {/* Is company toggle */}
+        <select
+          value={
+            filterIsCompany === null ? '' : filterIsCompany ? 'true' : 'false'
+          }
+          onChange={(e) => {
+            const v = e.target.value
+            onFilterChange(
+              filterText,
+              filterType,
+              filterLabel,
+              v === '' ? null : v === 'true'
+            )
+            setPage(0)
+          }}
+          style={filterInputStyle}
+        >
+          <option value="">Personas y empresas</option>
+          <option value="true">Solo empresas</option>
+          <option value="false">Solo personas</option>
+        </select>
+
+        {/* Clear */}
         {hasActiveFilters && (
           <button
             type="button"
             onClick={() => {
-              onFilterChange('', '', '', '')
+              onFilterChange('', '', '', null)
               setPage(0)
             }}
             style={{
-              padding: '5px 10px',
-              fontSize: 11,
-              borderRadius: 6,
-              border: '1px solid var(--border2)',
+              ...filterInputStyle,
+              minWidth: 'auto',
               background: 'var(--hover)',
               color: 'var(--text2)',
-              fontFamily: 'var(--font-jakarta)',
               cursor: 'pointer',
             }}
           >
             Limpiar
           </button>
         )}
+
         <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>
           {filteredCustomers.length} resultado{filteredCustomers.length !== 1 ? 's' : ''}
         </span>
       </div>
+    )
+  }
 
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflow: 'auto',
-        }}
-      >
-        <table
-          style={{
-            width: '100%',
-            borderCollapse: 'collapse',
-            fontSize: 12,
-          }}
-        >
-          <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--card)', boxShadow: '0 1px 0 var(--border)' }}>
+  if (customers.length === 0) {
+    return (
+      <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 14, padding: 32 }}>
+        No hay clientes en el directorio.
+      </p>
+    )
+  }
+
+  if (filteredCustomers.length === 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        <FilterBar />
+        <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 14, padding: 32 }}>
+          No hay clientes que coincidan con los filtros.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <FilterBar />
+
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead
+            style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 1,
+              background: 'var(--card)',
+              boxShadow: '0 1px 0 var(--border)',
+            }}
+          >
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
               {COLUMNS.map(({ key, label, align }) => {
                 const isActive = sortBy === key
@@ -495,15 +350,10 @@ export default function CustomersTable({
                       cursor: 'pointer',
                       userSelect: 'none',
                       whiteSpace: 'nowrap',
+                      fontSize: 11,
                     }}
                   >
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}
-                    >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       {label}
                       {isActive && (
                         <span style={{ fontSize: 10, color: 'var(--gold)' }}>
@@ -514,86 +364,201 @@ export default function CustomersTable({
                   </th>
                 )
               })}
+              {canEdit && (
+                <th
+                  style={{
+                    padding: '10px 12px',
+                    color: 'var(--muted)',
+                    fontWeight: 600,
+                    fontSize: 11,
+                    textAlign: 'center',
+                  }}
+                >
+                  Acciones
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {paginatedCustomers.map((c) => {
-              const typeCfg = typeConfig[c.customer_type ?? ''] ?? {
-                bg: 'var(--hover)',
-                color: 'var(--text2)',
-                label: c.customer_type ?? '—',
-              }
-              const labelCfg = labelConfig[c.label ?? ''] ?? {
-                bg: 'var(--hover)',
-                color: 'var(--text2)',
-                label: c.label ?? '—',
-              }
+              const typeCfg = typeMap.get(c.customer_type ?? '')
+              const labelCfg = labelMap.get(c.label ?? '')
               const ltv = c.lifetime_value ?? 0
+
               return (
                 <tr
                   key={c.id}
-                  style={{ borderBottom: '1px solid var(--border)' }}
+                  style={{
+                    borderBottom: '1px solid var(--border)',
+                    cursor: 'pointer',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={(e) => {
+                    ;(e.currentTarget as HTMLTableRowElement).style.background =
+                      'var(--hover)'
+                  }}
+                  onMouseLeave={(e) => {
+                    ;(e.currentTarget as HTMLTableRowElement).style.background =
+                      'transparent'
+                  }}
+                  onClick={() => {
+                    window.location.href = `/customers/${c.id}`
+                  }}
                 >
-                  <td style={{ fontSize: 12, padding: '10px 12px', color: 'var(--text)' }}>
-                    {c.full_name ?? '—'}
+                  {/* Nombre */}
+                  <td style={{ padding: '10px 12px', color: 'var(--text)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontWeight: 500 }}>{c.full_name ?? '—'}</span>
+                      {c.is_company && (
+                        <span
+                          style={{
+                            fontSize: 9,
+                            padding: '1px 6px',
+                            borderRadius: 4,
+                            background: 'rgba(37,99,235,0.1)',
+                            color: 'var(--blue)',
+                            fontWeight: 600,
+                            flexShrink: 0,
+                          }}
+                        >
+                          Empresa
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td style={{ fontSize: 12, padding: '10px 12px', color: 'var(--text2)' }}>
+
+                  {/* Identificación */}
+                  <td style={{ padding: '10px 12px', color: 'var(--text2)' }}>
+                    {c.tax_id ? (
+                      <span>
+                        <span
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 700,
+                            color: 'var(--muted)',
+                            textTransform: 'uppercase',
+                            marginRight: 4,
+                          }}
+                        >
+                          {idTypeLabel[c.id_type ?? ''] ?? (c.id_type ?? '')}:
+                        </span>
+                        {c.tax_id}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+
+                  {/* Teléfono */}
+                  <td style={{ padding: '10px 12px', color: 'var(--text2)' }}>
                     {c.phone ?? '—'}
                   </td>
-                  <td style={{ fontSize: 12, padding: '10px 12px' }}>
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        padding: '2px 8px',
-                        borderRadius: 6,
-                        fontSize: 11,
-                        fontWeight: 500,
-                        background: typeCfg.bg,
-                        color: typeCfg.color,
-                      }}
-                    >
-                      {typeCfg.label}
-                    </span>
-                  </td>
-                  <td style={{ fontSize: 12, padding: '10px 12px' }}>
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        padding: '2px 8px',
-                        borderRadius: 6,
-                        fontSize: 11,
-                        fontWeight: 500,
-                        background: labelCfg.bg,
-                        color: labelCfg.color,
-                      }}
-                    >
-                      {labelCfg.label}
-                    </span>
-                  </td>
+
+                  {/* Email */}
                   <td
                     style={{
-                      fontSize: 12,
                       padding: '10px 12px',
-                      textAlign: 'right',
+                      color: 'var(--text2)',
+                      maxWidth: 180,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
                     }}
                   >
-                    {ltv > 0 ? (
+                    {c.email ?? '—'}
+                  </td>
+
+                  {/* Tipo */}
+                  <td style={{ padding: '10px 12px' }}>
+                    {typeCfg ? (
                       <span
-                        className="font-syne"
-                        style={{ fontWeight: 700, color: 'var(--gold)' }}
+                        style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          borderRadius: 6,
+                          fontSize: 11,
+                          fontWeight: 500,
+                          background: `${typeCfg.color}22`,
+                          color: typeCfg.color,
+                          border: `1px solid ${typeCfg.color}44`,
+                        }}
                       >
-                        $ {ltv.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {typeCfg.name}
                       </span>
                     ) : (
                       <span style={{ color: 'var(--muted)' }}>—</span>
                     )}
                   </td>
-                  <td style={{ fontSize: 12, padding: '10px 12px', color: 'var(--text2)' }}>
+
+                  {/* Etiqueta */}
+                  <td style={{ padding: '10px 12px' }}>
+                    {labelCfg ? (
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          borderRadius: 6,
+                          fontSize: 11,
+                          fontWeight: 500,
+                          background: `${labelCfg.color}22`,
+                          color: labelCfg.color,
+                          border: `1px solid ${labelCfg.color}44`,
+                        }}
+                      >
+                        {labelCfg.name}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--muted)' }}>—</span>
+                    )}
+                  </td>
+
+                  {/* LTV */}
+                  <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                    {ltv > 0 ? (
+                      <span
+                        className="font-syne"
+                        style={{ fontWeight: 700, color: 'var(--gold)' }}
+                      >
+                        ${' '}
+                        {ltv.toLocaleString('es-EC', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--muted)' }}>—</span>
+                    )}
+                  </td>
+
+                  {/* Última compra */}
+                  <td style={{ padding: '10px 12px', color: 'var(--text2)' }}>
                     {formatBusinessDate(c.last_purchase_at)}
                   </td>
-                  <td style={{ fontSize: 12, padding: '10px 12px', color: 'var(--text2)' }}>
-                    {formatBusinessDate(c.registered_since)}
-                  </td>
+
+                  {/* Acciones */}
+                  {canEdit && (
+                    <td
+                      style={{ padding: '10px 12px', textAlign: 'center' }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Link
+                        href={`/customers/${c.id}`}
+                        style={{
+                          fontSize: 11,
+                          padding: '3px 10px',
+                          borderRadius: 6,
+                          border: '1px solid var(--border2)',
+                          background: 'var(--surface)',
+                          color: 'var(--text2)',
+                          textDecoration: 'none',
+                          whiteSpace: 'nowrap',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Editar
+                      </Link>
+                    </td>
+                  )}
                 </tr>
               )
             })}
@@ -601,6 +566,7 @@ export default function CustomersTable({
         </table>
       </div>
 
+      {/* Pagination */}
       {totalPages > 1 && (
         <div
           style={{
@@ -616,7 +582,8 @@ export default function CustomersTable({
           }}
         >
           <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-            Mostrando {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sortedCustomers.length)} de{' '}
+            Mostrando {page * PAGE_SIZE + 1}–
+            {Math.min((page + 1) * PAGE_SIZE, sortedCustomers.length)} de{' '}
             {sortedCustomers.length}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -642,7 +609,7 @@ export default function CustomersTable({
               style={{
                 fontSize: 11,
                 color: 'var(--text2)',
-                minWidth: 60,
+                minWidth: 70,
                 textAlign: 'center',
               }}
             >

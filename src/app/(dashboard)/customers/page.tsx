@@ -21,9 +21,7 @@ export default async function CustomersPage({
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect('/login')
-  }
+  if (!user) redirect('/login')
 
   const { data: userData } = await supabase
     .from('users')
@@ -78,33 +76,55 @@ export default async function CustomersPage({
     )
   }
 
-  const { data: customersList } = await supabase
-    .from('customers')
-    .select(
-      'id, full_name, phone, email, customer_type, label, lifetime_value, last_purchase_at, registered_since, created_at'
-    )
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .gte('registered_since', from)
-    .lte('registered_since', to)
-    .order('created_at', { ascending: false })
-    .limit(200)
+  const CUSTOMER_SELECT =
+    'id, full_name, phone, email, tax_id, id_type, customer_type, label, lifetime_value, last_purchase_at, registered_since, is_company, contact_name, address, created_at'
 
-  const customers = customersList ?? []
+  const [
+    { data: customersList },
+    { data: prevCustomersList },
+    { data: typesList },
+    { data: labelsList },
+  ] = await Promise.all([
+    supabase
+      .from('customers')
+      .select(CUSTOMER_SELECT)
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .gte('registered_since', from)
+      .lte('registered_since', to)
+      .order('created_at', { ascending: false })
+      .limit(500),
+    supabase
+      .from('customers')
+      .select(CUSTOMER_SELECT)
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .gte('registered_since', prevFrom)
+      .lte('registered_since', prevTo)
+      .order('created_at', { ascending: false })
+      .limit(500),
+    supabase
+      .from('customer_types')
+      .select('id, name, color')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .eq('is_active', true)
+      .order('name', { ascending: true }),
+    supabase
+      .from('customer_labels')
+      .select('id, name, color')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .eq('is_active', true)
+      .order('name', { ascending: true }),
+  ])
 
-  const { data: prevCustomersList } = await supabase
-    .from('customers')
-    .select(
-      'id, full_name, phone, email, customer_type, label, lifetime_value, last_purchase_at, registered_since, created_at'
-    )
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .gte('registered_since', prevFrom)
-    .lte('registered_since', prevTo)
-    .order('created_at', { ascending: false })
-    .limit(200)
-
-  const prevCustomers = prevCustomersList ?? []
+  const customers = (customersList ?? []) as Parameters<
+    typeof CustomersOverview
+  >[0]['customers']
+  const prevCustomers = (prevCustomersList ?? []) as typeof customers
+  const customerTypes = (typesList ?? []) as { id: string; name: string; color: string }[]
+  const customerLabels = (labelsList ?? []) as { id: string; name: string; color: string }[]
 
   return (
     <>
@@ -127,6 +147,8 @@ export default async function CustomersPage({
         <CustomersOverview
           customers={customers}
           prevCustomers={prevCustomers}
+          customerTypes={customerTypes}
+          customerLabels={customerLabels}
           from={from}
           to={to}
           prevFrom={prevFrom}

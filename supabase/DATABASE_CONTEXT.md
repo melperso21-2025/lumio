@@ -66,10 +66,53 @@ Clientes de cada empresa.
 | id | uuid | PK |
 | company_id | uuid | FK → companies |
 | origin_channel_id | uuid | FK → sales_channels |
-| customer_type | text | — |
-| label | text | — |
+| full_name | text | — |
+| phone | text | — |
+| email | text | — |
+| tax_id | text | Número de identificación |
+| id_type | text | CHECK ('cedula','ruc','pasaporte') |
+| address | text | Opcional |
+| customer_type | text | UUID ref a customer_types.id |
+| label | text | UUID ref a customer_labels.id |
+| is_company | boolean | Default false |
+| contact_name | text | Persona de contacto si es empresa |
+| contact_phone | text | Teléfono de contacto empresa |
+| contact_email | text | Email de contacto empresa |
+| lifetime_value | numeric | Calculado por trigger |
+| last_purchase_at | timestamp | Actualizado por trigger |
+| registered_since | date | Fecha de alta |
 | tags | ARRAY | — |
 | deleted_at | timestamp | Soft delete |
+
+---
+
+### `customer_types`
+Tipos de cliente configurables por empresa.
+| Columna | Tipo | Notas |
+|---|---|---|
+| id | uuid | PK |
+| company_id | uuid | FK → companies |
+| name | text | Obligatorio |
+| color | text | Hex color, default '#888780' |
+| is_active | boolean | Default true |
+| deleted_at | timestamp | Soft delete |
+
+**RLS:** Los usuarios de la empresa pueden leer y crear. Solo admin puede soft-delete.
+
+---
+
+### `customer_labels`
+Etiquetas de cliente configurables por empresa.
+| Columna | Tipo | Notas |
+|---|---|---|
+| id | uuid | PK |
+| company_id | uuid | FK → companies |
+| name | text | Obligatorio |
+| color | text | Hex color, default '#888780' |
+| is_active | boolean | Default true |
+| deleted_at | timestamp | Soft delete |
+
+**RLS:** Los usuarios de la empresa pueden leer y crear. Solo admin puede soft-delete.
 
 ---
 
@@ -105,18 +148,53 @@ Canales de venta (WhatsApp, web, tienda física, etc.).
 ---
 
 ### `products`
-Catálogo de productos de cada empresa.
+Catálogo de productos y servicios de cada empresa.
 | Columna | Tipo | Notas |
 |---|---|---|
 | id | uuid | PK |
 | company_id | uuid | FK → companies |
 | supplier_id | uuid | FK → suppliers |
 | category_id | uuid | FK → product_categories |
+| name | text | — |
 | sku | text | UNIQUE por company_id |
-| current_stock | numeric | Actualizado por trigger |
+| product_type | text | `'product'` (default) \| `'service'` |
+| unit_type | text | `'unit'` \| `'weight'` \| `'volume'` \| `'length'` \| `'area'` — NULL para servicios |
+| unit_label | text | Ej: `'kg'`, `'litro'`, `'unidad'` — NULL para servicios |
+| is_perishable | boolean | Default false. Solo aplica a productos |
+| shelf_life_days | integer | Vida útil en días. NULL si no es perecedero |
+| expiry_date | date | Caducidad del lote actual. NULL si no aplica |
+| sale_price | numeric | Precio de venta |
+| unit_cost | numeric | Costo unitario |
+| supplier_price | numeric | Precio acordado con el proveedor. Actualizable desde movimientos de compra |
+| current_stock | numeric | Soporta decimales. Actualizado por trigger. 0 para servicios |
+| min_stock_alert | numeric | Umbral de alerta. Semáforo: 🔴 ≤ min · 🟡 ≤ min×2 · 🟢 > min×2 |
+| lead_time_days | integer | Días de reposición. NULL para servicios |
 | is_active | boolean | — |
 | tags | ARRAY | — |
 | deleted_at | timestamp | Soft delete |
+
+**Lógica de semáforo de stock:**
+- 🔴 Crítico: `current_stock <= min_stock_alert` (y `min_stock_alert > 0`)
+- 🟡 Bajo: `current_stock <= min_stock_alert * 2`
+- 🟢 Normal: `current_stock > min_stock_alert * 2`
+- Servicios: siempre muestran "N/A"
+
+**Lógica de semáforo de caducidad (`expiry_date`):**
+- 🔴 Vencido/Crítico: vencido o ≤ 7 días
+- 🟡 Advertencia: entre 8 y 30 días
+- 🟢 OK: > 30 días
+- Sin fecha o no perecedero: "—"
+
+**Nota sobre triggers:** El trigger `sync_inventory_from_sale_item` debe usar `::numeric` (no `::integer`) para soportar cantidades decimales en movimientos de inventario.
+
+**Lógica de alerta de reposición urgente:**
+- Para cada producto físico activo con `min_stock_alert > 0` y `lead_time_days > 0`
+- `días_disponibles = current_stock / max(min_stock_alert / 30, 0.1)`
+- Si `días_disponibles <= lead_time_days` → el producto necesita pedirse hoy
+
+**⚠️ Fase B pendiente (no implementado):**
+- Lotes completos (`inventory_batches`): trazabilidad de `batch_number`, `expiry_date`, `cost` por lote
+- Stock por sucursal (`branch_stock`): cada producto con stock independiente por `branch_id`
 
 ---
 
@@ -127,7 +205,8 @@ Categorías de productos, soporta jerarquía padre/hijo.
 | id | uuid | PK |
 | company_id | uuid | FK → companies |
 | parent_id | uuid | FK → product_categories (self-referencial) |
-| slug | text | UNIQUE por company_id |
+| name | text | — |
+| slug | text | UNIQUE por company_id. Auto-generado desde el nombre |
 | deleted_at | timestamp | Soft delete |
 
 ---
@@ -151,7 +230,13 @@ Movimientos de inventario (entradas, salidas, ajustes).
 | id | uuid | PK |
 | company_id | uuid | FK → companies |
 | product_id | uuid | FK → products |
+| type | text | `'in'` \| `'out'` \| `'adjustment'` |
+| reason | text | `'purchase'` \| `'sale'` \| `'return'` \| `'adjustment'` \| `'damage'` \| `'transfer'` \| `'initial'` |
+| quantity | numeric | Soporta decimales |
 | movement_date | date | — |
+| notes | text | Obligatorio para `type='adjustment'` |
+| batch_number | text | Número de lote. Opcional, registrado en compras y ajustes |
+| created_at | timestamp | — |
 
 ---
 

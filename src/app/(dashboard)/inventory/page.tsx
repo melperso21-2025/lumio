@@ -27,11 +27,12 @@ export default async function InventoryPage({
 
   const { data: userData } = await supabase
     .from('users')
-    .select('company_id')
+    .select('company_id, role')
     .eq('id', user.id)
     .single()
 
   const companyId = userData?.company_id
+  const userRole  = userData?.role ?? 'operator'
   const defaults = getDefaultDateRange()
   const from = params.from ?? defaults.from
   const to = params.to ?? defaults.to
@@ -81,23 +82,31 @@ export default async function InventoryPage({
   const { data: productsList } = await supabase
     .from('products')
     .select(
-      'id, name, sku, sale_price, unit_cost, current_stock, min_stock_alert, lead_time_days, category_id, is_active'
+      'id, name, sku, sale_price, unit_cost, supplier_price, current_stock, min_stock_alert, lead_time_days, category_id, supplier_id, is_active, product_type, unit_type, unit_label, is_perishable, shelf_life_days, expiry_date'
     )
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .eq('is_active', true)
     .order('name', { ascending: true })
-    .limit(200)
+    .limit(500)
 
   const { data: categoriesList } = await supabase
     .from('product_categories')
+    .select('id, name, parent_id')
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .order('name')
+
+  const { data: suppliersList } = await supabase
+    .from('suppliers')
     .select('id, name')
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .order('name')
 
-  const products = productsList ?? []
+  const products  = productsList ?? []
   const categories = categoriesList ?? []
+  const suppliers  = suppliersList ?? []
   const categoriesMap = Object.fromEntries(
     categories.map((c) => [c.id, c.name])
   ) as Record<string, string>
@@ -155,7 +164,9 @@ export default async function InventoryPage({
         <InventoryOverview
           products={products}
           categories={categories}
+          suppliers={suppliers}
           categoriesMap={categoriesMap}
+          userRole={userRole}
           movementsIn={movementsIn}
           movementsOut={movementsOut}
           prevMovementsIn={prevMovementsIn}

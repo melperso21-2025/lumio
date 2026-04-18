@@ -101,8 +101,10 @@ export default function Sidebar({
     {
       label: 'Configuración',
       items: [
-        { href: '/settings/users',  label: 'Usuarios & Roles', icon: '🔐', roles: ['admin'] },
-        { href: '/settings/import', label: 'Importar datos',   icon: '⬆',  roles: ['admin'] },
+        { href: '/settings/users',     label: 'Usuarios & Roles', icon: '🔐', roles: ['admin'] },
+        { href: '/settings/customers', label: 'Clientes',          icon: '🏷',  roles: ['admin', 'manager'] },
+        { href: '/settings/products',  label: 'Productos',         icon: '📦',  roles: ['admin', 'manager'] },
+        { href: '/settings/import',    label: 'Importar datos',   icon: '⬆',  roles: ['admin'] },
       ],
     },
     {

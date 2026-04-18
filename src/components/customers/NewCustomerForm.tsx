@@ -1,12 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toLocalISO } from '@/lib/dateUtils'
 import PhoneInput from '@/components/ui/PhoneInput'
 
-// ── Estilos base (igual que QuickSaleForm) ─────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────
+
+interface CatalogItem {
+  id: string
+  name: string
+  color: string
+}
+
+// ── Shared styles ──────────────────────────────────────────────────────────
+
 const inputStyle: React.CSSProperties = {
   background: 'var(--surface)',
   border: '1px solid var(--border2)',
@@ -29,38 +38,102 @@ const labelStyle: React.CSSProperties = {
   marginBottom: 4,
 }
 
-function onFocus(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) {
+function onFocus(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
   e.target.style.borderColor = 'var(--gold)'
   e.target.style.boxShadow = '0 0 0 3px var(--gold-bg)'
 }
-function onBlur(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) {
+function onBlur(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
   e.target.style.borderColor = 'var(--border2)'
   e.target.style.boxShadow = 'none'
 }
 
-// ── Componente ─────────────────────────────────────────────────
+// ── Component ──────────────────────────────────────────────────────────────
+
 export default function NewCustomerForm() {
   const router = useRouter()
+  const supabase = createClient()
 
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
+  // Catalog state
+  const [customerTypes, setCustomerTypes] = useState<CatalogItem[]>([])
+  const [customerLabels, setCustomerLabels] = useState<CatalogItem[]>([])
+  const [loadingCatalogs, setLoadingCatalogs] = useState(false)
+
+  // Required fields
   const [full_name, setFullName] = useState('')
+  const [id_type, setIdType] = useState<'cedula' | 'ruc' | 'pasaporte'>('cedula')
+  const [tax_id, setTaxId] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
-  const [customer_type, setCustomerType] = useState('retail')
-  const [label, setLabel] = useState('new')
+
+  // Optional fields
+  const [address, setAddress] = useState('')
+  const [customer_type, setCustomerType] = useState('')
+  const [label, setLabel] = useState('')
   const [registered_since, setRegisteredSince] = useState(toLocalISO(new Date()))
+
+  // Company section
+  const [is_company, setIsCompany] = useState(false)
+  const [contact_name, setContactName] = useState('')
+  const [contact_phone, setContactPhone] = useState('')
+  const [contact_email, setContactEmail] = useState('')
+
+  async function loadCatalogs(companyId: string) {
+    setLoadingCatalogs(true)
+    const [{ data: types }, { data: labels }] = await Promise.all([
+      supabase
+        .from('customer_types')
+        .select('id, name, color')
+        .eq('company_id', companyId)
+        .is('deleted_at', null)
+        .eq('is_active', true)
+        .order('name', { ascending: true }),
+      supabase
+        .from('customer_labels')
+        .select('id, name, color')
+        .eq('company_id', companyId)
+        .is('deleted_at', null)
+        .eq('is_active', true)
+        .order('name', { ascending: true }),
+    ])
+    setCustomerTypes(types ?? [])
+    setCustomerLabels(labels ?? [])
+    setLoadingCatalogs(false)
+  }
+
+  async function handleOpen() {
+    setOpen(true)
+    // Get company_id to load catalogs
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: userRow } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', user.id)
+      .single()
+    if (userRow?.company_id) {
+      loadCatalogs(userRow.company_id)
+    }
+  }
 
   function resetForm() {
     setFullName('')
+    setIdType('cedula')
+    setTaxId('')
     setPhone('')
     setEmail('')
-    setCustomerType('retail')
-    setLabel('new')
+    setAddress('')
+    setCustomerType('')
+    setLabel('')
     setRegisteredSince(toLocalISO(new Date()))
+    setIsCompany(false)
+    setContactName('')
+    setContactPhone('')
+    setContactEmail('')
     setError(null)
     setSuccess(false)
   }
@@ -76,17 +149,14 @@ export default function NewCustomerForm() {
     setError(null)
     setSuccess(false)
 
-    if (!full_name.trim()) {
-      setError('El nombre es obligatorio.')
-      return
-    }
+    if (!full_name.trim()) { setError('El nombre completo es obligatorio.'); return }
+    if (!tax_id.trim())    { setError('El número de identificación es obligatorio.'); return }
+    if (!phone.trim())     { setError('El teléfono es obligatorio.'); return }
+    if (!email.trim())     { setError('El email es obligatorio.'); return }
 
     setLoading(true)
-    const supabase = createClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       setError('Sesión expirada. Vuelve a iniciar sesión.')
       setLoading(false)
@@ -109,11 +179,18 @@ export default function NewCustomerForm() {
     const { error: insertError } = await supabase.from('customers').insert({
       company_id,
       full_name: full_name.trim(),
+      id_type,
+      tax_id: tax_id.trim(),
       phone: phone.trim() || null,
       email: email.trim() || null,
-      customer_type,
-      label,
+      address: address.trim() || null,
+      customer_type: customer_type || null,
+      label: label || null,
       registered_since,
+      is_company,
+      contact_name: is_company && contact_name.trim() ? contact_name.trim() : null,
+      contact_phone: is_company && contact_phone.trim() ? contact_phone.trim() : null,
+      contact_email: is_company && contact_email.trim() ? contact_email.trim() : null,
     })
 
     if (insertError) {
@@ -133,11 +210,20 @@ export default function NewCustomerForm() {
     }, 1200)
   }
 
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') handleClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, loading])
+
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={handleOpen}
         className="font-syne font-bold text-sm px-4 py-2 rounded-lg transition-opacity hover:opacity-90"
         style={{
           background: 'linear-gradient(135deg, #F5C842, #F09A1A)',
@@ -160,6 +246,8 @@ export default function NewCustomerForm() {
             alignItems: 'center',
             justifyContent: 'center',
             background: 'rgba(0,0,0,0.45)',
+            overflowY: 'auto',
+            padding: '16px 0',
           }}
           onClick={handleClose}
         >
@@ -170,11 +258,13 @@ export default function NewCustomerForm() {
               borderRadius: 12,
               padding: 24,
               width: '100%',
-              maxWidth: 480,
+              maxWidth: 520,
               boxShadow: '0 20px 40px rgba(0,0,0,0.14)',
+              margin: 'auto',
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Header */}
             <div
               style={{
                 display: 'flex',
@@ -242,110 +332,357 @@ export default function NewCustomerForm() {
               onSubmit={handleSubmit}
               style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
             >
-              <div>
-                <label htmlFor="nc-full_name" style={labelStyle}>
-                  Nombre completo
-                </label>
-                <input
-                  id="nc-full_name"
-                  type="text"
-                  required
-                  value={full_name}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Nombre completo"
-                  style={inputStyle}
-                  onFocus={onFocus}
-                  onBlur={onBlur}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="nc-phone" style={labelStyle}>
-                  Teléfono
-                </label>
-                <PhoneInput
-                  id="nc-phone"
-                  value={phone}
-                  onChange={setPhone}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="nc-email" style={labelStyle}>
-                  Email
-                </label>
-                <input
-                  id="nc-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="cliente@empresa.com"
-                  style={inputStyle}
-                  onFocus={onFocus}
-                  onBlur={onBlur}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="nc-customer_type" style={labelStyle}>
-                  Tipo de cliente
-                </label>
-                <select
-                  id="nc-customer_type"
-                  value={customer_type}
-                  onChange={(e) => setCustomerType(e.target.value)}
-                  style={inputStyle}
-                  onFocus={onFocus}
-                  onBlur={onBlur}
-                >
-                  <option value="retail">Retail (consumidor final)</option>
-                  <option value="wholesale">Mayorista</option>
-                  <option value="occasional">Eventual</option>
-                  <option value="b2b">Empresa (B2B)</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="nc-label" style={labelStyle}>
-                  Etiqueta
-                </label>
-                <select
-                  id="nc-label"
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  style={inputStyle}
-                  onFocus={onFocus}
-                  onBlur={onBlur}
-                >
-                  <option value="new">Nuevo</option>
-                  <option value="frequent">Frecuente</option>
-                  <option value="vip">VIP</option>
-                  <option value="recovery">Recuperar</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="nc-registered_since" style={labelStyle}>
-                  Cliente desde
-                </label>
-                <input
-                  id="nc-registered_since"
-                  type="date"
-                  value={registered_since}
-                  onChange={(e) => setRegisteredSince(e.target.value)}
-                  style={inputStyle}
-                  onFocus={onFocus}
-                  onBlur={onBlur}
-                />
-              </div>
-
+              {/* ── Sección: Identificación ── */}
               <div
                 style={{
-                  display: 'flex',
-                  gap: 8,
-                  marginTop: 8,
+                  padding: '10px 12px',
+                  background: 'var(--bg)',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
                 }}
               >
+                <p
+                  style={{
+                    fontSize: 9,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    fontWeight: 700,
+                    color: 'var(--muted)',
+                    marginBottom: 10,
+                  }}
+                >
+                  Identificación
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div>
+                    <label htmlFor="nc-full_name" style={labelStyle}>
+                      Nombre completo *
+                    </label>
+                    <input
+                      id="nc-full_name"
+                      type="text"
+                      required
+                      value={full_name}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Nombre completo"
+                      style={inputStyle}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
+                    <div>
+                      <label htmlFor="nc-id_type" style={labelStyle}>
+                        Tipo de ID *
+                      </label>
+                      <select
+                        id="nc-id_type"
+                        value={id_type}
+                        onChange={(e) => setIdType(e.target.value as 'cedula' | 'ruc' | 'pasaporte')}
+                        style={inputStyle}
+                        onFocus={onFocus}
+                        onBlur={onBlur}
+                      >
+                        <option value="cedula">Cédula</option>
+                        <option value="ruc">RUC</option>
+                        <option value="pasaporte">Pasaporte</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="nc-tax_id" style={labelStyle}>
+                        Número de ID *
+                      </label>
+                      <input
+                        id="nc-tax_id"
+                        type="text"
+                        required
+                        value={tax_id}
+                        onChange={(e) => setTaxId(e.target.value)}
+                        placeholder="1234567890"
+                        style={inputStyle}
+                        onFocus={onFocus}
+                        onBlur={onBlur}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Sección: Contacto ── */}
+              <div
+                style={{
+                  padding: '10px 12px',
+                  background: 'var(--bg)',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: 9,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    fontWeight: 700,
+                    color: 'var(--muted)',
+                    marginBottom: 10,
+                  }}
+                >
+                  Contacto
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div>
+                    <label htmlFor="nc-phone" style={labelStyle}>
+                      Teléfono *
+                    </label>
+                    <PhoneInput
+                      id="nc-phone"
+                      value={phone}
+                      onChange={setPhone}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="nc-email" style={labelStyle}>
+                      Email *
+                    </label>
+                    <input
+                      id="nc-email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="cliente@empresa.com"
+                      style={inputStyle}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="nc-address" style={labelStyle}>
+                      Dirección
+                    </label>
+                    <textarea
+                      id="nc-address"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Calle, número, ciudad…"
+                      rows={2}
+                      style={{
+                        ...inputStyle,
+                        resize: 'vertical',
+                        minHeight: 52,
+                      }}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Sección: Clasificación ── */}
+              <div
+                style={{
+                  padding: '10px 12px',
+                  background: 'var(--bg)',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: 9,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    fontWeight: 700,
+                    color: 'var(--muted)',
+                    marginBottom: 10,
+                  }}
+                >
+                  Clasificación
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label htmlFor="nc-customer_type" style={labelStyle}>
+                      Tipo de cliente
+                    </label>
+                    {loadingCatalogs ? (
+                      <p style={{ fontSize: 12, color: 'var(--muted)' }}>Cargando…</p>
+                    ) : (
+                      <select
+                        id="nc-customer_type"
+                        value={customer_type}
+                        onChange={(e) => setCustomerType(e.target.value)}
+                        style={inputStyle}
+                        onFocus={onFocus}
+                        onBlur={onBlur}
+                      >
+                        <option value="">— Sin tipo —</option>
+                        {customerTypes.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="nc-label" style={labelStyle}>
+                      Etiqueta
+                    </label>
+                    {loadingCatalogs ? (
+                      <p style={{ fontSize: 12, color: 'var(--muted)' }}>Cargando…</p>
+                    ) : (
+                      <select
+                        id="nc-label"
+                        value={label}
+                        onChange={(e) => setLabel(e.target.value)}
+                        style={inputStyle}
+                        onFocus={onFocus}
+                        onBlur={onBlur}
+                      >
+                        <option value="">— Sin etiqueta —</option>
+                        {customerLabels.map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {l.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label htmlFor="nc-registered_since" style={labelStyle}>
+                      Cliente desde
+                    </label>
+                    <input
+                      id="nc-registered_since"
+                      type="date"
+                      value={registered_since}
+                      onChange={(e) => setRegisteredSince(e.target.value)}
+                      style={inputStyle}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Toggle empresa ── */}
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  cursor: 'pointer',
+                  padding: '10px 12px',
+                  background: is_company ? 'rgba(37,99,235,0.05)' : 'var(--bg)',
+                  borderRadius: 8,
+                  border: `1px solid ${is_company ? 'rgba(37,99,235,0.25)' : 'var(--border)'}`,
+                  transition: 'all 0.15s',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={is_company}
+                  onChange={(e) => setIsCompany(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: 'var(--blue)', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>
+                  ¿Es una empresa?
+                </span>
+                {is_company && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      padding: '2px 7px',
+                      borderRadius: 5,
+                      background: 'rgba(37,99,235,0.1)',
+                      color: 'var(--blue)',
+                      fontWeight: 600,
+                      marginLeft: 'auto',
+                    }}
+                  >
+                    Empresa
+                  </span>
+                )}
+              </label>
+
+              {/* ── Sección: Contacto de empresa ── */}
+              {is_company && (
+                <div
+                  style={{
+                    padding: '10px 12px',
+                    background: 'rgba(37,99,235,0.03)',
+                    borderRadius: 8,
+                    border: '1px solid rgba(37,99,235,0.15)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12,
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: 9,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.1em',
+                      fontWeight: 700,
+                      color: 'var(--blue)',
+                    }}
+                  >
+                    Contacto de empresa
+                  </p>
+
+                  <div>
+                    <label htmlFor="nc-contact_name" style={labelStyle}>
+                      Persona de contacto
+                    </label>
+                    <input
+                      id="nc-contact_name"
+                      type="text"
+                      value={contact_name}
+                      onChange={(e) => setContactName(e.target.value)}
+                      placeholder="Nombre del contacto"
+                      style={inputStyle}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="nc-contact_phone" style={labelStyle}>
+                      Teléfono de contacto
+                    </label>
+                    <PhoneInput
+                      id="nc-contact_phone"
+                      value={contact_phone}
+                      onChange={setContactPhone}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="nc-contact_email" style={labelStyle}>
+                      Email de contacto
+                    </label>
+                    <input
+                      id="nc-contact_email"
+                      type="email"
+                      value={contact_email}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                      placeholder="contacto@empresa.com"
+                      style={inputStyle}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* ── Buttons ── */}
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                 <button
                   type="button"
                   onClick={handleClose}
@@ -381,7 +718,7 @@ export default function NewCustomerForm() {
                     opacity: loading ? 0.7 : 1,
                   }}
                 >
-                  {loading ? 'Guardando...' : 'Guardar'}
+                  {loading ? 'Guardando…' : 'Guardar'}
                 </button>
               </div>
             </form>
