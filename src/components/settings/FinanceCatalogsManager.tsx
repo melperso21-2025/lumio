@@ -230,7 +230,7 @@ export default function FinanceCatalogsManager({ companyId }: { companyId: strin
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500, truncate: 'true' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {cat.name}
                     </span>
                     <span style={{
