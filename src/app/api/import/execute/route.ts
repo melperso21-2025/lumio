@@ -232,6 +232,9 @@ function updateContext(
     case 'sales_channels':
       if (data.name) ctx.channelsMap[String(data.name).toLowerCase()] = insertedId
       break
+    case 'branches':
+      if (data.name) ctx.branchesMap[String(data.name).toLowerCase()] = insertedId
+      break
     case 'customer_types':
       if (data.name) ctx.customerTypesMap[String(data.name).toLowerCase()] = insertedId
       break

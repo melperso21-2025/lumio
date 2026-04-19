@@ -164,7 +164,7 @@ export function parseFileToRows(
   const buf  = Buffer.from(fileDataBase64, 'base64')
   const wb   = XLSX.read(buf, { type: 'buffer', cellDates: false })
   const ws   = wb.Sheets[wb.SheetNames[0]]
-  const raw  = XLSX.utils.sheet_to_json<Record<string, string>>(ws, {
+  const raw = XLSX.utils.sheet_to_json<string[]>(ws, {
     header: 1,
     raw: false,
     defval: '',

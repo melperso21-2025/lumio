@@ -30,6 +30,7 @@ export type EntityType =
   | 'suppliers'
   | 'product_categories'
   | 'sales_channels'
+  | 'branches'
   | 'customer_types'
   | 'customer_labels'
   | 'products'
@@ -93,6 +94,18 @@ export const ENTITY_DEFS: Record<EntityType, EntityDef> = {
     dedupFields: ['name'],
     fields: [
       { key: 'name', label: 'nombre', required: true, type: 'text', example: 'WhatsApp' },
+    ],
+  },
+
+  branches: {
+    key: 'branches',
+    label: 'Sucursales',
+    table: 'branches',
+    description: 'Sucursales físicas o digitales de la empresa.',
+    dependencies: [],
+    dedupFields: ['name'],
+    fields: [
+      { key: 'name', label: 'nombre', required: true, type: 'text', example: 'Matriz Quito' },
     ],
   },
 
@@ -289,6 +302,7 @@ export const ENTITY_ORDER: EntityType[] = [
   'suppliers',
   'product_categories',
   'sales_channels',
+  'branches',
   'customer_types',
   'customer_labels',
   'products',

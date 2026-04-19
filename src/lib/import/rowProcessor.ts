@@ -161,6 +161,16 @@ export function validateAndTransform(
       return { data: { company_id: ctx.companyId, name }, warnings }
     }
 
+    // ── branches ──────────────────────────────────────────────────────
+    case 'branches': {
+      const name = row['nombre']?.trim()
+      if (!name) throw new Error('El campo "nombre" es obligatorio')
+      if (ctx.branchesMap[name.toLowerCase()]) {
+        warnings.push(`Sucursal "${name}" ya existe`)
+      }
+      return { data: { company_id: ctx.companyId, name }, warnings }
+    }
+
     // ── customer_types ──────────────────────────────────────────────────
     case 'customer_types': {
       const name = row['nombre']?.trim()
