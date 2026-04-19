@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { validatePhone, validateTaxId, validateDate } from '@/lib/validations'
 
 // ── GET ────────────────────────────────────────────────────────────────────
 
@@ -129,24 +130,73 @@ export async function PATCH(
       contact_email?: string | null
     }
 
-    // Validate required fields
-    if (!body.full_name?.trim()) {
-      return NextResponse.json(
-        { error: 'El nombre completo es obligatorio' },
-        { status: 400 }
-      )
-    }
-    if (!body.tax_id?.trim()) {
-      return NextResponse.json(
-        { error: 'El número de identificación es obligatorio' },
-        { status: 400 }
-      )
-    }
+    // Validate required fields and Ecuador-specific formats
+    const validationErrors: Record<string, string> = {}
+
+    if (!body.full_name?.trim() || body.full_name.trim().length < 2)
+      validationErrors.full_name = body.full_name?.trim()
+        ? 'El nombre debe tener al menos 2 caracteres'
+        : 'El nombre completo es obligatorio'
+
+    if (!body.email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email))
+      validationErrors.email = body.email?.trim()
+        ? 'El email no tiene un formato válido'
+        : 'El email es obligatorio'
+
     if (!body.phone?.trim()) {
-      return NextResponse.json({ error: 'El teléfono es obligatorio' }, { status: 400 })
+      validationErrors.phone = 'El teléfono es obligatorio'
+    } else {
+      const phoneRes = validatePhone(body.phone)
+      if (!phoneRes.valid) validationErrors.phone = phoneRes.error!
     }
-    if (!body.email?.trim()) {
-      return NextResponse.json({ error: 'El email es obligatorio' }, { status: 400 })
+
+    if (!body.tax_id?.trim()) {
+      validationErrors.tax_id = 'El número de identificación es obligatorio'
+    } else if (body.id_type && ['cedula', 'ruc', 'pasaporte'].includes(body.id_type)) {
+      const taxRes = validateTaxId(body.tax_id.trim(), body.id_type as 'cedula' | 'ruc' | 'pasaporte')
+      if (!taxRes.valid) validationErrors.tax_id = taxRes.error!
+    }
+
+    if (!body.registered_since) {
+      validationErrors.registered_since = 'La fecha de alta es obligatoria'
+    } else {
+      const dateRes = validateDate(body.registered_since)
+      if (!dateRes.valid) validationErrors.registered_since = dateRes.error!
+    }
+
+    if (body.contact_phone) {
+      const cpRes = validatePhone(body.contact_phone)
+      if (!cpRes.valid) validationErrors.contact_phone = cpRes.error!
+    }
+
+    // Verify customer_type UUID belongs to this company's catalog
+    if (body.customer_type) {
+      const { data: ctData } = await supabaseAdmin
+        .from('customer_types')
+        .select('id')
+        .eq('id', body.customer_type)
+        .eq('company_id', userData.company_id)
+        .is('deleted_at', null)
+        .single()
+      if (!ctData)
+        validationErrors.customer_type = 'Tipo de cliente no válido para esta empresa. Ve a Configuración → Clientes para crearlo.'
+    }
+
+    // Verify label UUID belongs to this company's catalog
+    if (body.label) {
+      const { data: lblData } = await supabaseAdmin
+        .from('customer_labels')
+        .select('id')
+        .eq('id', body.label)
+        .eq('company_id', userData.company_id)
+        .is('deleted_at', null)
+        .single()
+      if (!lblData)
+        validationErrors.label = 'Etiqueta no válida para esta empresa. Ve a Configuración → Clientes para crearlo.'
+    }
+
+    if (Object.keys(validationErrors).length > 0) {
+      return NextResponse.json({ error: 'Datos inválidos', errors: validationErrors }, { status: 400 })
     }
 
     const now = new Date().toISOString()

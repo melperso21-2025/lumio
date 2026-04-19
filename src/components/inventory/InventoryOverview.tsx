@@ -230,7 +230,7 @@ export default function InventoryOverview({
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <ExportButton data={exportData} filename={`inventario_${from}_${to}`} sheetName="Productos" />
-            <NewProductForm categories={categories} />
+            <NewProductForm categories={categories} suppliers={suppliers} />
           </div>
         </div>
 

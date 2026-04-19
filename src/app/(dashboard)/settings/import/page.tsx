@@ -2,14 +2,19 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Topbar from '@/components/layout/Topbar'
 import AiInsightBox from '@/components/ui/AiInsightBox'
-import ImportSection from '@/components/settings/ImportSection'
+import ImportWizard from '@/components/settings/import/ImportWizard'
+import ImportHistory from '@/components/settings/import/ImportHistory'
 
-export default async function SettingsImportPage() {
-  // 1. Auth
+export default async function SettingsImportPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>
+}) {
+  const params = await searchParams
+  const activeTab = params.tab === 'history' ? 'history' : 'import'
+
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const { data: userData } = await supabase
@@ -18,27 +23,17 @@ export default async function SettingsImportPage() {
     .eq('id', user.id)
     .single()
 
-  const companyId = userData?.company_id
-  const userRole = userData?.role
-  const isPulseAdmin = userData?.is_pulse_admin ?? false
-  const canImport = userRole === 'admin' || isPulseAdmin
+  const companyId   = userData?.company_id
+  const userRole    = userData?.role ?? 'operator'
+  const isPulseAdmin= userData?.is_pulse_admin ?? false
+  const canImport   = userRole === 'admin' || isPulseAdmin
 
-  // Si no hay companyId → mensaje igual que otros módulos
   if (!companyId) {
     return (
       <>
-        <Topbar
-          pageTitle="Importar datos"
-          pageSubtitle="Carga masiva desde CSV"
-        />
+        <Topbar pageTitle="Importar datos" pageSubtitle="Carga masiva" />
         <div style={{ padding: '14px 16px' }}>
-          <p
-            style={{
-              fontFamily: 'var(--font-syne)',
-              color: 'var(--muted)',
-              fontSize: 14,
-            }}
-          >
+          <p style={{ fontFamily: 'var(--font-syne)', color: 'var(--muted)', fontSize: 14 }}>
             No tienes una empresa asignada.
           </p>
         </div>
@@ -46,40 +41,12 @@ export default async function SettingsImportPage() {
     )
   }
 
-  // 2. Obtener canales y categorías para mapeo en importación
-  const { data: channelsList } = await supabase
-    .from('sales_channels')
-    .select('id, name, type')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .order('name')
-
-  const { data: categoriesList } = await supabase
-    .from('product_categories')
-    .select('id, name')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .order('name')
-
-  const channels = channelsList ?? []
-  const categories = categoriesList ?? []
-
   return (
     <>
-      <Topbar
-        pageTitle="Importar datos"
-        pageSubtitle="Carga masiva desde CSV"
-      />
+      <Topbar pageTitle="Importar datos" pageSubtitle="Carga masiva desde Excel o CSV" />
 
-      <div
-        style={{
-          padding: '14px 16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 14,
-        }}
-      >
-        {/* Sección 2 — Si no puede importar */}
+      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14, height: 'calc(100vh - 52px)', overflow: 'hidden' }}>
+
         {!canImport && (
           <AiInsightBox
             variant="blue"
@@ -88,42 +55,72 @@ export default async function SettingsImportPage() {
           />
         )}
 
-        {/* Sección 3 — Si puede importar, mostrar AiInsightBox informativo */}
         {canImport && (
-          <AiInsightBox
-            variant="gold"
-            title="✦ Cómo funciona la importación"
-            text="Descarga la plantilla CSV del tipo de datos que quieres importar, complétala con tu información y súbela. Lumio validará cada fila antes de guardar. Los errores se muestran fila por fila para que puedas corregirlos."
-          />
-        )}
+          <>
+            {/* ── Tabs ── */}
+            <TabBar active={activeTab} />
 
-        {/* Sección 4 — 3 ImportSection en flex column gap 20 */}
-        {canImport && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <ImportSection
-              type="sales"
-              title="Importar ventas"
-              description="Carga el historial de transacciones de ventas."
-              companyId={companyId}
-              channels={channels}
-            />
-            <ImportSection
-              type="customers"
-              title="Importar clientes"
-              description="Carga tu base de datos de clientes existente."
-              companyId={companyId}
-              channels={channels}
-            />
-            <ImportSection
-              type="products"
-              title="Importar productos"
-              description="Carga tu catálogo de productos e inventario inicial."
-              companyId={companyId}
-              categories={categories}
-            />
-          </div>
+            {/* ── Content ── */}
+            <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {activeTab === 'import' && (
+                <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div>
+                    <h1 className="font-syne font-bold" style={{ fontSize: 17, color: 'var(--text)', margin: '0 0 4px' }}>
+                      Importación de datos
+                    </h1>
+                    <p style={{ fontSize: 12, color: 'var(--text2)' }}>
+                      Importa proveedores, productos, clientes, ventas y más desde Excel o CSV.
+                      El sistema valida todos los datos antes de guardarlos.
+                    </p>
+                  </div>
+                  <ImportWizard companyId={companyId} />
+                </div>
+              )}
+
+              {activeTab === 'history' && (
+                <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                  <h1 className="font-syne font-bold" style={{ fontSize: 17, color: 'var(--text)', margin: '0 0 12px', flexShrink: 0 }}>
+                    Historial de importaciones
+                  </h1>
+                  <ImportHistory companyId={companyId} userRole={userRole} />
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
     </>
+  )
+}
+
+// ── Tab bar (server-renderable with links) ────────────────────────────────
+
+function TabBar({ active }: { active: string }) {
+  const tabs = [
+    { key: 'import',  label: '📤 Importar datos',  href: '/settings/import' },
+    { key: 'history', label: '📋 Historial',        href: '/settings/import?tab=history' },
+  ]
+  return (
+    <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', paddingBottom: 0, flexShrink: 0 }}>
+      {tabs.map((t) => (
+        <a
+          key={t.key}
+          href={t.href}
+          style={{
+            padding: '8px 16px',
+            fontSize: 13,
+            fontWeight: 600,
+            fontFamily: 'var(--font-syne)',
+            color: active === t.key ? 'var(--gold)' : 'var(--muted)',
+            borderBottom: active === t.key ? '2px solid var(--gold)' : '2px solid transparent',
+            textDecoration: 'none',
+            transition: 'all 0.12s',
+            marginBottom: -1,
+          }}
+        >
+          {t.label}
+        </a>
+      ))}
+    </div>
   )
 }

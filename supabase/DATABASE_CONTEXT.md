@@ -241,13 +241,35 @@ Movimientos de inventario (entradas, salidas, ajustes).
 ---
 
 ### `suppliers`
-Proveedores de productos.
+Proveedores de productos (empresas o personas naturales).
 | Columna | Tipo | Notas |
 |---|---|---|
 | id | uuid | PK |
 | company_id | uuid | FK → companies |
-| country_id | uuid | FK → countries |
+| name | text | Nombre empresa o nombre completo (generado de first+last) |
+| first_name | text | Nombre (solo personas naturales) |
+| last_name | text | Apellido (solo personas naturales) |
+| is_company | boolean | Default true. false = persona natural |
+| id_type | text | CHECK ('cedula','ruc','pasaporte') |
+| tax_id | text | Número de identificación |
+| phone | text | Formato +593XXXXXXXXX |
+| email | text | — |
+| address | text | Dirección física |
+| bank_name | text | Nombre del banco |
+| bank_account | text | Solo dígitos 4-20 caracteres |
+| account_type | text | CHECK ('savings','checking') |
+| bank_tax_id | text | RUC/Cédula asociado a la cuenta bancaria |
+| contact_name | text | Persona de contacto |
+| default_lead_time_days | integer | Días de entrega |
+| payment_terms | text | Términos de pago (texto libre) |
+| is_active | boolean | Default true |
 | deleted_at | timestamp | Soft delete |
+
+**Migración:** `20260418140000_suppliers_extended_fields.sql`
+
+**Pantallas:** `/suppliers` (listado), `/suppliers/[id]` (detalle)
+
+**Validación:** `validateSupplier()` en `src/lib/validations/index.ts` — fuente única de verdad para formulario, API y importación.
 
 ---
 
@@ -397,6 +419,35 @@ Métricas internas de Pulse (solo accesibles por Pulse Admin).
 
 ---
 
+### `import_logs`
+Registro de cada sesión de importación masiva de datos.
+| Columna | Tipo | Notas |
+|---|---|---|
+| id | uuid | PK |
+| company_id | uuid | FK → companies |
+| imported_by | uuid | FK → users (quién ejecutó la importación) |
+| entity_type | text | `'suppliers'` \| `'product_categories'` \| `'sales_channels'` \| `'customer_types'` \| `'customer_labels'` \| `'products'` \| `'customers'` \| `'bank_accounts'` \| `'bank_transactions'` \| `'ad_campaigns'` \| `'sales'` \| `'sale_items'` \| `'inventory_movements'` |
+| file_name | text | Nombre del archivo importado |
+| total_rows | integer | Total de filas en el archivo |
+| success_rows | integer | Filas importadas exitosamente |
+| error_rows | integer | Filas con errores |
+| status | text | `'processing'` \| `'success'` \| `'partial'` \| `'failed'` \| `'rolled_back'` |
+| errors | jsonb | Array de `{row: number, message: string}` |
+| imported_ids | jsonb | Array de UUIDs de registros creados (para rollback) |
+| created_at | timestamp | Inicio de la importación |
+| completed_at | timestamp | Fin de la importación. NULL si aún procesando |
+
+**Lógica de rollback:**
+- Solo aplica a registros con `status = 'success'` o `'partial'`
+- Hace soft delete de todos los IDs en `imported_ids`
+- Para `entity_type = 'products'` también revierte `current_stock = 0` y elimina los `inventory_movements` de tipo `initial`
+- Para `entity_type = 'inventory_movements'` intenta revertir el stock
+- Cambia `status = 'rolled_back'`
+
+**RLS:** Solo admin y pulse_admin pueden leer/crear/actualizar. Filtrado por `company_id`.
+
+---
+
 ### `audit_log`
 Log de auditoría de todas las operaciones sensibles.
 | Columna | Tipo | Notas |
@@ -530,6 +581,76 @@ companies
 
 - **company_id demo:** `4dd15f94-a915-4555-8f54-58951a7d1335`
 - Usar este ID en queries de prueba locales
+
+---
+
+## Reglas de validación Ecuador
+
+Implementadas en `src/lib/validations/index.ts` — **fuente única de verdad** para formularios, APIs e importación.
+
+### Teléfono (`customers.phone`, `customers.contact_phone`, `users.phone`)
+- Formato canónico: `+5939XXXXXXXX` (prefijo `+593` + 9 dígitos empezando en `9`)
+- Aceptado en entrada: con prefijo `+593`, con `0` inicial o sin prefijo
+- Constraint en BD: `customers_phone_format_check`, `users_phone_format_check`
+
+### Cédula (`id_type = 'cedula'`)
+- 10 dígitos numéricos
+- Primeros 2 dígitos = provincia (01–24)
+- Tercer dígito < 6
+- Dígito 10 = verificador calculado con algoritmo módulo 10:
+  - Posiciones impares (0-indexed): multiplicar × 2, si ≥ 10 restar 9
+  - Sumar todos los 9 primeros dígitos procesados
+  - Verificador = `(10 - suma % 10) % 10`
+
+### RUC (`id_type = 'ruc'`)
+- 13 dígitos numéricos
+- Tercer dígito determina el tipo:
+  - `0–5`: persona natural → primeros 10 dígitos = cédula válida, últimos 3 = `001`
+  - `6`: entidad pública
+  - `9`: empresa privada o extranjera
+- Constraint en BD: `customers_tax_id_length_check`
+
+### Pasaporte (`id_type = 'pasaporte'`)
+- 6 a 20 caracteres alfanuméricos `[a-zA-Z0-9]`
+
+### Booleanos extendidos (`parseBoolean`)
+- `true`, `1`, `yes`, `si`, `sí`, `empresa` → `true`
+- `false`, `0`, `no`, `personal` → `false`
+- Cualquier otro valor → `null` (error de validación)
+
+---
+
+## Tabla: bank_transaction_categories
+
+Catálogo de categorías de transacciones bancarias por empresa.
+
+```sql
+bank_transaction_categories (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id  uuid NOT NULL REFERENCES companies(id),
+  name        text NOT NULL,
+  type        text NOT NULL DEFAULT 'both'  -- 'income' | 'expense' | 'both'
+              CHECK (type IN ('income', 'expense', 'both')),
+  is_active   boolean NOT NULL DEFAULT true,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  deleted_at  timestamptz,
+  UNIQUE (company_id, name)
+)
+```
+
+**RLS:**
+- `SELECT`: miembros de la empresa (mismo `company_id`) + Pulse Admins
+- `INSERT`: roles `admin` y `manager`
+- `UPDATE` (soft-delete): solo `admin`
+
+**Notas:**
+- Las categorías son por empresa (no compartidas entre empresas)
+- `type = 'income'` → solo para transacciones de ingreso
+- `type = 'expense'` → solo para transacciones de egreso
+- `type = 'both'` → compatible con ambos tipos
+- El campo `category` en `bank_transactions` referencia el **nombre** de la categoría (no el UUID), permitiendo texto libre histórico; la validación estricta ocurre en formulario e importación
+- Administración disponible en: `Configuración → Finanzas`
+- Importación: las categorías deben existir en el catálogo **antes** de importar transacciones
 
 ---
 

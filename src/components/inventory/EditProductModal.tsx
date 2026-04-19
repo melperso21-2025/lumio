@@ -249,7 +249,8 @@ export default function EditProductModal({
     setName(product.name)
     setSku(product.sku ?? '')
     setCategoryId(product.category_id ?? '')
-    setSupplierId(product.supplier_id ?? '')
+    // Default to first supplier when product has none assigned
+    setSupplierId(product.supplier_id ?? suppliers[0]?.id ?? '')
     setProductType((product.product_type as 'product' | 'service') ?? 'product')
     setUnitType((product.unit_type as UnitType) ?? 'unit')
     setUnitLabel(product.unit_label ?? 'unidad')
@@ -294,6 +295,7 @@ export default function EditProductModal({
     e.preventDefault()
     setError(null); setSuccess(false)
     if (!name.trim()) { setError('El nombre es obligatorio.'); return }
+    if (!supplier_id) { setError('Debes seleccionar un proveedor.'); return }
     if (parsedSalePrice <= 0) { setError('El precio de venta debe ser mayor a 0.'); return }
 
     setLoading(true)
@@ -451,18 +453,33 @@ export default function EditProductModal({
             </div>
           )}
 
-          {suppliers.length > 0 && (
-            <div>
-              <label style={labelStyle}>Proveedor</label>
-              <select value={supplier_id} onChange={(e) => setSupplierId(e.target.value)}
-                style={inputStyle} onFocus={onFocus} onBlur={onBlur}>
-                <option value="">Sin proveedor</option>
+          <div>
+            <label style={labelStyle}>Proveedor *</label>
+            {suppliers.length === 0 ? (
+              <p style={{ fontSize: 11, color: 'var(--red)', margin: '4px 0 0', lineHeight: 1.4 }}>
+                No hay proveedores registrados.{' '}
+                <a href="/suppliers" style={{ color: 'var(--gold)', textDecoration: 'none' }}>
+                  Ve a Proveedores
+                </a>{' '}
+                para crear uno primero.
+              </p>
+            ) : (
+              <select
+                value={supplier_id}
+                onChange={(e) => setSupplierId(e.target.value)}
+                required
+                style={{
+                  ...inputStyle,
+                  borderColor: !supplier_id ? 'rgba(220,38,38,0.4)' : undefined,
+                }}
+                onFocus={onFocus} onBlur={onBlur}
+              >
                 {suppliers.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* ── Precios ── */}
           <div>
@@ -590,8 +607,22 @@ export default function EditProductModal({
               style={{ flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 14, fontWeight: 500, background: 'var(--hover)', color: 'var(--text2)', border: '1px solid var(--border)', cursor: 'pointer' }}>
               Cancelar
             </button>
-            <button type="submit" disabled={loading} className="font-syne font-bold"
-              style={{ flex: 2, padding: '10px 16px', borderRadius: 8, fontSize: 14, background: loading ? 'rgba(232,165,0,0.5)' : 'linear-gradient(135deg, #F5C842, #F09A1A)', color: '#1A1B2E', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+            <button
+              type="submit"
+              disabled={loading || suppliers.length === 0}
+              className="font-syne font-bold"
+              style={{
+                flex: 2,
+                padding: '10px 16px',
+                borderRadius: 8,
+                fontSize: 14,
+                background: loading || suppliers.length === 0 ? 'rgba(232,165,0,0.5)' : 'linear-gradient(135deg, #F5C842, #F09A1A)',
+                color: '#1A1B2E',
+                border: 'none',
+                cursor: loading || suppliers.length === 0 ? 'not-allowed' : 'pointer',
+                opacity: loading || suppliers.length === 0 ? 0.7 : 1,
+              }}
+            >
               {loading ? 'Guardando…' : 'Guardar cambios'}
             </button>
           </div>

@@ -9,6 +9,9 @@ import {
   toLocalISO,
 } from '@/lib/dateUtils'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function InventoryPage({
   searchParams,
 }: {
@@ -101,6 +104,7 @@ export default async function InventoryPage({
     .from('suppliers')
     .select('id, name')
     .eq('company_id', companyId)
+    .eq('is_active', true)
     .is('deleted_at', null)
     .order('name')
 

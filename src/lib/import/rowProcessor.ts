@@ -1,0 +1,581 @@
+/**
+ * Shared row-processing logic for validate and execute routes.
+ * Each entity has:
+ *  - validate(row, context): returns error string | null
+ *  - transform(row, context): returns DB-ready object or throws
+ */
+
+import type { EntityType } from './entityConfig'
+import { validatePhone, validateTaxId, parseBoolean as parseBooleanLib, validateSupplier } from '@/lib/validations'
+
+// ── Context passed to each row processor ──────────────────────────────────
+
+export interface ProcessContext {
+  companyId: string
+  today: string       // ISO date YYYY-MM-DD
+  // lookup maps (pre-fetched)
+  suppliersMap: Record<string, string>    // name_lower → id
+  categoriesMap: Record<string, string>   // name_lower → id
+  channelsMap: Record<string, string>     // name_lower → id
+  customersMapByEmail: Record<string, string> // email_lower → id
+  customersMapByTax: Record<string, string>   // tax_id → id
+  customerTypesMap: Record<string, string>    // name_lower → id
+  customerLabelsMap: Record<string, string>   // name_lower → id
+  branchesMap: Record<string, string>     // name_lower → id
+  productsMapBySku: Record<string, string>    // sku_lower → id
+  productsMapByName: Record<string, string>   // name_lower → id
+  bankAccountsMap: Record<string, string>         // account_number → id
+  bankTxCategoriesMap: Record<string, string>     // name_lower → id
+  salesMap: Record<string, string>                // "date|email" → sale_id
+  existingEmails: Set<string>
+  existingTaxIds: Set<string>
+  existingSkus: Set<string>
+  existingBankAcctNums: Set<string>
+}
+
+export interface ProcessedRow {
+  data: Record<string, unknown>
+  warnings: string[]
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+function parseBool(v: string | undefined): boolean {
+  if (!v) return false
+  return parseBooleanLib(v) ?? false
+}
+
+function parseDate(v: string | undefined): string | null {
+  if (!v) return null
+  const s = v.toString().trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  // try Excel serial number
+  const n = Number(s)
+  if (!isNaN(n) && n > 40000) {
+    // Excel serial date to JS date
+    const d = XLSX_serial_to_date(n)
+    return d
+  }
+  return null
+}
+
+function XLSX_serial_to_date(serial: number): string {
+  const utc_days  = Math.floor(serial - 25569)
+  const utc_value = utc_days * 86400 * 1000
+  const d = new Date(utc_value)
+  const yyyy = d.getUTCFullYear()
+  const mm   = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const dd   = String(d.getUTCDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function parseNum(v: string | undefined): number | null {
+  if (!v && v !== '0') return null
+  const n = parseFloat(String(v).trim().replace(/,/g, '.'))
+  return isNaN(n) ? null : n
+}
+
+function parseNumInt(v: string | undefined): number | null {
+  const n = parseNum(v)
+  return n !== null ? Math.round(n) : null
+}
+
+// ── Per-entity processors ─────────────────────────────────────────────────
+
+export function validateAndTransform(
+  entity: EntityType,
+  row: Record<string, string>,
+  ctx: ProcessContext
+): ProcessedRow {
+  const warnings: string[] = []
+
+  switch (entity) {
+
+    // ── suppliers ───────────────────────────────────────────────────────
+    case 'suppliers': {
+      const isCompanyRaw = row['es_empresa']?.trim()
+      const is_company   = isCompanyRaw ? (parseBooleanLib(isCompanyRaw) ?? true) : true
+
+      const rowData: Record<string, unknown> = {
+        is_company,
+        name:       is_company ? (row['nombre_empresa']?.trim() || undefined) : undefined,
+        first_name: is_company ? undefined : (row['nombre']?.trim()   || undefined),
+        last_name:  is_company ? undefined : (row['apellido']?.trim() || undefined),
+        id_type:    row['documento_tipo']?.trim()?.toLowerCase(),
+        tax_id:     row['documento_numero']?.trim(),
+        phone:      row['telefono']?.trim(),
+        email:      row['email']?.trim(),
+        address:    row['direccion']?.trim() || undefined,
+        bank_name:  row['banco_nombre']?.trim()   || undefined,
+        bank_account: row['numero_cuenta']?.trim() || undefined,
+        account_type: row['tipo_cuenta']?.trim()  || undefined,
+        bank_tax_id:  row['ruc_cuenta']?.trim()   || undefined,
+        default_lead_time_days: row['dias_entrega']?.trim() || undefined,
+        payment_terms: row['terminos_pago']?.trim() || undefined,
+      }
+
+      const result = validateSupplier(rowData, ctx.companyId)
+      if (!result.valid) {
+        throw new Error(Object.values(result.errors).join(' · '))
+      }
+
+      // Dedup warning
+      const resolvedName = result.data!.name.toLowerCase()
+      if (ctx.suppliersMap[resolvedName]) {
+        warnings.push(`Proveedor "${result.data!.name}" ya existe`)
+      }
+
+      return {
+        data: {
+          company_id: ctx.companyId,
+          ...result.data,
+          is_active: true,
+        },
+        warnings,
+      }
+    }
+
+    // ── product_categories ──────────────────────────────────────────────
+    case 'product_categories': {
+      const name = row['nombre']?.trim()
+      if (!name) throw new Error('El campo "nombre" es obligatorio')
+      const parentName = row['categoria_padre']?.trim().toLowerCase()
+      const parent_id  = parentName ? ctx.categoriesMap[parentName] ?? null : null
+      if (parentName && !parent_id) {
+        warnings.push(`Categoría padre "${row['categoria_padre']}" no encontrada, se ignorará`)
+      }
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      return {
+        data: { company_id: ctx.companyId, name, slug, parent_id },
+        warnings,
+      }
+    }
+
+    // ── sales_channels ──────────────────────────────────────────────────
+    case 'sales_channels': {
+      const name = row['nombre']?.trim()
+      if (!name) throw new Error('El campo "nombre" es obligatorio')
+      if (ctx.channelsMap[name.toLowerCase()]) {
+        warnings.push(`Canal "${name}" ya existe`)
+      }
+      return { data: { company_id: ctx.companyId, name }, warnings }
+    }
+
+    // ── customer_types ──────────────────────────────────────────────────
+    case 'customer_types': {
+      const name = row['nombre']?.trim()
+      if (!name) throw new Error('El campo "nombre" es obligatorio')
+      return {
+        data: {
+          company_id: ctx.companyId,
+          name,
+          color: row['color']?.trim() || '#888780',
+          is_active: true,
+        },
+        warnings,
+      }
+    }
+
+    // ── customer_labels ─────────────────────────────────────────────────
+    case 'customer_labels': {
+      const name = row['nombre']?.trim()
+      if (!name) throw new Error('El campo "nombre" es obligatorio')
+      return {
+        data: {
+          company_id: ctx.companyId,
+          name,
+          color: row['color']?.trim() || '#888780',
+          is_active: true,
+        },
+        warnings,
+      }
+    }
+
+    // ── products ────────────────────────────────────────────────────────
+    case 'products': {
+      const name = row['nombre']?.trim()
+      if (!name) throw new Error('El campo "nombre" es obligatorio')
+      const salePrice = parseNum(row['precio_venta'])
+      if (!salePrice || salePrice <= 0) throw new Error('"precio_venta" debe ser mayor a 0')
+
+      const sku = row['sku']?.trim() || null
+      if (sku && ctx.existingSkus.has(sku.toLowerCase())) {
+        warnings.push(`SKU "${sku}" ya existe en el catálogo`)
+      }
+
+      const supplierName = row['proveedor_nombre']?.trim().toLowerCase()
+      const supplier_id  = supplierName ? ctx.suppliersMap[supplierName] ?? null : null
+      if (supplierName && !supplier_id) warnings.push(`Proveedor "${row['proveedor_nombre']}" no encontrado`)
+
+      const catName    = row['categoria_nombre']?.trim().toLowerCase()
+      const category_id= catName ? ctx.categoriesMap[catName] ?? null : null
+      if (catName && !category_id) warnings.push(`Categoría "${row['categoria_nombre']}" no encontrada`)
+
+      const product_type = row['tipo_producto']?.trim() || 'product'
+      const isService    = product_type === 'service'
+
+      return {
+        data: {
+          company_id:      ctx.companyId,
+          name,
+          sku,
+          sale_price:      salePrice,
+          unit_cost:       parseNum(row['costo_unitario']) ?? 0,
+          supplier_id,
+          category_id,
+          product_type,
+          unit_type:       isService ? null : (row['tipo_unidad']?.trim() || 'unit'),
+          unit_label:      isService ? null : (row['unidad']?.trim() || 'unidad'),
+          current_stock:   isService ? 0 : (parseNum(row['stock_inicial']) ?? 0),
+          min_stock_alert: isService ? 0 : (parseNum(row['stock_minimo']) ?? 0),
+          lead_time_days:  isService ? null : (parseNumInt(row['dias_reposicion']) ?? 1),
+          is_perishable:   isService ? false : parseBool(row['es_perecedero']),
+          expiry_date:     (!isService && parseBool(row['es_perecedero'])) ? parseDate(row['fecha_caducidad']) : null,
+          is_active:       true,
+        },
+        warnings,
+      }
+    }
+
+    // ── customers ───────────────────────────────────────────────────────
+    case 'customers': {
+      // Collect ALL errors before throwing — never stop at the first failure
+      const rowErrors: string[] = []
+
+      // full_name
+      const full_name = row['nombre_completo']?.trim()
+      if (!full_name) rowErrors.push('"nombre_completo" es obligatorio')
+      else if (full_name.length < 2) rowErrors.push('"nombre_completo" debe tener al menos 2 caracteres')
+
+      // email
+      const email = row['email']?.trim()
+      if (!email) rowErrors.push('"email" es obligatorio')
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) rowErrors.push(`email "${email}" no tiene formato válido`)
+
+      // phone
+      const phone = row['telefono']?.trim()
+      let phoneFormatted: string | null = null
+      if (!phone) {
+        rowErrors.push('"telefono" es obligatorio')
+      } else {
+        const phoneResult = validatePhone(phone)
+        if (!phoneResult.valid) rowErrors.push(`telefono inválido: ${phoneResult.error}`)
+        else phoneFormatted = phoneResult.formatted!
+      }
+
+      // tax_id / id_type
+      const tax_id  = row['numero_id']?.trim()
+      const id_type = row['tipo_id']?.trim().toLowerCase() || null
+      const validIdTypes = ['cedula', 'ruc', 'pasaporte']
+      if (!tax_id) {
+        rowErrors.push('"numero_id" es obligatorio')
+      }
+      if (id_type && !validIdTypes.includes(id_type)) {
+        rowErrors.push(`tipo_id "${id_type}" inválido. Solo acepta: cedula, ruc, pasaporte`)
+      } else if (id_type && tax_id && validIdTypes.includes(id_type)) {
+        const taxResult = validateTaxId(tax_id, id_type as 'cedula' | 'ruc' | 'pasaporte')
+        if (!taxResult.valid) rowErrors.push(`numero_id inválido: ${taxResult.error}`)
+      }
+
+      // duplicate detection (warnings only — don't block import)
+      if (email && ctx.existingEmails.has(email.toLowerCase())) {
+        warnings.push(`Email "${email}" ya está registrado`)
+      }
+      if (tax_id && ctx.existingTaxIds.has(tax_id)) {
+        warnings.push(`ID "${tax_id}" ya está registrado`)
+      }
+
+      // customer_type
+      const customerTypeName = row['tipo_cliente']?.trim()
+      const customer_type    = customerTypeName ? ctx.customerTypesMap[customerTypeName.toLowerCase()] ?? null : null
+      if (customerTypeName && !customer_type)
+        rowErrors.push(`tipo_cliente "${customerTypeName}" no existe en tu catálogo. Ve a Configuración → Clientes para crearlo.`)
+
+      // label
+      const labelName = row['etiqueta']?.trim()
+      const label     = labelName ? ctx.customerLabelsMap[labelName.toLowerCase()] ?? null : null
+      if (labelName && !label)
+        rowErrors.push(`etiqueta "${labelName}" no existe en tu catálogo. Ve a Configuración → Clientes para crearlo.`)
+
+      // is_company
+      const isCompanyRaw    = row['es_empresa']?.trim()
+      const is_company_parsed = parseBooleanLib(isCompanyRaw)
+      if (isCompanyRaw && is_company_parsed === null)
+        rowErrors.push(`es_empresa inválido: "${isCompanyRaw}". Solo acepta: true, false, si, no`)
+      const is_company = is_company_parsed ?? false
+
+      // registered_since (required)
+      const registeredSince = parseDate(row['cliente_desde'])
+      if (!registeredSince) rowErrors.push('"cliente_desde" es obligatorio (formato YYYY-MM-DD)')
+
+      // contact_phone
+      const contactPhone = row['contacto_telefono']?.trim() || null
+      let contactPhoneFormatted: string | null = null
+      if (contactPhone) {
+        const cpResult = validatePhone(contactPhone)
+        if (!cpResult.valid) rowErrors.push(`contacto_telefono inválido: ${cpResult.error}`)
+        else contactPhoneFormatted = cpResult.formatted ?? null
+      }
+
+      // Throw all errors at once, separated by " · "
+      if (rowErrors.length > 0) throw new Error(rowErrors.join(' · '))
+
+      return {
+        data: {
+          company_id:       ctx.companyId,
+          full_name:        full_name!,
+          email:            email!,
+          phone:            phoneFormatted!,
+          tax_id:           tax_id!,
+          id_type:          id_type && validIdTypes.includes(id_type) ? id_type : null,
+          customer_type,
+          label,
+          is_company,
+          address:          row['direccion']?.trim() || null,
+          registered_since: registeredSince,
+          contact_name:     row['contacto_nombre']?.trim() || null,
+          contact_phone:    contactPhoneFormatted,
+          contact_email:    row['contacto_email']?.trim() || null,
+        },
+        warnings,
+      }
+    }
+
+    // ── bank_accounts ───────────────────────────────────────────────────
+    case 'bank_accounts': {
+      const bank_name = row['nombre_banco']?.trim()
+      if (!bank_name) throw new Error('"nombre_banco" es obligatorio')
+      const accountNum = row['numero_cuenta']?.trim()
+      if (accountNum && ctx.existingBankAcctNums.has(accountNum)) {
+        warnings.push(`Cuenta "${accountNum}" ya existe`)
+      }
+      return {
+        data: {
+          company_id:      ctx.companyId,
+          bank_name,
+          account_type:    row['tipo_cuenta']?.trim() || null,
+          account_number:  accountNum || null,
+          initial_balance: parseNum(row['saldo_inicial']) ?? 0,
+          current_balance: parseNum(row['saldo_inicial']) ?? 0,
+          is_active:       true,
+        },
+        warnings,
+      }
+    }
+
+    // ── bank_transactions ───────────────────────────────────────────────
+    case 'bank_transactions': {
+      // Accumulate ALL errors before throwing
+      const rowErrors: string[] = []
+
+      // account_number → account_id
+      const accountNum = row['numero_cuenta']?.trim()
+      let account_id: string | null = null
+      if (!accountNum) {
+        rowErrors.push('"numero_cuenta" es obligatorio')
+      } else if (!/^\d{4,20}$/.test(accountNum)) {
+        rowErrors.push(`Número de cuenta inválido: "${accountNum}" — solo dígitos, entre 4 y 20 caracteres`)
+      } else {
+        account_id = ctx.bankAccountsMap[accountNum] ?? null
+        if (!account_id) rowErrors.push(`Cuenta "${accountNum}" no encontrada`)
+      }
+
+      // type
+      const type = row['tipo']?.trim().toLowerCase()
+      if (!type) {
+        rowErrors.push('"tipo" es obligatorio (income o expense)')
+      } else if (type !== 'income' && type !== 'expense') {
+        rowErrors.push(`tipo inválido: "${type}". Solo se permite: income, expense`)
+      }
+
+      // amount
+      const amount = parseNum(row['monto'])
+      if (amount === null) {
+        rowErrors.push('"monto" es obligatorio')
+      } else if (amount <= 0) {
+        rowErrors.push('"monto" debe ser mayor a 0')
+      }
+
+      // category
+      const categoryName = row['categoria']?.trim()
+      let resolvedCategory: string | null = null
+      if (!categoryName) {
+        rowErrors.push('"categoria" es obligatoria')
+      } else {
+        const catId = ctx.bankTxCategoriesMap[categoryName.toLowerCase()]
+        if (!catId) {
+          rowErrors.push(`Categoría "${categoryName}" no existe en tu catálogo. Ve a Configuración → Finanzas para crearla.`)
+        } else {
+          resolvedCategory = categoryName
+        }
+      }
+
+      // tx_date
+      const tx_date = parseDate(row['fecha'])
+      if (!tx_date) rowErrors.push('"fecha" es obligatoria (formato YYYY-MM-DD)')
+
+      // is_fixed
+      const isFixedRaw = row['es_fijo']?.trim()
+      const isFixedParsed = isFixedRaw ? parseBooleanLib(isFixedRaw) : null
+      if (isFixedRaw && isFixedParsed === null)
+        rowErrors.push(`es_fijo inválido: "${isFixedRaw}". Usa: true o false`)
+
+      if (rowErrors.length > 0) throw new Error(rowErrors.join(' · '))
+
+      return {
+        data: {
+          company_id: ctx.companyId,
+          account_id: account_id!,
+          type,
+          amount: amount!,
+          category:  resolvedCategory,
+          concept:   row['concepto']?.trim() || null,
+          tx_date:   tx_date!,
+          is_fixed:  isFixedParsed ?? false,
+        },
+        warnings,
+      }
+    }
+
+    // ── ad_campaigns ────────────────────────────────────────────────────
+    case 'ad_campaigns': {
+      const platform = row['plataforma']?.trim().toLowerCase()
+      if (!platform) throw new Error('"plataforma" es obligatorio')
+
+      const campaign_date = parseDate(row['fecha_campana'])
+      if (!campaign_date) throw new Error('"fecha_campana" inválida')
+
+      return {
+        data: {
+          company_id:         ctx.companyId,
+          platform,
+          campaign_date,
+          campaign_name:      row['nombre_campana']?.trim() || null,
+          spend:              parseNum(row['inversion']) ?? 0,
+          clicks:             parseNumInt(row['clics']) ?? 0,
+          reach:              parseNumInt(row['alcance']) ?? 0,
+          impressions:        parseNumInt(row['impresiones']) ?? 0,
+          leads_count:        parseNumInt(row['leads']) ?? 0,
+          quality_leads:      parseNumInt(row['leads_calificados']) ?? 0,
+          transactions:       parseNumInt(row['transacciones']) ?? 0,
+          attributed_revenue: parseNum(row['ingresos_atribuidos']) ?? 0,
+          // roas, ctr, cpm, etc. are generated/calculated - omitted
+        },
+        warnings,
+      }
+    }
+
+    // ── sales ────────────────────────────────────────────────────────────
+    case 'sales': {
+      const sale_date = parseDate(row['fecha_venta'])
+      if (!sale_date) throw new Error('"fecha_venta" inválida, usa YYYY-MM-DD')
+
+      const customerEmail = row['email_cliente']?.trim().toLowerCase()
+      if (!customerEmail) throw new Error('"email_cliente" es obligatorio')
+      const customer_id = ctx.customersMapByEmail[customerEmail]
+      if (!customer_id) throw new Error(`Cliente con email "${row['email_cliente']}" no encontrado`)
+
+      const channelName = row['canal']?.trim().toLowerCase()
+      const channel_id  = channelName ? ctx.channelsMap[channelName] ?? null : null
+      if (channelName && !channel_id) warnings.push(`Canal "${row['canal']}" no encontrado`)
+
+      const branchName = row['sucursal']?.trim().toLowerCase()
+      const branch_id  = branchName ? ctx.branchesMap[branchName] ?? null : null
+      if (branchName && !branch_id) warnings.push(`Sucursal "${row['sucursal']}" no encontrada`)
+
+      const statusRaw = row['estado']?.trim().toLowerCase()
+      const validStatuses = ['closed', 'review', 'contact', 'cancelled']
+      const status = validStatuses.includes(statusRaw) ? statusRaw : 'closed'
+
+      return {
+        data: {
+          company_id:      ctx.companyId,
+          sale_date,
+          customer_id,
+          channel_id,
+          branch_id,
+          status,
+          gross_total:     parseNum(row['total']) ?? 0,
+          discount_amount: parseNum(row['descuento']) ?? 0,
+          notes:           row['notas']?.trim() || null,
+          // week_number and year are GENERATED columns — never insert
+        },
+        warnings,
+      }
+    }
+
+    // ── sale_items ───────────────────────────────────────────────────────
+    case 'sale_items': {
+      const saleKey = row['venta_fecha_email']?.trim()
+      if (!saleKey) throw new Error('"venta_fecha_email" es obligatorio (formato: fecha|email)')
+      const sale_id = ctx.salesMap[saleKey.toLowerCase()]
+      if (!sale_id) throw new Error(`Venta "${saleKey}" no encontrada`)
+
+      const sku = row['sku_producto']?.trim()
+      if (!sku) throw new Error('"sku_producto" es obligatorio')
+      const product_id = ctx.productsMapBySku[sku.toLowerCase()]
+      if (!product_id) throw new Error(`Producto SKU "${sku}" no encontrado`)
+
+      const quantity = parseNum(row['cantidad'])
+      if (!quantity || quantity <= 0) throw new Error('"cantidad" debe ser mayor a 0')
+
+      const unit_price = parseNum(row['precio_unitario'])
+      if (unit_price === null || unit_price < 0) throw new Error('"precio_unitario" inválido')
+
+      return {
+        data: {
+          company_id:      ctx.companyId,
+          sale_id,
+          product_id,
+          quantity,
+          unit_price,
+          unit_cost:       parseNum(row['costo_unitario']) ?? 0,
+          discount_amount: parseNum(row['descuento']) ?? 0,
+          // subtotal is GENERATED ALWAYS — never insert
+        },
+        warnings,
+      }
+    }
+
+    // ── inventory_movements ─────────────────────────────────────────────
+    case 'inventory_movements': {
+      const sku = row['sku_producto']?.trim()
+      if (!sku) throw new Error('"sku_producto" es obligatorio')
+      const product_id = ctx.productsMapBySku[sku.toLowerCase()]
+      if (!product_id) throw new Error(`Producto SKU "${sku}" no encontrado`)
+
+      const type = row['tipo']?.trim().toLowerCase()
+      if (!['in', 'out', 'adjustment'].includes(type)) {
+        throw new Error('"tipo" debe ser in, out o adjustment')
+      }
+
+      const quantity = parseNum(row['cantidad'])
+      if (!quantity || quantity <= 0) throw new Error('"cantidad" debe ser mayor a 0')
+
+      const reason = row['razon']?.trim().toLowerCase()
+      const validReasons = ['purchase', 'sale', 'return', 'adjustment', 'damage', 'transfer', 'initial']
+      if (!validReasons.includes(reason)) throw new Error(`"razon" inválida: ${reason}`)
+
+      if (type === 'adjustment' && !row['notas']?.trim()) {
+        throw new Error('Las notas son obligatorias para ajustes')
+      }
+
+      return {
+        data: {
+          company_id:    ctx.companyId,
+          product_id,
+          type,
+          quantity,
+          reason,
+          movement_date: parseDate(row['fecha_movimiento']) ?? ctx.today,
+          notes:         row['notas']?.trim() || null,
+          batch_number:  row['numero_lote']?.trim() || null,
+        },
+        warnings,
+      }
+    }
+
+    default:
+      throw new Error(`Entidad "${entity}" no soportada`)
+  }
+}

@@ -13,8 +13,14 @@ interface Category {
   parent_id?: string | null
 }
 
+interface Supplier {
+  id: string
+  name: string | null
+}
+
 interface NewProductFormProps {
   categories?: Category[]
+  suppliers?: Supplier[]
 }
 
 type UnitType = 'unit' | 'weight' | 'volume' | 'length' | 'area'
@@ -189,7 +195,7 @@ function SuffixInput({
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function NewProductForm({ categories = [] }: NewProductFormProps) {
+export default function NewProductForm({ categories = [], suppliers = [] }: NewProductFormProps) {
   const router = useRouter()
 
   const [open, setOpen] = useState(false)
@@ -201,6 +207,7 @@ export default function NewProductForm({ categories = [] }: NewProductFormProps)
   const [name, setName] = useState('')
   const [sku, setSku] = useState('')
   const [category_id, setCategoryId] = useState('')
+  const [supplier_id, setSupplierId] = useState('')
 
   // Type
   const [product_type, setProductType] = useState<'product' | 'service'>('product')
@@ -244,7 +251,7 @@ export default function NewProductForm({ categories = [] }: NewProductFormProps)
     : (parsedStock * parsedUnitCost).toFixed(2)
 
   function resetForm() {
-    setName(''); setSku(''); setCategoryId('')
+    setName(''); setSku(''); setCategoryId(''); setSupplierId('')
     setProductType('product')
     setUnitType('unit'); setUnitLabel('unidad')
     setIsPerishable(false); setShelfLifeDays(''); setExpiryDate('')
@@ -272,6 +279,7 @@ export default function NewProductForm({ categories = [] }: NewProductFormProps)
     setError(null); setSuccess(false)
 
     if (!name.trim()) { setError('El nombre del producto es obligatorio.'); return }
+    if (!supplier_id) { setError('Selecciona un proveedor.'); return }
     if (parsedSalePrice <= 0) { setError('El precio de venta debe ser mayor a 0.'); return }
 
     setLoading(true)
@@ -296,6 +304,7 @@ export default function NewProductForm({ categories = [] }: NewProductFormProps)
         name: name.trim(),
         sku: sku.trim() || null,
         category_id: category_id || null,
+        supplier_id: supplier_id || null,
         product_type,
         unit_type: isService ? null : unit_type,
         unit_label: isService ? null : unit_label,
@@ -446,6 +455,30 @@ export default function NewProductForm({ categories = [] }: NewProductFormProps)
                 <input id="np-sku" type="text" value={sku}
                   onChange={(e) => setSku(e.target.value)}
                   placeholder="SKU-001" style={inputStyle} onFocus={onFocus} onBlur={onBlur} />
+              </div>
+
+              {/* Proveedor — obligatorio */}
+              <div>
+                <label htmlFor="np-supplier" style={labelStyle}>Proveedor *</label>
+                <select
+                  id="np-supplier"
+                  value={supplier_id}
+                  onChange={(e) => setSupplierId(e.target.value)}
+                  required
+                  style={{ ...inputStyle, borderColor: !supplier_id ? 'rgba(220,38,38,0.35)' : undefined }}
+                  onFocus={onFocus} onBlur={onBlur}
+                >
+                  <option value="">Selecciona proveedor</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name ?? s.id}</option>
+                  ))}
+                </select>
+                {suppliers.length === 0 && (
+                  <p style={{ marginTop: 3, fontSize: 10, color: 'var(--muted)' }}>
+                    Sin proveedores — crea uno en{' '}
+                    <a href="/suppliers" style={{ color: 'var(--gold)', textDecoration: 'none' }}>Proveedores</a>
+                  </p>
+                )}
               </div>
 
               {categories.length > 0 && (

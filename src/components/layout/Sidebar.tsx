@@ -79,10 +79,11 @@ export default function Sidebar({
     {
       label: 'Operaciones',
       items: [
-        { href: '/sales',     label: 'Ventas',     icon: '💰' },
-        { href: '/customers', label: 'Clientes',   icon: '👥' },
-        { href: '/inventory', label: 'Inventario', icon: '📦', roles: ['operator', 'manager', 'admin'] },
-        { href: '/finance',   label: 'Bancos',     icon: '🏦', roles: ['manager', 'admin'] },
+        { href: '/sales',      label: 'Ventas',      icon: '💰' },
+        { href: '/customers',  label: 'Clientes',    icon: '👥' },
+        { href: '/suppliers',  label: 'Proveedores', icon: '🏭', roles: ['operator', 'manager', 'admin'] },
+        { href: '/inventory',  label: 'Inventario',  icon: '📦', roles: ['operator', 'manager', 'admin'] },
+        { href: '/finance',    label: 'Bancos',      icon: '🏦', roles: ['manager', 'admin'] },
       ],
     },
     {
@@ -104,6 +105,7 @@ export default function Sidebar({
         { href: '/settings/users',     label: 'Usuarios & Roles', icon: '🔐', roles: ['admin'] },
         { href: '/settings/customers', label: 'Clientes',          icon: '🏷',  roles: ['admin', 'manager'] },
         { href: '/settings/products',  label: 'Productos',         icon: '📦',  roles: ['admin', 'manager'] },
+        { href: '/settings/finance',   label: 'Finanzas',          icon: '💳',  roles: ['admin', 'manager'] },
         { href: '/settings/import',    label: 'Importar datos',   icon: '⬆',  roles: ['admin'] },
       ],
     },

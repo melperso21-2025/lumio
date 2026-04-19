@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { validatePhone } from '@/lib/validations'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -72,11 +73,8 @@ export default function PhoneInput({ value, onChange, id, required }: PhoneInput
       setError(null)
       return
     }
-    if (localDigits.length !== 9) {
-      setError('El número debe tener exactamente 9 dígitos.')
-    } else {
-      setError(null)
-    }
+    const result = validatePhone(localDigits)
+    setError(result.valid ? null : (result.error ?? null))
   }
 
   function handleFocus() {

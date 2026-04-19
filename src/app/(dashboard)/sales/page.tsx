@@ -5,6 +5,9 @@ import Topbar from '@/components/layout/Topbar'
 import SalesOverview from '@/components/sales/SalesOverview'
 import { getDefaultDateRange, getPreviousPeriodRolling } from '@/lib/dateUtils'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function SalesPage({
   searchParams,
 }: {

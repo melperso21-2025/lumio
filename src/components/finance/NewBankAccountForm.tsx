@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { validateAccountNumber } from '@/lib/validations'
 
 // ── Estilos base (igual que NewCustomerForm) ────────────────────
 const inputStyle: React.CSSProperties = {
@@ -48,12 +49,14 @@ export default function NewBankAccountForm() {
   const [bank_name, setBankName] = useState('')
   const [account_type, setAccountType] = useState('checking')
   const [account_number, setAccountNumber] = useState('')
+  const [account_number_error, setAccountNumberError] = useState<string | null>(null)
   const [initial_balance, setInitialBalance] = useState('0')
 
   function resetForm() {
     setBankName('')
     setAccountType('checking')
     setAccountNumber('')
+    setAccountNumberError(null)
     setInitialBalance('0')
     setError(null)
     setSuccess(false)
@@ -73,6 +76,14 @@ export default function NewBankAccountForm() {
     if (!bank_name.trim()) {
       setError('El nombre del banco es obligatorio.')
       return
+    }
+
+    if (account_number.trim()) {
+      const anResult = validateAccountNumber(account_number.trim())
+      if (!anResult.valid) {
+        setAccountNumberError(anResult.error!)
+        return
+      }
     }
 
     setLoading(true)
@@ -276,18 +287,39 @@ export default function NewBankAccountForm() {
 
               <div>
                 <label htmlFor="ba-account_number" style={labelStyle}>
-                  Número (opcional)
+                  Número de cuenta (opcional)
                 </label>
                 <input
                   id="ba-account_number"
                   type="text"
+                  inputMode="numeric"
                   value={account_number}
-                  onChange={(e) => setAccountNumber(e.target.value)}
-                  placeholder="últimos 4 dígitos"
-                  style={inputStyle}
+                  onChange={(e) => {
+                    setAccountNumber(e.target.value)
+                    if (account_number_error) setAccountNumberError(null)
+                  }}
+                  placeholder="Solo dígitos, ej: 2204821"
+                  style={{
+                    ...inputStyle,
+                    borderColor: account_number_error ? 'rgba(220,38,38,0.6)' : undefined,
+                  }}
                   onFocus={onFocus}
-                  onBlur={onBlur}
+                  onBlur={(e) => {
+                    onBlur(e)
+                    const val = e.target.value.trim()
+                    if (val) {
+                      const res = validateAccountNumber(val)
+                      setAccountNumberError(res.valid ? null : (res.error ?? null))
+                    } else {
+                      setAccountNumberError(null)
+                    }
+                  }}
                 />
+                {account_number_error && (
+                  <p style={{ marginTop: 4, fontSize: 11, color: 'var(--red)' }}>
+                    {account_number_error}
+                  </p>
+                )}
               </div>
 
               <div>

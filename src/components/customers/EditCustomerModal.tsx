@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import PhoneInput from '@/components/ui/PhoneInput'
 import { toLocalISO } from '@/lib/dateUtils'
+import { validatePhone, validateTaxId, validateDate } from '@/lib/validations'
 import type { CustomerDetail } from '@/components/customers/CustomerDetailView'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -75,6 +76,16 @@ export default function EditCustomerModal({
 }: EditCustomerModalProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  function setFieldError(field: string, msg: string | null) {
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      if (msg) next[field] = msg
+      else delete next[field]
+      return next
+    })
+  }
 
   // Required
   const [full_name, setFullName] = useState(customer.full_name ?? '')
@@ -111,10 +122,40 @@ export default function EditCustomerModal({
     e.preventDefault()
     setError(null)
 
-    if (!full_name.trim()) { setError('El nombre completo es obligatorio.'); return }
-    if (!tax_id.trim())    { setError('El número de identificación es obligatorio.'); return }
-    if (!phone.trim())     { setError('El teléfono es obligatorio.'); return }
-    if (!email.trim())     { setError('El email es obligatorio.'); return }
+    // Validate all fields before submit
+    const errs: Record<string, string> = {}
+    if (!full_name.trim() || full_name.trim().length < 2)
+      errs.full_name = full_name.trim() ? 'El nombre debe tener al menos 2 caracteres' : 'El nombre completo es obligatorio'
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      errs.email = email.trim() ? 'El email no tiene un formato válido' : 'El email es obligatorio'
+    if (!phone.trim()) {
+      errs.phone = 'El teléfono es obligatorio'
+    } else {
+      const phoneRes = validatePhone(phone)
+      if (!phoneRes.valid) errs.phone = phoneRes.error!
+    }
+    if (!tax_id.trim()) {
+      errs.tax_id = 'El número de identificación es obligatorio'
+    } else {
+      const taxRes = validateTaxId(tax_id.trim(), id_type)
+      if (!taxRes.valid) errs.tax_id = taxRes.error!
+    }
+    if (!registered_since) {
+      errs.registered_since = 'cliente_desde es obligatorio'
+    } else {
+      const dateRes = validateDate(registered_since)
+      if (!dateRes.valid) errs.registered_since = 'cliente_desde debe ser una fecha válida (YYYY-MM-DD)'
+    }
+    if (contact_phone.trim()) {
+      const cpRes = validatePhone(contact_phone)
+      if (!cpRes.valid) errs.contact_phone = cpRes.error!
+    }
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs)
+      setError('Corrige los errores antes de guardar.')
+      return
+    }
+    setFieldErrors({})
 
     setLoading(true)
 
@@ -259,27 +300,26 @@ export default function EditCustomerModal({
                   type="text"
                   required
                   value={full_name}
-                  onChange={(e) => setFullName(e.target.value)}
-                  style={inputStyle}
+                  onChange={(e) => { setFullName(e.target.value); setFieldError('full_name', null) }}
+                  style={{ ...inputStyle, borderColor: fieldErrors.full_name ? 'rgba(220,38,38,0.6)' : undefined }}
                   onFocus={onFocus}
                   onBlur={onBlur}
                 />
+                {fieldErrors.full_name && <p style={{ marginTop: 3, fontSize: 11, color: 'var(--red)' }}>{fieldErrors.full_name}</p>}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
                 <div>
                   <label style={labelStyle}>Tipo de ID *</label>
                   <select
                     value={id_type}
-                    onChange={(e) =>
-                      setIdType(e.target.value as 'cedula' | 'ruc' | 'pasaporte')
-                    }
+                    onChange={(e) => { setIdType(e.target.value as 'cedula' | 'ruc' | 'pasaporte'); setTaxId(''); setFieldError('tax_id', null) }}
                     style={inputStyle}
                     onFocus={onFocus}
                     onBlur={onBlur}
                   >
-                    <option value="cedula">Cédula</option>
-                    <option value="ruc">RUC</option>
-                    <option value="pasaporte">Pasaporte</option>
+                    <option value="cedula">Cédula (10 dígitos)</option>
+                    <option value="ruc">RUC (13 dígitos)</option>
+                    <option value="pasaporte">Pasaporte (6-20 chars)</option>
                   </select>
                 </div>
                 <div>
@@ -288,11 +328,19 @@ export default function EditCustomerModal({
                     type="text"
                     required
                     value={tax_id}
-                    onChange={(e) => setTaxId(e.target.value)}
-                    style={inputStyle}
+                    onChange={(e) => { setTaxId(e.target.value); setFieldError('tax_id', null) }}
+                    placeholder={id_type === 'cedula' ? '1712345678' : id_type === 'ruc' ? '1712345678001' : 'ABC123456'}
+                    style={{ ...inputStyle, borderColor: fieldErrors.tax_id ? 'rgba(220,38,38,0.6)' : undefined }}
                     onFocus={onFocus}
-                    onBlur={onBlur}
+                    onBlur={(e) => {
+                      onBlur(e)
+                      if (e.target.value.trim()) {
+                        const res = validateTaxId(e.target.value.trim(), id_type)
+                        setFieldError('tax_id', res.valid ? null : (res.error ?? null))
+                      }
+                    }}
                   />
+                  {fieldErrors.tax_id && <p style={{ marginTop: 3, fontSize: 11, color: 'var(--red)' }}>{fieldErrors.tax_id}</p>}
                 </div>
               </div>
             </div>
@@ -322,7 +370,8 @@ export default function EditCustomerModal({
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
                 <label style={labelStyle}>Teléfono *</label>
-                <PhoneInput value={phone} onChange={setPhone} required />
+                <PhoneInput value={phone} onChange={(v) => { setPhone(v); setFieldError('phone', null) }} required />
+                {fieldErrors.phone && <p style={{ marginTop: 3, fontSize: 11, color: 'var(--red)' }}>{fieldErrors.phone}</p>}
               </div>
               <div>
                 <label style={labelStyle}>Email *</label>
@@ -330,11 +379,16 @@ export default function EditCustomerModal({
                   type="email"
                   required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  style={inputStyle}
+                  onChange={(e) => { setEmail(e.target.value); setFieldError('email', null) }}
+                  style={{ ...inputStyle, borderColor: fieldErrors.email ? 'rgba(220,38,38,0.6)' : undefined }}
                   onFocus={onFocus}
-                  onBlur={onBlur}
+                  onBlur={(e) => {
+                    onBlur(e)
+                    if (e.target.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.target.value))
+                      setFieldError('email', 'El email no tiene un formato válido')
+                  }}
                 />
+                {fieldErrors.email && <p style={{ marginTop: 3, fontSize: 11, color: 'var(--red)' }}>{fieldErrors.email}</p>}
               </div>
               <div>
                 <label style={labelStyle}>Dirección</label>
@@ -407,15 +461,20 @@ export default function EditCustomerModal({
                 </select>
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
-                <label style={labelStyle}>Cliente desde</label>
+                <label style={labelStyle}>Cliente desde *</label>
                 <input
                   type="date"
+                  required
                   value={registered_since}
-                  onChange={(e) => setRegisteredSince(e.target.value)}
-                  style={inputStyle}
+                  onChange={(e) => { setRegisteredSince(e.target.value); setFieldError('registered_since', null) }}
+                  style={{ ...inputStyle, borderColor: fieldErrors.registered_since ? 'rgba(220,38,38,0.6)' : undefined }}
                   onFocus={onFocus}
-                  onBlur={onBlur}
+                  onBlur={(e) => {
+                    onBlur(e)
+                    if (!e.target.value) setFieldError('registered_since', 'cliente_desde es obligatorio')
+                  }}
                 />
+                {fieldErrors.registered_since && <p style={{ marginTop: 3, fontSize: 11, color: 'var(--red)' }}>{fieldErrors.registered_since}</p>}
               </div>
             </div>
           </div>
@@ -487,10 +546,8 @@ export default function EditCustomerModal({
               </div>
               <div>
                 <label style={labelStyle}>Teléfono de contacto</label>
-                <PhoneInput
-                  value={contact_phone}
-                  onChange={setContactPhone}
-                />
+                <PhoneInput value={contact_phone} onChange={(v) => { setContactPhone(v); setFieldError('contact_phone', null) }} />
+                {fieldErrors.contact_phone && <p style={{ marginTop: 3, fontSize: 11, color: 'var(--red)' }}>{fieldErrors.contact_phone}</p>}
               </div>
               <div>
                 <label style={labelStyle}>Email de contacto</label>
