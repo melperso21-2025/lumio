@@ -16,6 +16,8 @@ export default function SetupAccountPage() {
 
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -225,20 +227,36 @@ export default function SetupAccountPage() {
                   >
                     Nueva contraseña
                   </label>
-                  <input
-                    id="password"
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    minLength={8}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Mínimo 8 caracteres"
-                    className="w-full px-3.5 py-2.5 rounded-lg text-sm transition-all outline-none"
-                    style={inputStyle}
-                    onFocus={onFocus}
-                    onBlur={onBlur}
-                  />
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      required
+                      minLength={8}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Mínimo 8 caracteres"
+                      className="w-full px-3.5 py-2.5 pr-10 rounded-lg text-sm transition-all outline-none"
+                      style={inputStyle}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                    />
+                    <button
+                      type="button"
+                      aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-lg leading-none"
+                      style={{
+                        color: 'var(--muted)',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {showPassword ? '👁‍🗨' : '👁'}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">
@@ -249,20 +267,36 @@ export default function SetupAccountPage() {
                   >
                     Confirmar contraseña
                   </label>
-                  <input
-                    id="confirm"
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    minLength={8}
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    placeholder="Repite la contraseña"
-                    className="w-full px-3.5 py-2.5 rounded-lg text-sm transition-all outline-none"
-                    style={inputStyle}
-                    onFocus={onFocus}
-                    onBlur={onBlur}
-                  />
+                  <div className="relative">
+                    <input
+                      id="confirm"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      required
+                      minLength={8}
+                      value={confirm}
+                      onChange={(e) => setConfirm(e.target.value)}
+                      placeholder="Repite la contraseña"
+                      className="w-full px-3.5 py-2.5 pr-10 rounded-lg text-sm transition-all outline-none"
+                      style={inputStyle}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                    />
+                    <button
+                      type="button"
+                      aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      onClick={() => setShowConfirmPassword((v) => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-lg leading-none"
+                      style={{
+                        color: 'var(--muted)',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {showConfirmPassword ? '👁‍🗨' : '👁'}
+                    </button>
+                  </div>
                 </div>
 
                 {error && (

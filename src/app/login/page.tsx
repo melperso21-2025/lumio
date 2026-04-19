@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [view,     setView]     = useState<View>('login')
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState<string | null>(null)
 
@@ -254,30 +255,46 @@ export default function LoginPage() {
                       ¿Olvidaste tu contraseña?
                     </button>
                   </div>
-                  <input
-                    id="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-3.5 py-2.5 rounded-lg text-sm transition-all outline-none"
-                    style={{
-                      background: 'var(--surface)',
-                      border:     '1px solid var(--border2)',
-                      color:      'var(--text)',
-                      fontFamily: 'var(--font-jakarta)',
-                    }}
-                    onFocus={e => {
-                      e.target.style.borderColor = 'var(--gold)'
-                      e.target.style.boxShadow   = '0 0 0 3px var(--gold-bg)'
-                    }}
-                    onBlur={e => {
-                      e.target.style.borderColor = 'var(--border2)'
-                      e.target.style.boxShadow   = 'none'
-                    }}
-                  />
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      required
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3.5 py-2.5 pr-10 rounded-lg text-sm transition-all outline-none"
+                      style={{
+                        background: 'var(--surface)',
+                        border:     '1px solid var(--border2)',
+                        color:      'var(--text)',
+                        fontFamily: 'var(--font-jakarta)',
+                      }}
+                      onFocus={e => {
+                        e.target.style.borderColor = 'var(--gold)'
+                        e.target.style.boxShadow   = '0 0 0 3px var(--gold-bg)'
+                      }}
+                      onBlur={e => {
+                        e.target.style.borderColor = 'var(--border2)'
+                        e.target.style.boxShadow   = 'none'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-lg leading-none"
+                      style={{
+                        color: 'var(--muted)',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {showPassword ? '👁‍🗨' : '👁'}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Error */}
