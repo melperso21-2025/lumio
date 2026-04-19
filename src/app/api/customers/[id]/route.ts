@@ -204,9 +204,9 @@ export async function PATCH(
     const { error: updateError } = await supabaseAdmin
       .from('customers')
       .update({
-        full_name: body.full_name.trim(),
+        full_name: body.full_name!.trim(),
         id_type: body.id_type ?? null,
-        tax_id: body.tax_id.trim(),
+        tax_id: body.tax_id!.trim(),
         phone: body.phone?.trim() ?? null,
         email: body.email?.trim() ?? null,
         address: body.address ?? null,
