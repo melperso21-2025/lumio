@@ -37,6 +37,7 @@ export async function middleware(request: NextRequest) {
     '/login',
     '/auth/callback',
     '/auth/update-password',
+    '/auth/setup-account',
     '/api/auth/', // login, logout, verify-session — evitar loops
   ]
   const isPublicRoute = publicRoutes.some((route) =>

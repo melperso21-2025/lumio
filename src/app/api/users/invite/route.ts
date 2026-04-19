@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     // 2. Crear usuario en Supabase Auth con invitación
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?type=invite`,
       })
 
     let userId: string | undefined = authData?.user?.id

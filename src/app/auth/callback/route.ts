@@ -18,6 +18,9 @@ export async function GET(request: NextRequest) {
       if (type === 'recovery' || next === '/auth/update-password') {
         return NextResponse.redirect(`${origin}/auth/update-password`)
       }
+      if (type === 'invite') {
+        return NextResponse.redirect(`${origin}/auth/setup-account`)
+      }
       return NextResponse.redirect(`${origin}${next}`)
     }
   }

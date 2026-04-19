@@ -22,6 +22,8 @@ export async function PATCH(request: NextRequest) {
 
     // 2. Leer body
     const body = (await request.json()) as {
+      first_name?: string
+      last_name?: string
       full_name?: string
       alias?: string | null
       job_title?: string
@@ -33,6 +35,8 @@ export async function PATCH(request: NextRequest) {
 
     // 3. Construir payload — solo campos permitidos
     const payload: Record<string, unknown> = {}
+    if (body.first_name   !== undefined) payload.first_name   = body.first_name.trim()
+    if (body.last_name    !== undefined) payload.last_name    = body.last_name.trim()
     if (body.full_name    !== undefined) payload.full_name    = body.full_name.trim()
     if (body.alias        !== undefined) payload.alias        = body.alias ? body.alias.trim() : null
     if (body.job_title    !== undefined) payload.job_title    = body.job_title.trim()
@@ -50,7 +54,7 @@ export async function PATCH(request: NextRequest) {
       .from('users')
       .update(payload)
       .eq('id', user.id)
-      .select('id, full_name, job_title, phone, avatar_url, notify_whatsapp, notify_email')
+      .select('id, first_name, last_name, full_name, job_title, phone, avatar_url, notify_whatsapp, notify_email')
       .single()
 
     if (error) {
