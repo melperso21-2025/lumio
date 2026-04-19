@@ -10,6 +10,7 @@ export interface PhoneInputProps {
   onChange: (value: string) => void
   id?: string
   required?: boolean
+  error?: string
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -41,7 +42,7 @@ function formatDisplay(digits: string): string {
 
 // ── Componente ──────────────────────────────────────────────────────────────
 
-export default function PhoneInput({ value, onChange, id, required }: PhoneInputProps) {
+export default function PhoneInput({ value, onChange, id, required, error: errorProp }: PhoneInputProps) {
   // Extraer los dígitos locales del valor externo para mostrar en el input
   const toLocal = (v: string) => {
     if (!v) return ''
@@ -49,15 +50,17 @@ export default function PhoneInput({ value, onChange, id, required }: PhoneInput
   }
 
   const [localDigits, setLocalDigits] = useState(() => toLocal(value))
-  const [error, setError] = useState<string | null>(null)
+  const [internalError, setInternalError] = useState<string | null>(null)
   const [focused, setFocused] = useState(false)
+
+  const displayError = errorProp ?? internalError
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value
     // Permitir solo dígitos y espacios en el campo de entrada
     const digits = extractDigits(raw)
     setLocalDigits(digits)
-    setError(null)
+    setInternalError(null)
 
     // Emitir hacia arriba en formato canónico
     if (digits.length === 0) {
@@ -70,16 +73,16 @@ export default function PhoneInput({ value, onChange, id, required }: PhoneInput
   function handleBlur() {
     setFocused(false)
     if (localDigits.length === 0) {
-      setError(null)
+      setInternalError(null)
       return
     }
     const result = validatePhone(localDigits)
-    setError(result.valid ? null : (result.error ?? null))
+    setInternalError(result.valid ? null : (result.error ?? null))
   }
 
   function handleFocus() {
     setFocused(true)
-    setError(null)
+    setInternalError(null)
   }
 
   const isValid = localDigits.length === 0 || localDigits.length === 9
@@ -92,7 +95,7 @@ export default function PhoneInput({ value, onChange, id, required }: PhoneInput
           alignItems: 'center',
           borderRadius: 8,
           border: `1px solid ${
-            error         ? 'rgba(220,38,38,0.6)'  :
+            displayError  ? 'rgba(220,38,38,0.6)'  :
             focused       ? 'var(--gold)'           :
             'var(--border2)'
           }`,
@@ -147,7 +150,7 @@ export default function PhoneInput({ value, onChange, id, required }: PhoneInput
         />
       </div>
 
-      {error && (
+      {displayError && (
         <p
           style={{
             marginTop: 4,
@@ -155,7 +158,7 @@ export default function PhoneInput({ value, onChange, id, required }: PhoneInput
             color: 'var(--red, #F87171)',
           }}
         >
-          {error}
+          {displayError}
         </p>
       )}
     </div>
