@@ -4,6 +4,17 @@ import { ENTITY_DEFS, type EntityType } from '@/lib/import/entityConfig'
 import { buildContext, parseFileToRows } from '@/lib/import/buildContext'
 import { validateAndTransform } from '@/lib/import/rowProcessor'
 
+/** Respuesta de error con forma estable para el wizard (incl. cuando no se procesaron filas). */
+function errorJson(
+  message: string,
+  status: 400 | 401 | 403 | 500
+) {
+  return NextResponse.json(
+    { error: message, errors: [], valid: 0, total: 0 },
+    { status }
+  )
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json() as {
@@ -14,15 +25,15 @@ export async function POST(request: NextRequest) {
 
     const { entityType, mapping, fileData } = body
     if (!entityType || !ENTITY_DEFS[entityType]) {
-      return NextResponse.json({ error: 'Entidad inválida' }, { status: 400 })
+      return errorJson('Entidad inválida', 400)
     }
     if (!fileData) {
-      return NextResponse.json({ error: 'Sin datos de archivo' }, { status: 400 })
+      return errorJson('Sin datos de archivo', 400)
     }
 
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    if (!user) return errorJson('No autenticado', 401)
 
     const { data: userData } = await supabase
       .from('users')
@@ -32,10 +43,10 @@ export async function POST(request: NextRequest) {
 
     const canImport = userData?.role === 'admin' || userData?.is_pulse_admin
     if (!canImport) {
-      return NextResponse.json({ error: 'Solo administradores pueden importar datos' }, { status: 403 })
+      return errorJson('Solo administradores pueden importar datos', 403)
     }
     if (!userData?.company_id) {
-      return NextResponse.json({ error: 'Sin empresa asignada' }, { status: 403 })
+      return errorJson('Sin empresa asignada', 403)
     }
 
     const companyId = userData.company_id
@@ -45,14 +56,16 @@ export async function POST(request: NextRequest) {
     try {
       rows = parseFileToRows(fileData, mapping)
     } catch (e) {
-      return NextResponse.json({ error: `Error leyendo archivo: ${(e as Error).message}` }, { status: 400 })
+      return errorJson(`Error leyendo archivo: ${(e as Error).message}`, 400)
     }
 
+    console.log('validate request:', { entityType, rowCount: rows.length })
+
     if (rows.length === 0) {
-      return NextResponse.json({ error: 'El archivo no contiene datos (solo encabezados o está vacío)' }, { status: 400 })
+      return errorJson('El archivo no contiene datos (solo encabezados o está vacío)', 400)
     }
     if (rows.length > 5000) {
-      return NextResponse.json({ error: 'Máximo 5,000 filas por importación' }, { status: 400 })
+      return errorJson('Máximo 5,000 filas por importación', 400)
     }
 
     // Build context (entidad `customers`: validateAndTransform → validateCustomer con
@@ -93,6 +106,6 @@ export async function POST(request: NextRequest) {
 
   } catch (err) {
     console.error('POST /api/import/validate:', err)
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
+    return errorJson('Error interno del servidor', 500)
   }
 }

@@ -123,6 +123,7 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
   const [mapping,     setMapping]       = useState<Record<string, string>>({})  // systemLabel → fileHeader
   const [dragOver,    setDragOver]      = useState(false)
   const [parseError,  setParseError]    = useState<string | null>(null)
+  const [validateApiError, setValidateApiError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Step 4
@@ -139,7 +140,7 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
   // ── Reset on entity change ──────────────────────────────────────────────
   function resetFromStep3() {
     setUploadedFile(null); setFileHeaders([]); setFileRows([])
-    setMapping({}); setParseError(null); setValidation(null); setExecResult(null)
+    setMapping({}); setParseError(null); setValidateApiError(null); setValidation(null); setExecResult(null)
   }
 
   // ── Parse uploaded file client-side ────────────────────────────────────
@@ -208,21 +209,62 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
   // ── Validate ───────────────────────────────────────────────────────────
   async function runValidation() {
     if (!uploadedFile || !selectedEntity) return
-    setValidating(true); setValidation(null)
+    setValidating(true)
+    setValidation(null)
+    setValidateApiError(null)
     try {
       const fileData = await fileToBase64(uploadedFile)
-      const res  = await fetch('/api/import/validate', {
+      const res = await fetch('/api/import/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entityType: selectedEntity, mapping, fileData }),
       })
-      const data = await res.json()
-      setValidation(data)
+      const data = (await res.json()) as Record<string, unknown>
+
+      if (!res.ok) {
+        setValidateApiError(
+          typeof data.error === 'string' && data.error
+            ? data.error
+            : 'Error al validar el archivo'
+        )
+        return
+      }
+
+      const errorsRaw = data.errors
+      const errors = Array.isArray(errorsRaw)
+        ? (errorsRaw as ValidationResult['errors'])
+        : []
+      const warningsRaw = data.warnings
+      const warnings = Array.isArray(warningsRaw)
+        ? (warningsRaw as ValidationResult['warnings'])
+        : []
+      const previewRaw = data.preview
+      const preview = Array.isArray(previewRaw)
+        ? (previewRaw as Record<string, unknown>[])
+        : []
+
+      const total = typeof data.total === 'number' ? data.total : 0
+      const valid = typeof data.valid === 'number' ? data.valid : 0
+      const errorCount =
+        typeof data.errorCount === 'number' ? data.errorCount : errors.length
+      const warnCount =
+        typeof data.warnCount === 'number' ? data.warnCount : warnings.length
+
+      setValidation({
+        total,
+        valid,
+        errorCount,
+        warnCount,
+        errors,
+        warnings,
+        preview,
+      })
       setStep(4)
     } catch {
-      setValidation({ total: 0, valid: 0, errorCount: 1, warnCount: 0, errors: [{ row: 0, field: '', message: 'Error de conexión' }], warnings: [], preview: [] })
+      setValidateApiError('Error de conexión')
+    } finally {
+      setValidating(false)
     }
-    setValidating(false)
   }
 
   // ── Execute ────────────────────────────────────────────────────────────
@@ -431,6 +473,12 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
             </div>
           )}
 
+          {validateApiError && (
+            <div style={{ background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: 'var(--red)' }}>
+              {validateApiError}
+            </div>
+          )}
+
           {/* Column mapping */}
           {fileHeaders.length > 0 && (
             <div style={card}>
@@ -514,7 +562,11 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
       )}
 
       {/* ── STEP 4: Validation result ────────────────────────────────────── */}
-      {step === 4 && validation && (
+      {step === 4 && validation && (() => {
+        const vErr = validation.errors ?? []
+        const vWarn = validation.warnings ?? []
+        const vPrev = validation.preview ?? []
+        return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Summary banner */}
           {validation.errorCount === 0 && (
@@ -549,20 +601,20 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
           </div>
 
           {/* Preview */}
-          {validation.preview.length > 0 && (
+          {vPrev.length > 0 && (
             <div style={card}>
               <p style={sectionLabel}>Vista previa de registros que se importarían</p>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ borderCollapse: 'collapse', fontSize: 11, width: '100%' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                      {Object.keys(validation.preview[0]).filter((k) => k !== 'company_id').map((k) => (
+                      {Object.keys(vPrev[0] ?? {}).filter((k) => k !== 'company_id').map((k) => (
                         <th key={k} style={{ padding: '5px 10px', color: 'var(--muted)', fontSize: 10, fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>{k}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {validation.preview.map((row, i) => (
+                    {vPrev.map((row, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
                         {Object.entries(row).filter(([k]) => k !== 'company_id').map(([k, v]) => (
                           <td key={k} style={{ padding: '5px 10px', color: 'var(--text2)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -578,10 +630,10 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
           )}
 
           {/* Errors table */}
-          {validation.errors.length > 0 && (
+          {vErr.length > 0 && (
             <div style={{ ...card, background: 'rgba(220,38,38,0.03)', border: '1px solid rgba(220,38,38,0.15)', maxHeight: 280, overflowY: 'auto' }}>
               <p style={{ ...sectionLabel, color: 'var(--red)', marginBottom: 8 }}>Errores por fila</p>
-              {validation.errors.map((e, i) => {
+              {vErr.map((e, i) => {
                 const parts = e.message.split(' · ')
                 return (
                   <div
@@ -619,10 +671,10 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
           )}
 
           {/* Warnings */}
-          {validation.warnings.length > 0 && (
+          {vWarn.length > 0 && (
             <div style={{ ...card, background: 'rgba(217,119,6,0.04)', border: '1px solid rgba(217,119,6,0.2)', maxHeight: 180, overflowY: 'auto' }}>
               <p style={{ ...sectionLabel, color: 'var(--orange)', marginBottom: 8 }}>Advertencias de posibles duplicados</p>
-              {validation.warnings.slice(0, 30).map((w, i) => (
+              {vWarn.slice(0, 30).map((w, i) => (
                 <div key={i} style={{ fontSize: 11, color: 'var(--text2)', padding: '3px 0' }}>
                   Fila {w.row}: {w.message}
                 </div>
@@ -655,7 +707,8 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
             </button>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* ── STEP 5: Execute result ───────────────────────────────────────── */}
       {step === 5 && (
