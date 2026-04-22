@@ -55,7 +55,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Máximo 5,000 filas por importación' }, { status: 400 })
     }
 
-    // Build context
+    // Build context (entidad `customers`: validateAndTransform → validateCustomer con
+    // { requireEmail: false, requireRegisteredSince: false } vía validateCustomerImportOptions)
     const ctx = await buildContext(supabase, companyId, entityType)
 
     // Validate each row
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < rows.length; i++) {
       const rowNum = i + 2  // +2 because row 1 = headers
       try {
-        const result = validateAndTransform(entityType, rows[i], ctx)
+        const result = await validateAndTransform(entityType, rows[i], ctx)
         validCount++
         result.warnings.forEach((w) => warnings.push({ row: rowNum, message: w }))
         if (i < 5) preview.push(result.data)

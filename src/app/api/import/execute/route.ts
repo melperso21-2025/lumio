@@ -80,7 +80,8 @@ export async function POST(request: NextRequest) {
 
     const importLogId = logRow?.id ?? null
 
-    // Build context
+    // Build context (entidad `customers`: validateAndTransform → validateCustomer con
+    // { requireEmail: false, requireRegisteredSince: false } vía validateCustomerImportOptions)
     const ctx = await buildContext(supabaseAdmin as Parameters<typeof buildContext>[0], companyId, entityType)
 
     // Process rows
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < rows.length; i++) {
       const rowNum = i + 2
       try {
-        const result = validateAndTransform(entityType, rows[i], ctx)
+        const result = await validateAndTransform(entityType, rows[i], ctx)
 
         // Skip duplicates if requested
         const hasDupWarning = result.warnings.some((w) => w.includes('ya existe') || w.includes('ya está registrado'))

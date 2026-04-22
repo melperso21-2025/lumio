@@ -129,6 +129,7 @@ export async function buildContext(
   })
 
   return {
+    supabase,
     companyId,
     today,
     suppliersMap:       toLowerMap(suppliersData, 'name'),

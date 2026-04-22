@@ -122,12 +122,10 @@ export default async function CustomersPage({
       .order('name', { ascending: true }),
   ])
 
-  const customers = (customersList ?? []) as Parameters<
-    typeof CustomersOverview
-  >[0]['customers']
-  const prevCustomers = (prevCustomersList ?? []) as typeof customers
-  const customerTypes = (typesList ?? []) as { id: string; name: string; color: string }[]
-  const customerLabels = (labelsList ?? []) as { id: string; name: string; color: string }[]
+  const customers = customersList ?? []
+  const prevCustomers = prevCustomersList ?? []
+  const customerTypes = typesList ?? []
+  const customerLabels = labelsList ?? []
 
   return (
     <>

@@ -212,16 +212,23 @@ export interface ProductValidationResult {
 // Accepts catalog values as names (import) or UUIDs (forms/API).
 // When values are UUIDs, catalog lookup is skipped — trust the existing ID.
 
+/** Opciones de `validateCustomer()` para importación masiva (email y cliente_desde opcionales). */
+export const validateCustomerImportOptions = {
+  requireEmail: false,
+  requireRegisteredSince: false,
+} as const
+
 // Every field is validated unconditionally — all errors are collected before returning.
 // There are no early returns within the validation logic; only a single final check.
 export async function validateCustomer(
   row: Record<string, unknown>,
   companyId: string,
   supabase: SupabaseClient,
-  options?: { requireRegisteredSince?: boolean }
+  options?: { requireEmail?: boolean; requireRegisteredSince?: boolean }
 ): Promise<CustomerValidationResult> {
   const errors:   Record<string, string> = {}
   const warnings: Record<string, string> = {}
+  const requireEmail = options?.requireEmail ?? true
   const requireRegisteredSince = options?.requireRegisteredSince ?? true
 
   // full_name
@@ -233,10 +240,14 @@ export async function validateCustomer(
   }
 
   // email
-  const email = String(row.email ?? '').trim()
-  if (!email) {
-    errors.email = 'El email es obligatorio'
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  const emailRaw = String(row.email ?? '').trim()
+  if (requireEmail) {
+    if (!emailRaw) {
+      errors.email = 'El email es obligatorio'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
+      errors.email = 'El email no tiene un formato válido'
+    }
+  } else if (emailRaw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
     errors.email = 'El email no tiene un formato válido'
   }
 
@@ -262,6 +273,8 @@ export async function validateCustomer(
   const tax_id = String(row.tax_id ?? '').trim()
   if (!tax_id) {
     errors.tax_id = 'El número de identificación es requerido'
+  } else if (tax_id === '9999999999') {
+    // Placeholder: válido sin algoritmo de cédula
   } else if (validIdTypes.includes(id_type)) {
     const taxResult = validateTaxId(tax_id, id_type as 'cedula' | 'ruc' | 'pasaporte')
     if (!taxResult.valid) errors.tax_id = taxResult.error!
@@ -331,6 +344,7 @@ export async function validateCustomer(
   if (!valid) return { valid: false, errors, warnings }
 
   const phoneFormatted = validatePhone(phone).formatted ?? phone
+  const emailForData: string | null = requireEmail ? emailRaw : (emailRaw || null)
 
   return {
     valid: true,
@@ -338,7 +352,7 @@ export async function validateCustomer(
     warnings,
     data: {
       full_name,
-      email,
+      email: emailForData,
       phone:             phoneFormatted,
       id_type:           id_type || null,
       tax_id,

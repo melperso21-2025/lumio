@@ -86,9 +86,9 @@ const filterInputStyle: React.CSSProperties = {
 // ── Props ──────────────────────────────────────────────────────────────────
 
 interface CustomersTableProps {
-  customers: CustomerRow[]
-  customerTypes: CatalogItem[]
-  customerLabels: CatalogItem[]
+  customers?: CustomerRow[]
+  customerTypes?: CatalogItem[]
+  customerLabels?: CatalogItem[]
   filterText: string
   filterType: string
   filterLabel: string
@@ -104,9 +104,9 @@ interface CustomersTableProps {
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function CustomersTable({
-  customers,
-  customerTypes,
-  customerLabels,
+  customers = [],
+  customerTypes = [],
+  customerLabels = [],
   filterText,
   filterType,
   filterLabel,

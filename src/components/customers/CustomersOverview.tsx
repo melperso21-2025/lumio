@@ -17,10 +17,10 @@ function calcDelta(
 }
 
 interface CustomersOverviewProps {
-  customers: CustomerRow[]
-  prevCustomers: CustomerRow[]
-  customerTypes: CatalogItem[]
-  customerLabels: CatalogItem[]
+  customers?: CustomerRow[]
+  prevCustomers?: CustomerRow[]
+  customerTypes?: CatalogItem[]
+  customerLabels?: CatalogItem[]
   from: string
   to: string
   prevFrom: string
@@ -28,10 +28,10 @@ interface CustomersOverviewProps {
 }
 
 export default function CustomersOverview({
-  customers,
-  prevCustomers,
-  customerTypes,
-  customerLabels,
+  customers = [],
+  prevCustomers = [],
+  customerTypes = [],
+  customerLabels = [],
   from,
   to,
   prevFrom,

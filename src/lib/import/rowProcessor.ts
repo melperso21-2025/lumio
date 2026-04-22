@@ -5,12 +5,20 @@
  *  - transform(row, context): returns DB-ready object or throws
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { EntityType } from './entityConfig'
-import { validatePhone, validateTaxId, parseBoolean as parseBooleanLib, validateSupplier } from '@/lib/validations'
+import {
+  validatePhone,
+  parseBoolean as parseBooleanLib,
+  validateSupplier,
+  validateCustomer,
+  validateCustomerImportOptions,
+} from '@/lib/validations'
 
 // ── Context passed to each row processor ──────────────────────────────────
 
 export interface ProcessContext {
+  supabase: SupabaseClient
   companyId: string
   today: string       // ISO date YYYY-MM-DD
   // lookup maps (pre-fetched)
@@ -82,11 +90,11 @@ function parseNumInt(v: string | undefined): number | null {
 
 // ── Per-entity processors ─────────────────────────────────────────────────
 
-export function validateAndTransform(
+export async function validateAndTransform(
   entity: EntityType,
   row: Record<string, string>,
   ctx: ProcessContext
-): ProcessedRow {
+): Promise<ProcessedRow> {
   const warnings: string[] = []
 
   switch (entity) {
@@ -249,103 +257,66 @@ export function validateAndTransform(
 
     // ── customers ───────────────────────────────────────────────────────
     case 'customers': {
-      // Collect ALL errors before throwing — never stop at the first failure
-      const rowErrors: string[] = []
+      const isCompanyCell = row['es_empresa'] !== undefined
+        ? String(row['es_empresa']).trim()
+        : ''
+      const regParsed = parseDate(row['cliente_desde'] ?? undefined)
+      const regRaw = String(row['cliente_desde'] ?? '').trim()
 
-      // full_name
-      const full_name = row['nombre_completo']?.trim()
-      if (!full_name) rowErrors.push('"nombre_completo" es obligatorio')
-      else if (full_name.length < 2) rowErrors.push('"nombre_completo" debe tener al menos 2 caracteres')
-
-      // email
-      const email = row['email']?.trim()
-      if (!email) rowErrors.push('"email" es obligatorio')
-      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) rowErrors.push(`email "${email}" no tiene formato válido`)
-
-      // phone
-      const phone = row['telefono']?.trim()
-      let phoneFormatted: string | null = null
-      if (!phone) {
-        rowErrors.push('"telefono" es obligatorio')
-      } else {
-        const phoneResult = validatePhone(phone)
-        if (!phoneResult.valid) rowErrors.push(`telefono inválido: ${phoneResult.error}`)
-        else phoneFormatted = phoneResult.formatted!
+      const rowData: Record<string, unknown> = {
+        full_name: row['nombre_completo']?.trim(),
+        email:     row['email']?.trim(),
+        phone:     row['telefono']?.trim(),
+        id_type:   row['tipo_id']?.trim().toLowerCase(),
+        tax_id:    row['numero_id']?.trim(),
+        customer_type: row['tipo_cliente']?.trim(),
+        label:     row['etiqueta']?.trim(),
+        registered_since: regParsed ?? (regRaw || undefined),
+        contact_phone: row['contacto_telefono']?.trim(),
+        address:    row['direccion']?.trim(),
+        contact_name: row['contacto_nombre']?.trim(),
+        contact_email: row['contacto_email']?.trim(),
+      }
+      if (isCompanyCell !== '') {
+        rowData.is_company = isCompanyCell
       }
 
-      // tax_id / id_type
-      const tax_id  = row['numero_id']?.trim()
-      const id_type = row['tipo_id']?.trim().toLowerCase() || null
-      const validIdTypes = ['cedula', 'ruc', 'pasaporte']
-      if (!tax_id) {
-        rowErrors.push('"numero_id" es obligatorio')
+      const v = await validateCustomer(
+        rowData,
+        ctx.companyId,
+        ctx.supabase,
+        validateCustomerImportOptions
+      )
+      if (!v.valid) {
+        throw new Error(Object.values(v.errors).join(' · '))
       }
-      if (id_type && !validIdTypes.includes(id_type)) {
-        rowErrors.push(`tipo_id "${id_type}" inválido. Solo acepta: cedula, ruc, pasaporte`)
-      } else if (id_type && tax_id && validIdTypes.includes(id_type)) {
-        const taxResult = validateTaxId(tax_id, id_type as 'cedula' | 'ruc' | 'pasaporte')
-        if (!taxResult.valid) rowErrors.push(`numero_id inválido: ${taxResult.error}`)
+      const d = v.data!
+
+      const emailStr = d.email != null && d.email !== '' ? String(d.email) : ''
+      if (emailStr && ctx.existingEmails.has(emailStr.toLowerCase())) {
+        warnings.push(`Email "${emailStr}" ya está registrado`)
       }
-
-      // duplicate detection (warnings only — don't block import)
-      if (email && ctx.existingEmails.has(email.toLowerCase())) {
-        warnings.push(`Email "${email}" ya está registrado`)
+      const taxIdStr = d.tax_id != null && d.tax_id !== '' ? String(d.tax_id) : ''
+      if (taxIdStr && ctx.existingTaxIds.has(taxIdStr)) {
+        warnings.push(`ID "${taxIdStr}" ya está registrado`)
       }
-      if (tax_id && ctx.existingTaxIds.has(tax_id)) {
-        warnings.push(`ID "${tax_id}" ya está registrado`)
-      }
-
-      // customer_type
-      const customerTypeName = row['tipo_cliente']?.trim()
-      const customer_type    = customerTypeName ? ctx.customerTypesMap[customerTypeName.toLowerCase()] ?? null : null
-      if (customerTypeName && !customer_type)
-        rowErrors.push(`tipo_cliente "${customerTypeName}" no existe en tu catálogo. Ve a Configuración → Clientes para crearlo.`)
-
-      // label
-      const labelName = row['etiqueta']?.trim()
-      const label     = labelName ? ctx.customerLabelsMap[labelName.toLowerCase()] ?? null : null
-      if (labelName && !label)
-        rowErrors.push(`etiqueta "${labelName}" no existe en tu catálogo. Ve a Configuración → Clientes para crearlo.`)
-
-      // is_company
-      const isCompanyRaw    = row['es_empresa']?.trim()
-      const is_company_parsed = parseBooleanLib(isCompanyRaw)
-      if (isCompanyRaw && is_company_parsed === null)
-        rowErrors.push(`es_empresa inválido: "${isCompanyRaw}". Solo acepta: true, false, si, no`)
-      const is_company = is_company_parsed ?? false
-
-      // registered_since (required)
-      const registeredSince = parseDate(row['cliente_desde'])
-      if (!registeredSince) rowErrors.push('"cliente_desde" es obligatorio (formato YYYY-MM-DD)')
-
-      // contact_phone
-      const contactPhone = row['contacto_telefono']?.trim() || null
-      let contactPhoneFormatted: string | null = null
-      if (contactPhone) {
-        const cpResult = validatePhone(contactPhone)
-        if (!cpResult.valid) rowErrors.push(`contacto_telefono inválido: ${cpResult.error}`)
-        else contactPhoneFormatted = cpResult.formatted ?? null
-      }
-
-      // Throw all errors at once, separated by " · "
-      if (rowErrors.length > 0) throw new Error(rowErrors.join(' · '))
 
       return {
         data: {
-          company_id:       ctx.companyId,
-          full_name:        full_name!,
-          email:            email!,
-          phone:            phoneFormatted!,
-          tax_id:           tax_id!,
-          id_type:          id_type && validIdTypes.includes(id_type) ? id_type : null,
-          customer_type,
-          label,
-          is_company,
-          address:          row['direccion']?.trim() || null,
-          registered_since: registeredSince,
-          contact_name:     row['contacto_nombre']?.trim() || null,
-          contact_phone:    contactPhoneFormatted,
-          contact_email:    row['contacto_email']?.trim() || null,
+          company_id:        ctx.companyId,
+          full_name:         d.full_name,
+          email:             d.email,
+          phone:             d.phone,
+          tax_id:            d.tax_id,
+          id_type:           d.id_type,
+          customer_type:     d.customer_type,
+          label:             d.label,
+          is_company:        d.is_company,
+          address:           d.address,
+          registered_since:  d.registered_since,
+          contact_name:      d.contact_name,
+          contact_phone:     d.contact_phone,
+          contact_email:     d.contact_email,
         },
         warnings,
       }
