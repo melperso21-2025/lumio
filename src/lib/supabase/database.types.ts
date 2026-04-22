@@ -542,6 +542,7 @@ export type Database = {
       companies: {
         Row: {
           active_modules: string[] | null
+          allow_user_invites: boolean
           branch_count: number | null
           city_id: string | null
           country_id: string | null
@@ -550,6 +551,7 @@ export type Database = {
           fiscal_start_date: string | null
           id: string
           legal_rep_user_id: string | null
+          max_users: number
           metadata: Json | null
           name: string
           operational_since: string | null
@@ -564,6 +566,7 @@ export type Database = {
         }
         Insert: {
           active_modules?: string[] | null
+          allow_user_invites?: boolean
           branch_count?: number | null
           city_id?: string | null
           country_id?: string | null
@@ -572,6 +575,7 @@ export type Database = {
           fiscal_start_date?: string | null
           id?: string
           legal_rep_user_id?: string | null
+          max_users?: number
           metadata?: Json | null
           name: string
           operational_since?: string | null
@@ -586,6 +590,7 @@ export type Database = {
         }
         Update: {
           active_modules?: string[] | null
+          allow_user_invites?: boolean
           branch_count?: number | null
           city_id?: string | null
           country_id?: string | null
@@ -594,6 +599,7 @@ export type Database = {
           fiscal_start_date?: string | null
           id?: string
           legal_rep_user_id?: string | null
+          max_users?: number
           metadata?: Json | null
           name?: string
           operational_since?: string | null

@@ -2,10 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
+const VALID_ROLES = new Set(['admin', 'manager', 'operator'])
+
 export async function POST(request: NextRequest) {
   try {
-    const { email, full_name, role, job_title, company_id } =
-      await request.json()
+    const body = (await request.json()) as {
+      email?: string
+      full_name?: string
+      role?: string
+      job_title?: string | null
+      company_id?: string
+      is_pulse_admin_creating?: boolean
+    }
+    const { email, full_name, job_title, company_id, is_pulse_admin_creating } =
+      body
+    const role = typeof body.role === 'string' ? body.role : 'operator'
 
     if (!email || !full_name || !company_id) {
       return NextResponse.json(
@@ -14,9 +25,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (!VALID_ROLES.has(role)) {
+      return NextResponse.json({ error: 'Rol no válido' }, { status: 400 })
+    }
+
     const supabase = await createClient()
 
-    // 1. Verificar que el usuario que invita es admin
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -36,6 +50,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (inviterData?.role === 'admin' && !inviterData?.is_pulse_admin) {
+      if (role === 'admin') {
+        return NextResponse.json(
+          {
+            error:
+              'Los administradores de empresa no pueden crear otros administradores. Contacta a Pulse.',
+          },
+          { status: 403 }
+        )
+      }
+    }
+
     if (
       inviterData?.company_id !== company_id &&
       !inviterData?.is_pulse_admin
@@ -46,16 +72,86 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Límite y flags de empresa
+    const { data: company, error: companyError } = await supabaseAdmin
+      .from('companies')
+      .select('max_users, allow_user_invites, name')
+      .eq('id', company_id)
+      .is('deleted_at', null)
+      .single()
+
+    if (companyError || !company) {
+      return NextResponse.json(
+        { error: 'Empresa no encontrada' },
+        { status: 404 }
+      )
+    }
+
+    const isPulse = inviterData?.is_pulse_admin === true
+
+    if (!isPulse) {
+      if (company.allow_user_invites === false) {
+        return NextResponse.json(
+          {
+            error: 'Esta empresa no tiene habilitada la invitación de usuarios',
+          },
+          { status: 403 }
+        )
+      }
+    }
+
+    if (company.max_users === 0) {
+      return NextResponse.json(
+        {
+          error: 'Esta empresa no puede tener usuarios adicionales',
+        },
+        { status: 403 }
+      )
+    }
+
+    const { count: currentUsers, error: countError } = await supabaseAdmin
+      .from('users')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', company_id)
+      .is('deleted_at', null)
+
+    if (countError) {
+      return NextResponse.json(
+        { error: countError.message },
+        { status: 500 }
+      )
+    }
+
+    const c = currentUsers ?? 0
+    const cap = company.max_users ?? 3
+    if (c >= cap) {
+      return NextResponse.json(
+        {
+          error: `Límite de usuarios alcanzado (${c}/${cap}). Contacta a Pulse para aumentar el límite.`,
+        },
+        { status: 403 }
+      )
+    }
+
+    // Marcador opcional para auditoría (creación de admin desde Pulse)
+    void is_pulse_admin_creating
+
     // 2. Crear usuario en Supabase Auth con invitación
+    const base = process.env.NEXT_PUBLIC_APP_URL
+    if (!base) {
+      return NextResponse.json(
+        { error: 'Falta NEXT_PUBLIC_APP_URL' },
+        { status: 500 }
+      )
+    }
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?type=invite`,
+        redirectTo: `${base}/auth/callback`,
       })
 
     let userId: string | undefined = authData?.user?.id
 
     if (authError) {
-      // Si el usuario ya existe en auth, buscar su id para crear/actualizar en users
       if (authError.message.includes('already been registered')) {
         const { data: listData } =
           await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
@@ -72,7 +168,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (userId) {
-      // 3. Crear registro en tabla users
       const { error: userError } = await supabaseAdmin
         .from('users')
         .upsert(

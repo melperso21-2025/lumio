@@ -5,6 +5,7 @@ import KpiCard from '@/components/ui/KpiCard'
 import AiInsightBox from '@/components/ui/AiInsightBox'
 import InviteUserForm from '@/components/settings/InviteUserForm'
 import EditUserRoleForm from '@/components/settings/EditUserRoleForm'
+import ReinviteUserButton from '@/components/settings/ReinviteUserButton'
 
 // ── Configuración de badges por rol ───────────────────────────
 const roleConfig: Record<
@@ -62,6 +63,8 @@ export default async function SettingsUsersPage() {
 
   // Solo admin puede gestionar usuarios
   const canManage = currentUserRole === 'admin' || isPulseAdmin
+  /** Reenviar invitación: solo admin de empresa (no Pulse) */
+  const isCompanyOnlyAdmin = currentUserRole === 'admin' && !isPulseAdmin
 
   // Si no hay companyId → mensaje igual que otros módulos
   if (!companyId) {
@@ -272,9 +275,24 @@ export default async function SettingsUsersPage() {
                               : 'var(--muted)',
                           }}
                         >
-                          {u.last_seen_at
-                            ? formatDate(u.last_seen_at)
-                            : 'Nunca'}
+                          {u.last_seen_at ? (
+                            formatDate(u.last_seen_at)
+                          ) : (
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                fontSize: 10,
+                                fontWeight: 600,
+                                padding: '2px 8px',
+                                borderRadius: 6,
+                                background: 'rgba(217,119,6,0.12)',
+                                color: '#B45309',
+                                border: '1px solid rgba(217,119,6,0.2)',
+                              }}
+                            >
+                              Pendiente
+                            </span>
+                          )}
                         </td>
                         <td style={{ fontSize: 12, padding: '10px 12px' }}>
                           {canManage ? (
@@ -288,10 +306,25 @@ export default async function SettingsUsersPage() {
                                 — (tú)
                               </span>
                             ) : (
-                              <EditUserRoleForm
-                                userId={u.id}
-                                currentRole={u.role ?? 'operator'}
-                              />
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'flex-start',
+                                  gap: 8,
+                                }}
+                              >
+                                <EditUserRoleForm
+                                  userId={u.id}
+                                  currentRole={u.role ?? 'operator'}
+                                />
+                                {isCompanyOnlyAdmin && !u.last_seen_at && (
+                                  <ReinviteUserButton
+                                    userId={u.id}
+                                    email={u.email}
+                                  />
+                                )}
+                              </div>
                             )
                           ) : (
                             '—'

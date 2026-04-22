@@ -275,9 +275,6 @@ export default function InviteUserForm({ companyId }: InviteUserFormProps) {
                   <option value="manager">
                     Gerente — ve todos los módulos sin editar config
                   </option>
-                  <option value="admin">
-                    Administrador — acceso completo
-                  </option>
                 </select>
                 <div
                   style={{
@@ -291,7 +288,8 @@ export default function InviteUserForm({ companyId }: InviteUserFormProps) {
                   }}
                 >
                   📧 El usuario recibirá un email de invitación para crear su
-                  contraseña.
+                  contraseña. Los perfiles de administrador solo se crean desde
+                  el Panel Pulse.
                 </div>
               </div>
 

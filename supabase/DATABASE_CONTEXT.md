@@ -24,11 +24,29 @@ Entidad raíz del sistema. Cada cliente de Pulse es una empresa.
 | legal_rep_user_id | uuid | FK → users |
 | country_id | uuid | FK → countries |
 | city_id | uuid | FK → cities |
-| tax_id | text | UNIQUE |
-| status | text | — |
+| name | text | Nombre comercial |
+| plan | text | p. ej. `trial` / `active` / `suspended` |
+| status | text | Estado de suscripción (mismas convenciones que `plan` según producto) |
+| tax_id | text | UNIQUE, RUC Ecuador (13 dígitos) / vacío |
+| sector | text | — |
+| trial_expires_at | date/timestamp | — |
+| operational_since | date | — |
+| active_modules | text[] | Módulos habilitados en el producto (slugs) |
+| branch_count | integer | Referencia; puede editarse vía otras pantallas |
+| pulse_notes | text | Notas internas solo para Pulse |
+| max_users | integer | NOT NULL, default `3`, CHECK `max_users >= 0`. `0` = la empresa no puede tener usuarios adicionales. |
+| allow_user_invites | boolean | NOT NULL, default `true`. Si `false`, los **admins de esa empresa** no pueden invitar; el equipo **Pulse** gestiona excepciones vía `is_pulse_admin` y Panel Pulse. |
 | tags | ARRAY | — |
 | metadata | jsonb | — |
 | deleted_at | timestamp | Soft delete |
+
+**Límite de usuarios:** antes de aceptar una invitación, la API valida el conteo de filas en `users` con `company_id` y `deleted_at IS NULL` frente a `max_users` (ver `/api/users/invite`).
+
+**Reglas de invitación (roles):**
+- **Usuario Pulse** (`is_pulse_admin = true`): puede crear usuarios con cualquier rol (`admin`, `manager`, `operator`) y gestionar altas desde Panel Pulse.
+- **Admin de empresa** (`role = 'admin'` y no Pulse): solo puede invitar `manager` y `operator`, **no** otro `admin` (el alta de `admin` es exclusiva del equipo Pulse o flujos internos con permiso Pulse).
+- Límite de asientos: si `count(users) >= max_users` para esa empresa, la invitación se rechaza con 403.
+- `allow_user_invites = false`: aplica a invitaciones iniciadas **desde la empresa**; operaciones con sesión `is_pulse_admin` pueden asignar usuarios y cumplir políticas comerciales.
 
 ---
 

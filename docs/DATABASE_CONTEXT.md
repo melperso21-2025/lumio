@@ -24,11 +24,25 @@ Entidad raíz del sistema. Cada cliente de Pulse es una empresa.
 | legal_rep_user_id | uuid | FK → users |
 | country_id | uuid | FK → countries |
 | city_id | uuid | FK → cities |
-| tax_id | text | UNIQUE |
+| name | text | Nombre comercial |
+| plan | text | p. ej. `trial` / `active` / `suspended` |
 | status | text | — |
+| tax_id | text | UNIQUE, RUC Ecuador (13 dígitos) / vacío |
+| sector | text | — |
+| trial_expires_at | date/timestamp | — |
+| operational_since | date | — |
+| active_modules | text[] | Módulos habilitados (slugs) |
+| branch_count | integer | — |
+| pulse_notes | text | Notas internas del equipo Pulse |
+| max_users | integer | NOT NULL, default `3`, CHECK `max_users >= 0`. `0` = no admite más usuarios. |
+| allow_user_invites | boolean | NOT NULL, default `true`. Desactiva invitaciones hechas **desde la empresa**; Pulse Admin puede actuar vía RLS/rol de servicio. |
 | tags | ARRAY | — |
 | metadata | jsonb | — |
 | deleted_at | timestamp | Soft delete |
+
+**Límite de usuarios:** se valida en `/api/users/invite` (conteo de usuarios activos vs `max_users`).
+
+**Quién puede invitar qué rol:** Pulse (`is_pulse_admin`) puede crear cualquier rol; un **admin de empresa** solo `manager` y `operator`, no otro `admin`. Los `admin` de cliente se deben altas desde el Panel Pulse o procesos con permisos equivalentes.
 
 ---
 
