@@ -88,6 +88,42 @@ function parseNumInt(v: string | undefined): number | null {
   return n !== null ? Math.round(n) : null
 }
 
+function normalizeSupplierAccountType(
+  raw: unknown
+): { account_type: string | undefined; error?: string } {
+  if (raw == null || String(raw).trim() === '') {
+    return { account_type: undefined }
+  }
+  const s = String(raw).toLowerCase().trim()
+  if (['savings', 'ahorro', 'ahorros'].includes(s)) return { account_type: 'savings' }
+  if (['checking', 'cheking', 'corriente', 'cheque'].includes(s)) {
+    return { account_type: 'checking' }
+  }
+  return {
+    account_type: undefined,
+    error: "tipo_cuenta inválido: usa 'savings' o 'checking'",
+  }
+}
+
+function normalizeSupplierBankAccount(raw: unknown): string | undefined {
+  if (raw == null) return undefined
+  const s = String(raw).trim()
+  return s === '' ? undefined : s
+}
+
+function normalizeSupplierPaymentTerms(raw: unknown): string | undefined {
+  if (raw == null) return undefined
+  const t = String(raw).trim()
+  if (t === '') return undefined
+  const lower = t.toLowerCase().replace(/\s+/g, ' ').trim()
+  if (['contado', 'cash', '0'].includes(lower)) return 'cash'
+  if (['15', '15d', '15 dias'].includes(lower)) return '15d'
+  if (['30', '30d', '30 dias'].includes(lower)) return '30d'
+  if (['60', '60d'].includes(lower)) return '60d'
+  if (['90', '90d'].includes(lower)) return '90d'
+  return 'other'
+}
+
 // ── Per-entity processors ─────────────────────────────────────────────────
 
 export async function validateAndTransform(
@@ -104,6 +140,11 @@ export async function validateAndTransform(
       const isCompanyRaw = row['es_empresa']?.trim()
       const is_company   = isCompanyRaw ? (parseBooleanLib(isCompanyRaw) ?? true) : true
 
+      const accountTypeNorm = normalizeSupplierAccountType(row['tipo_cuenta'])
+      if (accountTypeNorm.error) {
+        throw new Error(accountTypeNorm.error)
+      }
+
       const rowData: Record<string, unknown> = {
         is_company,
         name:       is_company ? (row['nombre_empresa']?.trim() || undefined) : undefined,
@@ -115,11 +156,11 @@ export async function validateAndTransform(
         email:      row['email']?.trim(),
         address:    row['direccion']?.trim() || undefined,
         bank_name:  row['banco_nombre']?.trim()   || undefined,
-        bank_account: row['numero_cuenta']?.trim() || undefined,
-        account_type: row['tipo_cuenta']?.trim()  || undefined,
+        bank_account: normalizeSupplierBankAccount(row['numero_cuenta']),
+        account_type: accountTypeNorm.account_type,
         bank_tax_id:  row['ruc_cuenta']?.trim()   || undefined,
         default_lead_time_days: row['dias_entrega']?.trim() || undefined,
-        payment_terms: row['terminos_pago']?.trim() || undefined,
+        payment_terms: normalizeSupplierPaymentTerms(row['terminos_pago']),
       }
 
       const result = validateSupplier(rowData, ctx.companyId)
