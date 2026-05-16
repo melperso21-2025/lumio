@@ -5,6 +5,7 @@ import KpiCard from '@/components/ui/KpiCard'
 import ExportButton from '@/components/ui/ExportButton'
 import NewProductForm from '@/components/inventory/NewProductForm'
 import InventoryTable, { type ProductRow } from '@/components/inventory/InventoryTable'
+import AiInsightBox from '@/components/ui/AiInsightBox'
 import type { ProductCategory, Supplier } from '@/components/inventory/EditProductModal'
 
 type ProductWithCategory = ProductRow & { category_name?: string }
