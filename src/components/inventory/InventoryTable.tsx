@@ -351,7 +351,7 @@ export default function InventoryTable({
 
   if (filteredProducts.length === 0) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
         <FilterBar />
         <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 14, padding: 32 }}>
           No hay productos que coincidan con los filtros.
@@ -362,7 +362,7 @@ export default function InventoryTable({
 
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
         <FilterBar />
 
         {/* ── Alert banner ── */}
@@ -395,9 +395,9 @@ export default function InventoryTable({
           </div>
         )}
 
-        <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-            <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--card)', boxShadow: '0 1px 0 var(--border)' }}>
+            <thead style={{ background: 'var(--card)', boxShadow: '0 1px 0 var(--border)' }}>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 {COLUMNS.map(({ key, label, align }) => {
                   const isActive = sortBy === key
