@@ -252,6 +252,7 @@ export const ENTITY_DEFS: Record<EntityType, EntityDef> = {
     fields: [
       { key: 'sale_date',       label: 'fecha_venta',    required: true,  type: 'date',   example: '2026-03-15' },
       { key: 'customer_email',  label: 'email_cliente',  required: true,  type: 'email',  example: 'maria@email.com', hint: 'Email del cliente registrado' },
+      { key: 'external_ref',    label: 'referencia',     required: false, type: 'text',   example: 'V0002-0520', hint: 'ID de la venta en tu sistema anterior. Úsalo en el CSV de líneas de venta para hacer match.' },
       { key: 'channel_name',    label: 'canal',          required: false, type: 'text',   example: 'WhatsApp', hint: 'Nombre del canal de venta' },
       { key: 'branch_name',     label: 'sucursal',       required: false, type: 'text',   example: 'Matriz Quito', hint: 'Nombre de la sucursal' },
       { key: 'status',          label: 'estado',         required: false, type: 'text',   example: 'closed', hint: 'closed|review|contact|cancelled' },
@@ -270,7 +271,8 @@ export const ENTITY_DEFS: Record<EntityType, EntityDef> = {
     refEntities: ['sales', 'products'],
     generatedColumns: ['subtotal'],
     fields: [
-      { key: 'sale_date_customer', label: 'venta_fecha_email', required: true,  type: 'text',   example: '2026-03-15|maria@email.com', hint: 'fecha_venta|email_cliente (formato exacto)' },
+      { key: 'sale_ref',        label: 'referencia_venta',  required: false, type: 'text',   example: 'V0002-0520', hint: 'Referencia externa de la venta (recomendado). Si no existe, usa venta_fecha_email.' },
+      { key: 'sale_date_customer', label: 'venta_fecha_email', required: false, type: 'text', example: '2026-03-15|maria@email.com', hint: 'Alternativa a referencia_venta: fecha_venta|email_cliente (formato exacto)' },
       { key: 'product_sku',        label: 'sku_producto',      required: true,  type: 'text',   example: 'BOL-001', hint: 'SKU del producto' },
       { key: 'quantity',           label: 'cantidad',          required: true,  type: 'number', example: '2' },
       { key: 'unit_price',         label: 'precio_unitario',   required: true,  type: 'number', example: '89.99' },

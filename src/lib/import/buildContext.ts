@@ -68,7 +68,7 @@ export async function buildContext(
       ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase as any)
           .from('sales')
-          .select('id, sale_date, customer_id, customers(email)')
+          .select('id, sale_date, external_ref, customer_id, customers(email)')
           .eq('company_id', companyId)
           .is('deleted_at', null)
           .limit(5000)
@@ -76,13 +76,16 @@ export async function buildContext(
       : Promise.resolve([]),
   ])
 
-  // sales map: "date|email" → sale_id
+  // sales map por "date|email" (fallback) y por external_ref (preferido)
   const salesMap: Record<string, string> = {}
+  const salesMapByRef: Record<string, string> = {}
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(salesData as any[]).forEach((s: any) => {
     const email = (s.customers?.email ?? '').toLowerCase().trim()
     const date  = s.sale_date ?? ''
     if (email && date) salesMap[`${date}|${email}`] = s.id
+    const ref = String(s.external_ref ?? '').trim()
+    if (ref) salesMapByRef[ref.toLowerCase()] = s.id
   })
 
   // bank accounts map: account_number → id
@@ -145,6 +148,7 @@ export async function buildContext(
     bankAccountsMap,
     bankTxCategoriesMap,
     salesMap,
+    salesMapByRef,
     existingEmails,
     existingTaxIds,
     existingSkus,
@@ -169,6 +173,7 @@ export function parseFileToRows(
     header: 1,
     raw: false,
     defval: '',
+    dateNF: 'yyyy-mm-dd',  // preserva formato ISO en celdas detectadas como fecha
   }) as string[][]
 
   if (raw.length < 2) return []

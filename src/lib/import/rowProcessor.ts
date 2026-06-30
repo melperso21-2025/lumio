@@ -35,6 +35,7 @@ export interface ProcessContext {
   bankAccountsMap: Record<string, string>         // account_number → id
   bankTxCategoriesMap: Record<string, string>     // name_lower → id
   salesMap: Record<string, string>                // "date|email" → sale_id
+  salesMapByRef: Record<string, string>           // external_ref_lower → sale_id
   existingEmails: Set<string>
   existingTaxIds: Set<string>
   existingSkus: Set<string>
@@ -56,13 +57,19 @@ function parseBool(v: string | undefined): boolean {
 function parseDate(v: string | undefined): string | null {
   if (!v) return null
   const s = v.toString().trim()
+  // YYYY-MM-DD (ISO)
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
-  // try Excel serial number
+  // M/D/YYYY or MM/DD/YYYY — SheetJS reformats ISO dates to this in CSVs with raw:false
+  const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (mdy) {
+    const mm = mdy[1].padStart(2, '0')
+    const dd = mdy[2].padStart(2, '0')
+    return `${mdy[3]}-${mm}-${dd}`
+  }
+  // Excel serial number
   const n = Number(s)
   if (!isNaN(n) && n > 40000) {
-    // Excel serial date to JS date
-    const d = XLSX_serial_to_date(n)
-    return d
+    return XLSX_serial_to_date(n)
   }
   return null
 }
@@ -509,6 +516,8 @@ export async function validateAndTransform(
       const validStatuses = ['closed', 'review', 'contact', 'cancelled']
       const status = validStatuses.includes(statusRaw) ? statusRaw : 'closed'
 
+      const external_ref = row['referencia']?.trim() || null
+
       return {
         data: {
           company_id:      ctx.companyId,
@@ -517,6 +526,7 @@ export async function validateAndTransform(
           channel_id,
           branch_id,
           status,
+          external_ref,
           gross_total:     parseNum(row['total']) ?? 0,
           discount_amount: parseNum(row['descuento']) ?? 0,
           notes:           row['notas']?.trim() || null,
@@ -528,10 +538,21 @@ export async function validateAndTransform(
 
     // ── sale_items ───────────────────────────────────────────────────────
     case 'sale_items': {
-      const saleKey = row['venta_fecha_email']?.trim()
-      if (!saleKey) throw new Error('"venta_fecha_email" es obligatorio (formato: fecha|email)')
-      const sale_id = ctx.salesMap[saleKey.toLowerCase()]
-      if (!sale_id) throw new Error(`Venta "${saleKey}" no encontrada`)
+      const saleRef     = row['referencia_venta']?.trim()
+      const saleDateKey = row['venta_fecha_email']?.trim()
+
+      if (!saleRef && !saleDateKey) {
+        throw new Error('Debes indicar "referencia_venta" o "venta_fecha_email" para identificar la venta')
+      }
+
+      let sale_id: string | undefined
+      if (saleRef) {
+        sale_id = ctx.salesMapByRef[saleRef.toLowerCase()]
+        if (!sale_id) throw new Error(`Venta con referencia "${saleRef}" no encontrada`)
+      } else {
+        sale_id = ctx.salesMap[saleDateKey!.toLowerCase()]
+        if (!sale_id) throw new Error(`Venta "${saleDateKey}" no encontrada`)
+      }
 
       const sku = row['sku_producto']?.trim()
       if (!sku) throw new Error('"sku_producto" es obligatorio')
