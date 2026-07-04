@@ -453,6 +453,24 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
                 <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>
                   {fileHeaders.length} columnas detectadas · Clic para cambiar archivo
                 </p>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); resetFromStep3() }}
+                  style={{
+                    marginTop: 10,
+                    padding: '4px 12px',
+                    borderRadius: 6,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    border: '1px solid rgba(220,38,38,0.3)',
+                    background: 'rgba(220,38,38,0.08)',
+                    color: 'var(--red)',
+                    fontFamily: 'var(--font-syne)',
+                  }}
+                >
+                  × Eliminar archivo
+                </button>
               </>
             ) : (
               <>
