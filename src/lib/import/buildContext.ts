@@ -40,6 +40,29 @@ export async function buildContext(
     return data ?? []
   }
 
+  // Pagina de a 1000 (respeta el max_rows de PostgREST) hasta traer todos los clientes
+  async function fetchAllCustomers(select: string) {
+    const all: unknown[] = []
+    const pageSize = 1000
+    let offset = 0
+    while (true) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('customers')
+        .select(select)
+        .eq('company_id', companyId)
+        .is('deleted_at', null)
+        .order('id', { ascending: true })
+        .range(offset, offset + pageSize - 1)
+      if (error || !data || data.length === 0) break
+      all.push(...data)
+      if (data.length < pageSize) break
+      offset += pageSize
+      if (offset >= 50000) break  // techo de seguridad
+    }
+    return all
+  }
+
   // Always fetch the entity's dependencies
   const [
     suppliersData,
@@ -57,7 +80,7 @@ export async function buildContext(
     fetch('suppliers', 'id, name'),
     fetch('product_categories', 'id, name'),
     fetch('sales_channels', 'id, name'),
-    fetch('customers', 'id, email, tax_id', 20000),
+    fetchAllCustomers('id, email, tax_id'),
     fetch('customer_types', 'id, name'),
     fetch('customer_labels', 'id, name'),
     fetch('branches', 'id, name'),
