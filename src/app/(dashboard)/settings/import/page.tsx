@@ -4,6 +4,7 @@ import Topbar from '@/components/layout/Topbar'
 import AiInsightBox from '@/components/ui/AiInsightBox'
 import ImportWizard from '@/components/settings/import/ImportWizard'
 import ImportHistory from '@/components/settings/import/ImportHistory'
+import RecalculateStatsButton from '@/components/settings/import/RecalculateStatsButton'
 
 export default async function SettingsImportPage({
   searchParams,
@@ -74,6 +75,15 @@ export default async function SettingsImportPage({
                     </p>
                   </div>
                   <ImportWizard companyId={companyId} />
+
+                  <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+
+                  <div>
+                    <p className="font-syne font-bold" style={{ fontSize: 13, color: 'var(--text)', margin: '0 0 8px' }}>
+                      Post-importación
+                    </p>
+                    <RecalculateStatsButton />
+                  </div>
                 </div>
               )}
 
