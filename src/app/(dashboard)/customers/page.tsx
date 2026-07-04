@@ -83,11 +83,21 @@ export default async function CustomersPage({
     'id, full_name, phone, email, tax_id, id_type, customer_type, label, lifetime_value, last_purchase_at, registered_since, is_company, contact_name, address, created_at'
 
   const [
+    { data: allCustomersList },
     { data: customersList },
     { data: prevCustomersList },
     { data: typesList },
     { data: labelsList },
   ] = await Promise.all([
+    // Lista completa — sin filtro de fecha para mostrar todos los clientes
+    supabase
+      .from('customers')
+      .select(CUSTOMER_SELECT)
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(5000),
+    // Clientes nuevos en el período — para KPIs
     supabase
       .from('customers')
       .select(CUSTOMER_SELECT)
@@ -96,7 +106,7 @@ export default async function CustomersPage({
       .gte('registered_since', from)
       .lte('registered_since', to)
       .order('created_at', { ascending: false })
-      .limit(500),
+      .limit(2000),
     supabase
       .from('customers')
       .select(CUSTOMER_SELECT)
@@ -105,7 +115,7 @@ export default async function CustomersPage({
       .gte('registered_since', prevFrom)
       .lte('registered_since', prevTo)
       .order('created_at', { ascending: false })
-      .limit(500),
+      .limit(2000),
     supabase
       .from('customer_types')
       .select('id, name, color')
@@ -122,6 +132,7 @@ export default async function CustomersPage({
       .order('name', { ascending: true }),
   ])
 
+  const allCustomers = allCustomersList ?? []
   const customers = customersList ?? []
   const prevCustomers = prevCustomersList ?? []
   const customerTypes = typesList ?? []
@@ -146,6 +157,7 @@ export default async function CustomersPage({
         }}
       >
         <CustomersOverview
+          allCustomers={allCustomers}
           customers={customers}
           prevCustomers={prevCustomers}
           customerTypes={customerTypes}

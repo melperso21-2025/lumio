@@ -17,7 +17,8 @@ function calcDelta(
 }
 
 interface CustomersOverviewProps {
-  customers?: CustomerRow[]
+  allCustomers?: CustomerRow[]   // lista completa para la tabla
+  customers?: CustomerRow[]      // nuevos en el período — para KPIs
   prevCustomers?: CustomerRow[]
   customerTypes?: CatalogItem[]
   customerLabels?: CatalogItem[]
@@ -28,6 +29,7 @@ interface CustomersOverviewProps {
 }
 
 export default function CustomersOverview({
+  allCustomers = [],
   customers = [],
   prevCustomers = [],
   customerTypes = [],
@@ -49,9 +51,10 @@ export default function CustomersOverview({
     return m
   }, [customerTypes])
 
+  // La tabla usa allCustomers (sin filtro de fecha) para mostrar todos los clientes
   const filteredCustomers = useMemo(() => {
     const txt = filterText.toLowerCase()
-    return customers.filter((c) => {
+    return allCustomers.filter((c) => {
       if (txt) {
         const name  = (c.full_name ?? '').toLowerCase()
         const email = (c.email ?? '').toLowerCase()
@@ -63,7 +66,7 @@ export default function CustomersOverview({
       if (filterIsCompany !== null && (c.is_company ?? false) !== filterIsCompany) return false
       return true
     })
-  }, [customers, filterText, filterType, filterLabel, filterIsCompany])
+  }, [allCustomers, filterText, filterType, filterLabel, filterIsCompany])
 
   const filteredPrevCustomers = useMemo(() => {
     const txt = filterText.toLowerCase()
