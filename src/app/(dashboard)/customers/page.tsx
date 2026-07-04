@@ -82,21 +82,36 @@ export default async function CustomersPage({
   const CUSTOMER_SELECT =
     'id, full_name, phone, email, tax_id, id_type, customer_type, label, lifetime_value, last_purchase_at, registered_since, is_company, contact_name, address, created_at'
 
+  // Paginación para superar el límite max_rows de PostgREST (1.000 filas)
+  async function fetchAllCustomers() {
+    const all: unknown[] = []
+    const pageSize = 1000
+    let offset = 0
+    while (true) {
+      const { data, error } = await supabase
+        .from('customers')
+        .select(CUSTOMER_SELECT)
+        .eq('company_id', companyId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + pageSize - 1)
+      if (error || !data || data.length === 0) break
+      all.push(...data)
+      if (data.length < pageSize) break
+      offset += pageSize
+      if (offset >= 50000) break
+    }
+    return all
+  }
+
   const [
-    { data: allCustomersList },
+    allCustomersList,
     { data: customersList },
     { data: prevCustomersList },
     { data: typesList },
     { data: labelsList },
   ] = await Promise.all([
-    // Lista completa — sin filtro de fecha para mostrar todos los clientes
-    supabase
-      .from('customers')
-      .select(CUSTOMER_SELECT)
-      .eq('company_id', companyId)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .limit(5000),
+    fetchAllCustomers(),
     // Clientes nuevos en el período — para KPIs
     supabase
       .from('customers')
@@ -132,7 +147,8 @@ export default async function CustomersPage({
       .order('name', { ascending: true }),
   ])
 
-  const allCustomers = allCustomersList ?? []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allCustomers = allCustomersList as any[]
   const customers = customersList ?? []
   const prevCustomers = prevCustomersList ?? []
   const customerTypes = typesList ?? []
