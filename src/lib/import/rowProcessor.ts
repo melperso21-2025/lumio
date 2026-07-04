@@ -59,12 +59,21 @@ function parseDate(v: string | undefined): string | null {
   const s = v.toString().trim()
   // YYYY-MM-DD (ISO)
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
-  // M/D/YYYY or MM/DD/YYYY — SheetJS reformats ISO dates to this in CSVs with raw:false
-  const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
-  if (mdy) {
-    const mm = mdy[1].padStart(2, '0')
-    const dd = mdy[2].padStart(2, '0')
-    return `${mdy[3]}-${mm}-${dd}`
+  // M/D/YYYY or MM/DD/YYYY — SheetJS con raw:false y año 4 dígitos
+  const mdy4 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (mdy4) {
+    const mm = mdy4[1].padStart(2, '0')
+    const dd = mdy4[2].padStart(2, '0')
+    return `${mdy4[3]}-${mm}-${dd}`
+  }
+  // M/D/YY o MM/DD/YY — SheetJS con raw:false y año 2 dígitos (ej: 12/31/19 → 2019-12-31)
+  const mdy2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/)
+  if (mdy2) {
+    const mm   = mdy2[1].padStart(2, '0')
+    const dd   = mdy2[2].padStart(2, '0')
+    const yy   = parseInt(mdy2[3], 10)
+    const yyyy = yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy
+    return `${yyyy}-${mm}-${dd}`
   }
   // Excel serial number
   const n = Number(s)
