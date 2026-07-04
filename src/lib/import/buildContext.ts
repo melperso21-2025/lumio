@@ -94,7 +94,7 @@ export async function buildContext(
     fetch('customer_types', 'id, name'),
     fetch('customer_labels', 'id, name'),
     fetch('branches', 'id, name'),
-    fetch('products', 'id, name, sku'),
+    fetchAllPaged('products', 'id, name, sku'),
     fetch('bank_accounts', 'id, account_number'),
     fetch('bank_transaction_categories', 'id, name'),
     entity === 'sale_items'
