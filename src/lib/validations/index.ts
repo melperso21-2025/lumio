@@ -350,7 +350,7 @@ export async function validateCustomer(
   const valid = Object.keys(errors).length === 0
   if (!valid) return { valid: false, errors, warnings }
 
-  const phoneFormatted = validatePhone(phone).formatted ?? phone
+  const phoneFormatted: string | null = phone ? (validatePhone(phone).formatted ?? phone) : null
   const emailForData: string | null = requireEmail ? emailRaw : (emailRaw || null)
 
   return {
