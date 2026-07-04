@@ -80,7 +80,7 @@ export default async function CustomersPage({
   }
 
   const CUSTOMER_SELECT =
-    'id, full_name, phone, email, tax_id, id_type, customer_type, label, lifetime_value, last_purchase_at, registered_since, is_company, contact_name, address, created_at'
+    'id, full_name, phone, email, tax_id, id_type, customer_type, label, lifetime_value, last_purchase_at, registered_since, is_company, contact_name, address, created_at, total_orders'
 
   // Paginación para superar el límite max_rows de PostgREST (1.000 filas)
   async function fetchAllCustomers() {

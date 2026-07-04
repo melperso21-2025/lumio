@@ -25,6 +25,7 @@ export type CustomerRow = {
   contact_name: string | null
   address: string | null
   created_at: string
+  total_orders: number | null
 }
 
 export type CatalogItem = {
@@ -41,6 +42,7 @@ type SortKey =
   | 'customer_type'
   | 'label'
   | 'lifetime_value'
+  | 'total_orders'
   | 'last_purchase_at'
   | 'registered_since'
 
@@ -51,6 +53,7 @@ const COLUMNS: { key: SortKey; label: string; align: 'left' | 'right' }[] = [
   { key: 'email',           label: 'Email',         align: 'left'  },
   { key: 'customer_type',   label: 'Tipo',          align: 'left'  },
   { key: 'label',           label: 'Etiqueta',      align: 'left'  },
+  { key: 'total_orders',    label: 'Ventas',        align: 'right' },
   { key: 'lifetime_value',  label: 'LTV',           align: 'right' },
   { key: 'last_purchase_at',label: 'Última compra', align: 'left'  },
 ]
@@ -63,6 +66,7 @@ function getSortValue(c: CustomerRow, key: SortKey): string | number {
     case 'email':           return (c.email ?? '').toLowerCase()
     case 'customer_type':   return (c.customer_type ?? '').toLowerCase()
     case 'label':           return (c.label ?? '').toLowerCase()
+    case 'total_orders':    return c.total_orders ?? 0
     case 'lifetime_value':  return c.lifetime_value ?? 0
     case 'last_purchase_at':return c.last_purchase_at ?? ''
     case 'registered_since':return c.registered_since ?? ''
@@ -506,6 +510,17 @@ export default function CustomersTable({
                         }}
                       >
                         {labelCfg.name}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--muted)' }}>—</span>
+                    )}
+                  </td>
+
+                  {/* Ventas */}
+                  <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                    {(c.total_orders ?? 0) > 0 ? (
+                      <span style={{ fontWeight: 500, color: 'var(--text2)' }}>
+                        {c.total_orders}
                       </span>
                     ) : (
                       <span style={{ color: 'var(--muted)' }}>—</span>

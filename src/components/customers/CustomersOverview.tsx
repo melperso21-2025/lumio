@@ -112,6 +112,7 @@ export default function CustomersOverview({
     Dirección: c.address ?? '',
     Tipo: typeMap.get(c.customer_type ?? '')?.name ?? c.customer_type ?? '',
     Etiqueta: c.label ?? '',
+    Ventas: c.total_orders ?? 0,
     LTV: c.lifetime_value ?? 0,
     Empresa: c.is_company ? 'Sí' : 'No',
     'Última compra': c.last_purchase_at ?? '',
