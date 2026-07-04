@@ -29,7 +29,6 @@ export async function buildContext(
   const today = toLocalISO(new Date())
 
   // Helper: fetch a table with soft-delete filter
-  // customers puede tener miles de registros — usa limit alto y paginación si supera la página
   async function fetch(table: string, select: string, limit = 2000) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data } = await (supabase as any)
@@ -39,28 +38,6 @@ export async function buildContext(
       .is('deleted_at', null)
       .limit(limit)
     return data ?? []
-  }
-
-  // Para customers cargamos hasta 20k para soportar bases grandes
-  async function fetchAllCustomers(select: string) {
-    const pageSize = 2000
-    const pages: unknown[][] = []
-    let from = 0
-    while (true) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any)
-        .from('customers')
-        .select(select)
-        .eq('company_id', companyId)
-        .is('deleted_at', null)
-        .range(from, from + pageSize - 1)
-      const page = data ?? []
-      pages.push(page)
-      if (page.length < pageSize) break
-      from += pageSize
-      if (from >= 20000) break  // techo de seguridad
-    }
-    return pages.flat()
   }
 
   // Always fetch the entity's dependencies
@@ -80,7 +57,7 @@ export async function buildContext(
     fetch('suppliers', 'id, name'),
     fetch('product_categories', 'id, name'),
     fetch('sales_channels', 'id, name'),
-    fetchAllCustomers('id, email, tax_id'),
+    fetch('customers', 'id, email, tax_id', 20000),
     fetch('customer_types', 'id, name'),
     fetch('customer_labels', 'id, name'),
     fetch('branches', 'id, name'),
