@@ -29,8 +29,9 @@ export interface SupplierValidationResult {
 
 // ── Phone — Ecuador ────────────────────────────────────────────────────────
 // Acepta:
-//   • Móviles:  local de 9 dígitos que empieza con 9  (ej. 0999123456 → +5939991234560 → local=999123456)
-//   • Fijos:    local de 8 dígitos que empieza con 2-7 (ej. 022999999 → +59322999999 → local=22999999)
+//   • Móviles: local 9 dígitos empezando con 9  (ej. 0999123456 → local=999123456)
+//   • Fijos:   local 9 dígitos empezando con 2-7 (ej. 0222341234 → local=222341234)
+//              (código de área 2 dígitos: 02,03,04,05,06,07 → al quitar el 0 quedan 9 dígitos)
 
 export function validatePhone(phone: string): {
   valid: boolean; error?: string; formatted?: string
@@ -42,15 +43,11 @@ export function validatePhone(phone: string): {
     : digits.startsWith('0')
       ? digits.slice(1)
       : digits
-  // Móvil
-  if (local.length === 9 && local.startsWith('9'))
-    return { valid: true, formatted: '+593' + local }
-  // Fijo: 8 dígitos, área 2-7
-  if (local.length === 8 && /^[2-7]/.test(local))
+  if (local.length === 9 && /^[2-79]/.test(local))
     return { valid: true, formatted: '+593' + local }
   return {
     valid: false,
-    error: 'Teléfono inválido. Móvil: 09XXXXXXXX · Fijo: 0X-XXXXXXX (área 2-7)',
+    error: 'Teléfono inválido. Móvil: 09XXXXXXXX · Fijo: 0XX-XXXXXXX (área 02-07)',
   }
 }
 
