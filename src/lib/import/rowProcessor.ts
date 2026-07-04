@@ -318,7 +318,6 @@ export async function validateAndTransform(
         ? String(row['es_empresa']).trim()
         : ''
       const regParsed = parseDate(row['cliente_desde'] ?? undefined)
-      const regRaw = String(row['cliente_desde'] ?? '').trim()
 
       const rowData: Record<string, unknown> = {
         full_name: row['nombre_completo']?.trim(),
@@ -328,7 +327,9 @@ export async function validateAndTransform(
         tax_id:    row['numero_id']?.trim(),
         customer_type: row['tipo_cliente']?.trim(),
         label:     row['etiqueta']?.trim(),
-        registered_since: regParsed ?? (regRaw || undefined),
+        // Si parseDate no pudo convertir el valor, se deja undefined para no disparar
+        // validación de formato en validateCustomer (el campo es opcional en importación)
+        registered_since: regParsed ?? undefined,
         contact_phone: row['contacto_telefono']?.trim(),
         address:    row['direccion']?.trim(),
         contact_name: row['contacto_nombre']?.trim(),
