@@ -217,10 +217,11 @@ export interface ProductValidationResult {
 // Accepts catalog values as names (import) or UUIDs (forms/API).
 // When values are UUIDs, catalog lookup is skipped — trust the existing ID.
 
-/** Opciones de `validateCustomer()` para importación masiva (email y cliente_desde opcionales). */
+/** Opciones de `validateCustomer()` para importación masiva. */
 export const validateCustomerImportOptions = {
   requireEmail: false,
   requireRegisteredSince: false,
+  requirePhone: false,
 } as const
 
 // Every field is validated unconditionally — all errors are collected before returning.
@@ -229,12 +230,13 @@ export async function validateCustomer(
   row: Record<string, unknown>,
   companyId: string,
   supabase: SupabaseClient,
-  options?: { requireEmail?: boolean; requireRegisteredSince?: boolean }
+  options?: { requireEmail?: boolean; requireRegisteredSince?: boolean; requirePhone?: boolean }
 ): Promise<CustomerValidationResult> {
   const errors:   Record<string, string> = {}
   const warnings: Record<string, string> = {}
   const requireEmail = options?.requireEmail ?? true
   const requireRegisteredSince = options?.requireRegisteredSince ?? true
+  const requirePhone = options?.requirePhone ?? true
 
   // full_name
   const full_name = String(row.full_name ?? '').trim()
@@ -259,7 +261,7 @@ export async function validateCustomer(
   // phone
   const phone = String(row.phone ?? '').trim()
   if (!phone) {
-    errors.phone = 'El teléfono es obligatorio'
+    if (requirePhone) errors.phone = 'El teléfono es obligatorio'
   } else {
     const phoneResult = validatePhone(phone)
     if (!phoneResult.valid) errors.phone = phoneResult.error!
