@@ -40,27 +40,37 @@ export async function buildContext(
     return data ?? []
   }
 
-  // Pagina de a 1000 (respeta el max_rows de PostgREST) hasta traer todos los clientes
-  async function fetchAllCustomers(select: string) {
+  // Paginación genérica para tablas que pueden superar max_rows (sin filtro extra)
+  async function fetchAllPaged(table: string, select: string, extraFilters?: (q: unknown) => unknown) {
     const all: unknown[] = []
     const pageSize = 1000
     let offset = 0
     while (true) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
-        .from('customers')
+      let q = (supabase as any)
+        .from(table)
         .select(select)
         .eq('company_id', companyId)
         .is('deleted_at', null)
         .order('id', { ascending: true })
         .range(offset, offset + pageSize - 1)
+      if (extraFilters) q = extraFilters(q)
+      const { data, error } = await q
       if (error || !data || data.length === 0) break
       all.push(...data)
       if (data.length < pageSize) break
       offset += pageSize
-      if (offset >= 50000) break  // techo de seguridad
+      if (offset >= 50000) break
     }
     return all
+  }
+
+  async function fetchAllSales(select: string) {
+    return fetchAllPaged('sales', select)
+  }
+
+  async function fetchAllCustomers(select: string) {
+    return fetchAllPaged('customers', select)
   }
 
   // Always fetch the entity's dependencies
@@ -88,14 +98,7 @@ export async function buildContext(
     fetch('bank_accounts', 'id, account_number'),
     fetch('bank_transaction_categories', 'id, name'),
     entity === 'sale_items'
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase as any)
-          .from('sales')
-          .select('id, sale_date, external_ref, customer_id, customers(email)')
-          .eq('company_id', companyId)
-          .is('deleted_at', null)
-          .limit(5000)
-          .then((r: { data: unknown[] | null }) => r.data ?? [])
+      ? fetchAllSales('id, sale_date, external_ref, customer_id, customers(email)')
       : Promise.resolve([]),
   ])
 
