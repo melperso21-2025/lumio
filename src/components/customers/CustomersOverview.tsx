@@ -219,7 +219,7 @@ export default function CustomersOverview({
           </div>
         </div>
 
-        {customers.length === 0 ? (
+        {allCustomers.length === 0 ? (
           <AiInsightBox
             variant="blue"
             title="Sin clientes registrados"
@@ -235,7 +235,7 @@ export default function CustomersOverview({
             }}
           >
             <CustomersTable
-              customers={customers}
+              customers={filteredCustomers}
               customerTypes={customerTypes}
               customerLabels={customerLabels}
               filterText={filterText}
