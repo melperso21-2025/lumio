@@ -1,6 +1,36 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+function isoWeekYear(date: Date): { year: number; week: number } {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const day = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - day)
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+  return { year: d.getUTCFullYear(), week }
+}
+
+function weeksInRange(startStr: string, endStr: string): { year: number; week_number: number }[] {
+  const weeks = new Set<string>()
+  const cursor = new Date(startStr)
+  const end = new Date(endStr)
+
+  while (cursor <= end) {
+    const { year, week } = isoWeekYear(cursor)
+    weeks.add(`${year}|${week}`)
+    cursor.setUTCDate(cursor.getUTCDate() + 7)
+  }
+
+  // Asegurar incluir la semana de la fecha final
+  const { year: ey, week: ew } = isoWeekYear(end)
+  weeks.add(`${ey}|${ew}`)
+
+  return Array.from(weeks).map((k) => {
+    const [y, w] = k.split('|')
+    return { year: Number(y), week_number: Number(w) }
+  })
+}
+
 export async function POST() {
   const supabase = await createClient()
 
@@ -19,42 +49,42 @@ export async function POST() {
   if (!companyId || !canRun)
     return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
 
-  // ── Paso 1: gross_total en sales + lifetime_value / last_purchase_at / total_orders en customers
+  // ── Paso 1: gross_total + stats de customers ───────────────────────────
   const { error: statsErr } = await supabase.rpc('recalculate_sales_totals', {
     p_company_id: companyId,
   })
   if (statsErr) return NextResponse.json({ error: statsErr.message }, { status: 500 })
 
-  // ── Paso 2: obtener todas las semanas con ventas para esta empresa
-  const { data: salesWeeks, error: weeksErr } = await supabase
+  // ── Paso 2: rango de fechas de ventas (solo 2 filas, no limitado) ──────
+  const { data: rangeData, error: rangeErr } = await supabase
     .from('sales')
     .select('sale_date')
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .not('sale_date', 'is', null)
+    .order('sale_date', { ascending: true })
+    .limit(1)
 
-  if (weeksErr) return NextResponse.json({ error: weeksErr.message }, { status: 500 })
+  if (rangeErr) return NextResponse.json({ error: rangeErr.message }, { status: 500 })
 
-  // Calcular semanas ISO únicas (año + semana)
-  const weekSet = new Set<string>()
-  for (const { sale_date } of salesWeeks ?? []) {
-    const d = new Date(sale_date as string)
-    // ISO week: Thursday determines the year
-    const thursday = new Date(d)
-    thursday.setDate(d.getDate() + (4 - (d.getDay() || 7)))
-    const year = thursday.getFullYear()
-    const startOfYear = new Date(year, 0, 1)
-    const weekNumber = Math.ceil(
-      ((thursday.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7
-    )
-    weekSet.add(`${year}|${weekNumber}`)
+  const { data: rangeDataMax } = await supabase
+    .from('sales')
+    .select('sale_date')
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .not('sale_date', 'is', null)
+    .order('sale_date', { ascending: false })
+    .limit(1)
+
+  const minDate = rangeData?.[0]?.sale_date as string | undefined
+  const maxDate = rangeDataMax?.[0]?.sale_date as string | undefined
+
+  if (!minDate || !maxDate) {
+    return NextResponse.json({ ok: true, snapshotsCalculated: 0 })
   }
 
-  // ── Paso 3: calcular snapshot por cada semana única
-  const weeks = Array.from(weekSet).map((k) => {
-    const [y, w] = k.split('|')
-    return { year: Number(y), week_number: Number(w) }
-  })
+  // ── Paso 3: calcular snapshot por cada semana del rango ────────────────
+  const weeks = weeksInRange(minDate, maxDate)
 
   let snapshotsOk = 0
   const snapshotErrors: string[] = []
@@ -72,6 +102,6 @@ export async function POST() {
   return NextResponse.json({
     ok: true,
     snapshotsCalculated: snapshotsOk,
-    snapshotErrors,
+    snapshotErrors: snapshotErrors.slice(0, 10),
   })
 }
