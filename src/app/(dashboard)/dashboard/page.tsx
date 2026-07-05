@@ -16,6 +16,7 @@ import {
   roundToFullWeeks,
   isoWeekFromString,
   formatBusinessDate,
+  isoWeekDateRange,
 } from '@/lib/dateUtils'
 
 // ── Componente interno BlockHeader ──────────────────────────
@@ -824,78 +825,83 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   display: 'flex',
                   alignItems: 'flex-end',
                   gap: 5,
-                  height: '136px',
-                  padding: '12px 14px',
+                  height: '160px',
+                  padding: '28px 4px 0',
                 }}
               >
                 {(() => {
-                  const maxIdx = history.reduce(
-                    (maxI, item, idx, arr) =>
-                      (item.total_sales ?? 0) > (arr[maxI].total_sales ?? 0)
-                        ? idx
-                        : maxI,
-                    0
-                  )
                   return history.map((h, i) => {
-                    // Escala sqrt para amplificar diferencias en rangos similares
                     const rawPct = maxSales > 0 ? (h.total_sales ?? 0) / maxSales : 0
-                    const heightPct = Math.max(Math.sqrt(rawPct) * 100, 6)
                     const isLast = i === history.length - 1
+                    const sales = h.total_sales ?? 0
+                    const { start, end } = isoWeekDateRange(h.year, h.week_number)
                     return (
-                    <div
-                      key={`${h.year}-${h.week_number}`}
-                      style={{
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: 3,
-                        position: 'relative',
-                      }}
-                    >
                       <div
+                        key={`${h.year}-${h.week_number}`}
                         style={{
-                          position: 'absolute',
-                          top: -14,
-                          left: '50%',
-                          transform: 'translateX(-50%)',
-                          fontSize: 7,
-                          color: isLast ? 'var(--gold)' : 'var(--muted)',
-                          fontWeight: isLast ? 700 : 900,
-                          whiteSpace: 'nowrap',
+                          flex: 1,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: 3,
+                          position: 'relative',
                         }}
                       >
-                        ${((h.total_sales ?? 0) / 1000).toFixed(1)}k
+                        {/* Valor encima de la barra */}
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: -18,
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            fontSize: 7,
+                            color: isLast ? 'var(--gold)' : 'var(--muted)',
+                            fontWeight: isLast ? 700 : 400,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          ${sales.toLocaleString('es-EC')}
+                        </div>
+
+                        {/* Barra */}
+                        <div
+                          title={`S${h.week_number} (${start} – ${end}): $${sales.toLocaleString('es-EC')}`}
+                          style={{
+                            width: '100%',
+                            height: `${Math.max(Math.sqrt(rawPct) * 110, 4)}px`,
+                            borderRadius: '3px 3px 0 0',
+                            background: isLast
+                              ? 'linear-gradient(180deg,#F5C842,#F09A1A)'
+                              : 'rgba(232,165,0,0.12)',
+                            border: isLast ? 'none' : '1px solid rgba(232,165,0,0.08)',
+                            boxShadow: isLast ? '0 0 10px rgba(232,165,0,0.25)' : 'none',
+                            minHeight: 4,
+                          }}
+                        />
+
+                        {/* Etiqueta inferior */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                          <span
+                            style={{
+                              fontSize: 8,
+                              color: isLast ? 'var(--gold)' : 'var(--muted)',
+                              fontWeight: isLast ? 600 : 400,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            Sem {h.week_number}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 7,
+                              color: isLast ? 'var(--gold-light)' : 'var(--border2)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {start}–{end}
+                          </span>
+                        </div>
                       </div>
-                      
-                      <div
-                        title={`S${h.week_number}: $${(h.total_sales ?? 0).toLocaleString('es-EC')}`}
-                        style={{
-                          width: '100%',
-                          height: `${Math.max(Math.sqrt(rawPct) * 120, 6)}px`,
-                          borderRadius: '3px 3px 0 0',
-                          background: isLast
-                            ? 'linear-gradient(180deg,#F5C842,#F09A1A)'
-                            : 'rgba(232,165,0,0.12)',
-                          border: isLast
-                            ? 'none'
-                            : '1px solid rgba(232,165,0,0.08)',
-                          boxShadow: isLast
-                            ? '0 0 10px rgba(232,165,0,0.25)'
-                            : 'none',
-                          minHeight: 4,
-                        }}
-                      />
-                      <div
-                        style={{
-                          fontSize: 8,
-                          color: isLast ? 'var(--gold)' : 'var(--muted)',
-                          fontWeight: isLast ? 600 : 400,
-                        }}
-                      >
-                        Sem {h.week_number}
-                      </div>
-                    </div>
                     )
                   })
                 })()}

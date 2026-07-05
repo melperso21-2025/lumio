@@ -74,6 +74,28 @@ export function isoWeek(d: Date): { year: number; week_number: number } {
 }
 
 /**
+ * Lunes y domingo de una semana ISO dada (año + número de semana).
+ * Devuelve las fechas como strings "DD/MM" listos para mostrar en UI.
+ */
+export function isoWeekDateRange(
+  year: number,
+  week: number
+): { start: string; end: string } {
+  // El 4 de enero siempre cae en la semana 1 del año ISO
+  const jan4 = new Date(Date.UTC(year, 0, 4))
+  const dayOfWeek = jan4.getUTCDay() || 7
+  const monday = new Date(jan4)
+  monday.setUTCDate(jan4.getUTCDate() - dayOfWeek + 1 + (week - 1) * 7)
+  const sunday = new Date(monday)
+  sunday.setUTCDate(monday.getUTCDate() + 6)
+
+  const fmt = (d: Date) =>
+    `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+
+  return { start: fmt(monday), end: fmt(sunday) }
+}
+
+/**
  * Semana ISO de una fecha "YYYY-MM-DD" (jueves determina año y semana).
  */
 export function isoWeekFromString(dateStr: string): { year: number; week: number } {
