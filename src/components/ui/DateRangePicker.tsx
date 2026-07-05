@@ -16,6 +16,24 @@ type PresetRange = {
   getValue: () => { from: string; to: string }
 }
 
+const STORAGE_KEY = 'lumio-date-range'
+
+function saveToStorage(from: string, to: string, preset: string) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ from, to, preset }))
+  } catch { /* noop */ }
+}
+
+function loadFromStorage(): { from: string; to: string; preset: string } | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (parsed?.from && parsed?.to) return parsed
+    return null
+  } catch { return null }
+}
+
 // ── Presets ─────────────────────────────────────────────────
 
 const presets: PresetRange[] = [
@@ -84,6 +102,7 @@ const presets: PresetRange[] = [
 
 /**
  * DateRangePicker: lee y escribe ?from= y ?to= en la URL.
+ * Persiste el último rango en localStorage para mantenerlo al navegar entre módulos.
  * Debe usarse dentro de <Suspense fallback={null}> por useSearchParams.
  */
 export default function DateRangePicker({ snapToWeeks = false }: DateRangePickerProps) {
@@ -96,63 +115,71 @@ export default function DateRangePicker({ snapToWeeks = false }: DateRangePicker
   const searchParams = useSearchParams()
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Leer el rango actual de la URL
   const currentFrom = searchParams.get('from') ?? ''
-  const currentTo = searchParams.get('to') ?? ''
+  const currentTo   = searchParams.get('to')   ?? ''
 
-  // Aplicar un preset
-  function applyPreset(preset: PresetRange) {
-    let { from, to } = preset.getValue()
-    if (snapToWeeks) ({ from, to } = roundToFullWeeks(from, to))
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('from', from)
-    params.set('to', to)
-    router.push(`${pathname}?${params.toString()}`)
-    setActivePreset(preset.label)
-    setOpen(false)
-  }
-
-  // Aplicar rango custom
-  function applyCustom() {
-    if (!customFrom || !customTo) return
-    if (customFrom > customTo) return
-    let from = customFrom
-    let to = customTo
-    if (snapToWeeks) ({ from, to } = roundToFullWeeks(from, to))
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('from', from)
-    params.set('to', to)
-    router.push(`${pathname}?${params.toString()}`)
-    setActivePreset('Custom')
-    setOpen(false)
-  }
-
-  // Cerrar al hacer click fuera
+  // Al montar: si la URL no tiene rango, cargar desde localStorage
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+    if (currentFrom && currentTo) return // ya hay rango en URL
 
-  // Detectar preset activo al montar basado en URL
-  useEffect(() => {
-    if (!currentFrom || !currentTo) {
+    const saved = loadFromStorage()
+    if (!saved) {
       setActivePreset('Esta semana')
       return
     }
+
+    let { from, to } = saved
+    if (snapToWeeks) ({ from, to } = roundToFullWeeks(from, to))
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('from', from)
+    params.set('to', to)
+    router.replace(`${pathname}?${params.toString()}`)
+    setActivePreset(saved.preset ?? 'Custom')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]) // Solo al cambiar de página
+
+  // Sincronizar activePreset con la URL
+  useEffect(() => {
+    if (!currentFrom || !currentTo) return
     const match = presets.find((p) => {
       const { from, to } = p.getValue()
       return from === currentFrom && to === currentTo
     })
     setActivePreset(match ? match.label : 'Custom')
   }, [currentFrom, currentTo])
+
+  function applyRange(from: string, to: string, preset: string) {
+    if (snapToWeeks) ({ from, to } = roundToFullWeeks(from, to))
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('from', from)
+    params.set('to', to)
+    router.push(`${pathname}?${params.toString()}`)
+    setActivePreset(preset)
+    saveToStorage(from, to, preset)
+    setOpen(false)
+  }
+
+  function applyPreset(preset: PresetRange) {
+    const { from, to } = preset.getValue()
+    applyRange(from, to, preset.label)
+  }
+
+  function applyCustom() {
+    if (!customFrom || !customTo || customFrom > customTo) return
+    applyRange(customFrom, customTo, 'Custom')
+  }
+
+  // Cerrar al hacer click fuera
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   return (
     <div ref={dropdownRef} style={{ position: 'relative' }}>
@@ -210,10 +237,8 @@ export default function DateRangePicker({ snapToWeeks = false }: DateRangePicker
                   padding: '8px 16px',
                   fontSize: 12,
                   fontFamily: 'var(--font-jakarta)',
-                  background:
-                    activePreset === preset.label ? 'var(--gold-bg)' : 'transparent',
-                  color:
-                    activePreset === preset.label ? 'var(--gold)' : 'var(--text2)',
+                  background: activePreset === preset.label ? 'var(--gold-bg)' : 'transparent',
+                  color: activePreset === preset.label ? 'var(--gold)' : 'var(--text2)',
                   fontWeight: activePreset === preset.label ? 600 : 400,
                   border: 'none',
                   cursor: 'pointer',
@@ -229,13 +254,7 @@ export default function DateRangePicker({ snapToWeeks = false }: DateRangePicker
           </div>
 
           {/* Separador */}
-          <div
-            style={{
-              height: 1,
-              background: 'var(--border)',
-              margin: '0 12px',
-            }}
-          />
+          <div style={{ height: 1, background: 'var(--border)', margin: '0 12px' }} />
 
           {/* Rango custom */}
           <div style={{ padding: '12px 16px' }}>
@@ -253,14 +272,7 @@ export default function DateRangePicker({ snapToWeeks = false }: DateRangePicker
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div>
-                <label
-                  style={{
-                    fontSize: 9,
-                    color: 'var(--muted)',
-                    display: 'block',
-                    marginBottom: 3,
-                  }}
-                >
+                <label style={{ fontSize: 9, color: 'var(--muted)', display: 'block', marginBottom: 3 }}>
                   Desde
                 </label>
                 <input
@@ -281,14 +293,7 @@ export default function DateRangePicker({ snapToWeeks = false }: DateRangePicker
                 />
               </div>
               <div>
-                <label
-                  style={{
-                    fontSize: 9,
-                    color: 'var(--muted)',
-                    display: 'block',
-                    marginBottom: 3,
-                  }}
-                >
+                <label style={{ fontSize: 9, color: 'var(--muted)', display: 'block', marginBottom: 3 }}>
                   Hasta
                 </label>
                 <input
@@ -309,24 +314,14 @@ export default function DateRangePicker({ snapToWeeks = false }: DateRangePicker
                 />
               </div>
               {snapToWeeks && (
-                <p
-                  style={{
-                    fontSize: 9,
-                    color: 'var(--muted)',
-                    marginTop: 4,
-                    lineHeight: 1.4,
-                  }}
-                >
-                  El Dashboard trabaja con semanas completas (lun→dom). Las fechas se
-                  ajustarán automáticamente.
+                <p style={{ fontSize: 9, color: 'var(--muted)', marginTop: 4, lineHeight: 1.4 }}>
+                  El Dashboard trabaja con semanas completas (lun→dom). Las fechas se ajustarán automáticamente.
                 </p>
               )}
               <button
                 type="button"
                 onClick={applyCustom}
-                disabled={
-                  !customFrom || !customTo || customFrom > customTo
-                }
+                disabled={!customFrom || !customTo || customFrom > customTo}
                 style={{
                   background: 'linear-gradient(135deg, #F5C842, #F09A1A)',
                   color: '#1A1B2E',
@@ -336,12 +331,8 @@ export default function DateRangePicker({ snapToWeeks = false }: DateRangePicker
                   padding: '7px 0',
                   borderRadius: 7,
                   border: 'none',
-                  cursor:
-                    !customFrom || !customTo || customFrom > customTo
-                      ? 'not-allowed'
-                      : 'pointer',
-                  opacity:
-                    !customFrom || !customTo || customFrom > customTo ? 0.5 : 1,
+                  cursor: !customFrom || !customTo || customFrom > customTo ? 'not-allowed' : 'pointer',
+                  opacity: !customFrom || !customTo || customFrom > customTo ? 0.5 : 1,
                   width: '100%',
                 }}
               >
