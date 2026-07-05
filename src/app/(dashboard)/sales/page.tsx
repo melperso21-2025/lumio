@@ -50,6 +50,15 @@ export default async function SalesPage({
     )
   }
 
+  // Contar total de ventas en el período (sin límite) para avisar si hay truncamiento
+  const { count: totalSalesCount } = await supabase
+    .from('sales')
+    .select('id', { count: 'exact', head: true })
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .gte('sale_date', from)
+    .lte('sale_date', to)
+
   const { data: salesList } = await supabase
     .from('sales')
     .select(
@@ -63,6 +72,7 @@ export default async function SalesPage({
     .limit(200)
 
   const sales = salesList ?? []
+  const salesTruncated = (totalSalesCount ?? 0) > 200
 
   const { data: prevSalesList } = await supabase
     .from('sales')
@@ -125,6 +135,31 @@ export default async function SalesPage({
           flexDirection: 'column',
         }}
       >
+        {salesTruncated && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '7px 12px',
+              marginBottom: 10,
+              borderRadius: 7,
+              background: 'var(--gold-bg)',
+              border: '1px solid var(--gold-bdr)',
+              fontSize: 11,
+              color: 'var(--gold)',
+              fontFamily: 'var(--font-syne)',
+              fontWeight: 600,
+              flexShrink: 0,
+            }}
+          >
+            <span>⚠</span>
+            <span>
+              Mostrando 200 de {(totalSalesCount ?? 0).toLocaleString('es-EC')} ventas en este período.
+              Ajusta el rango de fechas para ver un período más corto.
+            </span>
+          </div>
+        )}
         <SalesOverview
           sales={sales}
           prevSales={prevSales}
