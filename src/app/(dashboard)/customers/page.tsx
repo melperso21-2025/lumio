@@ -12,10 +12,15 @@ import {
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+const TABLE_PAGE_SIZE = 50
+
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string }>
+  searchParams: Promise<{
+    from?: string; to?: string
+    q?: string; ctype?: string; clabel?: string; ciscompany?: string; cpage?: string
+  }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -65,13 +70,7 @@ export default async function CustomersPage({
           showExportButton
         />
         <div style={{ padding: '14px 16px' }}>
-          <p
-            style={{
-              fontFamily: 'var(--font-syne)',
-              color: 'var(--muted)',
-              fontSize: 14,
-            }}
-          >
+          <p style={{ fontFamily: 'var(--font-syne)', color: 'var(--muted)', fontSize: 14 }}>
             No tienes una empresa asignada.
           </p>
         </div>
@@ -82,36 +81,42 @@ export default async function CustomersPage({
   const CUSTOMER_SELECT =
     'id, full_name, phone, email, tax_id, id_type, customer_type, label, lifetime_value, last_purchase_at, registered_since, is_company, contact_name, address, created_at, total_orders'
 
-  // Paginación para superar el límite max_rows de PostgREST (1.000 filas)
-  async function fetchAllCustomers() {
-    const all: unknown[] = []
-    const pageSize = 1000
-    let offset = 0
-    while (true) {
-      const { data, error } = await supabase
-        .from('customers')
-        .select(CUSTOMER_SELECT)
-        .eq('company_id', companyId)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + pageSize - 1)
-      if (error || !data || data.length === 0) break
-      all.push(...data)
-      if (data.length < pageSize) break
-      offset += pageSize
-      if (offset >= 50000) break
-    }
-    return all
+  // Table filters from URL
+  const q          = params.q?.trim() ?? ''
+  const ctype      = params.ctype ?? ''
+  const clabel     = params.clabel ?? ''
+  const ciscompany = params.ciscompany ?? ''
+  const cpage      = Math.max(0, parseInt(params.cpage ?? '0', 10) || 0)
+  const rangeFrom  = cpage * TABLE_PAGE_SIZE
+  const rangeTo    = rangeFrom + TABLE_PAGE_SIZE - 1
+
+  // Build paginated filtered table query
+  let tableQuery = supabase
+    .from('customers')
+    .select(CUSTOMER_SELECT, { count: 'exact' })
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .range(rangeFrom, rangeTo)
+
+  if (q) {
+    tableQuery = tableQuery.or(
+      `full_name.ilike.%${q}%,email.ilike.%${q}%,tax_id.ilike.%${q}%`
+    )
   }
+  if (ctype)      tableQuery = tableQuery.eq('customer_type', ctype)
+  if (clabel)     tableQuery = tableQuery.eq('label', clabel)
+  if (ciscompany === 'true')  tableQuery = tableQuery.eq('is_company', true)
+  if (ciscompany === 'false') tableQuery = tableQuery.eq('is_company', false)
 
   const [
-    allCustomersList,
+    { data: tableList, count: tableTotal },
     { data: customersList },
     { data: prevCustomersList },
     { data: typesList },
     { data: labelsList },
   ] = await Promise.all([
-    fetchAllCustomers(),
+    tableQuery,
     // Clientes nuevos en el período — para KPIs
     supabase
       .from('customers')
@@ -147,11 +152,10 @@ export default async function CustomersPage({
       .order('name', { ascending: true }),
   ])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const allCustomers = allCustomersList as any[]
-  const customers = customersList ?? []
-  const prevCustomers = prevCustomersList ?? []
-  const customerTypes = typesList ?? []
+  const tableCustomers = (tableList ?? []) as Parameters<typeof CustomersOverview>[0]['tableCustomers']
+  const customers      = customersList ?? []
+  const prevCustomers  = prevCustomersList ?? []
+  const customerTypes  = typesList ?? []
   const customerLabels = labelsList ?? []
 
   return (
@@ -173,7 +177,14 @@ export default async function CustomersPage({
         }}
       >
         <CustomersOverview
-          allCustomers={allCustomers}
+          tableCustomers={tableCustomers}
+          tableTotal={tableTotal ?? 0}
+          tablePage={cpage}
+          tablePageSize={TABLE_PAGE_SIZE}
+          tableQ={q}
+          tableCtype={ctype}
+          tableClabel={clabel}
+          tableCiscompany={ciscompany}
           customers={customers}
           prevCustomers={prevCustomers}
           customerTypes={customerTypes}

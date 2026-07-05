@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useMemo, useCallback, useTransition } from 'react'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import KpiCard from '@/components/ui/KpiCard'
 import ExportButton from '@/components/ui/ExportButton'
 import NewCustomerForm from '@/components/customers/NewCustomerForm'
@@ -17,7 +18,14 @@ function calcDelta(
 }
 
 interface CustomersOverviewProps {
-  allCustomers?: CustomerRow[]   // lista completa para la tabla
+  tableCustomers: CustomerRow[]
+  tableTotal: number
+  tablePage: number
+  tablePageSize: number
+  tableQ: string
+  tableCtype: string
+  tableClabel: string
+  tableCiscompany: string
   customers?: CustomerRow[]      // nuevos en el período — para KPIs
   prevCustomers?: CustomerRow[]
   customerTypes?: CatalogItem[]
@@ -29,81 +37,62 @@ interface CustomersOverviewProps {
 }
 
 export default function CustomersOverview({
-  allCustomers = [],
+  tableCustomers,
+  tableTotal,
+  tablePage,
+  tablePageSize,
+  tableQ,
+  tableCtype,
+  tableClabel,
+  tableCiscompany,
   customers = [],
   prevCustomers = [],
   customerTypes = [],
   customerLabels = [],
   from,
   to,
-  prevFrom,
-  prevTo,
 }: CustomersOverviewProps) {
-  const [filterText, setFilterText] = useState('')
-  const [filterType, setFilterType] = useState('')
-  const [filterLabel, setFilterLabel] = useState('')
-  const [filterIsCompany, setFilterIsCompany] = useState<boolean | null>(null)
+  const router      = useRouter()
+  const pathname    = usePathname()
+  const searchParams = useSearchParams()
+  const [isPending, startTransition] = useTransition()
 
-  // Build catalog maps for KPI lookup
+  // Build catalog maps
   const typeMap = useMemo(() => {
     const m = new Map<string, CatalogItem>()
     customerTypes.forEach((t) => m.set(t.id, t))
     return m
   }, [customerTypes])
 
-  // La tabla usa allCustomers (sin filtro de fecha) para mostrar todos los clientes
-  const filteredCustomers = useMemo(() => {
-    const txt = filterText.toLowerCase()
-    return allCustomers.filter((c) => {
-      if (txt) {
-        const name  = (c.full_name ?? '').toLowerCase()
-        const email = (c.email ?? '').toLowerCase()
-        const taxId = (c.tax_id ?? '').toLowerCase()
-        if (!name.includes(txt) && !email.includes(txt) && !taxId.includes(txt)) return false
-      }
-      if (filterType && (c.customer_type ?? '') !== filterType) return false
-      if (filterLabel && (c.label ?? '') !== filterLabel) return false
-      if (filterIsCompany !== null && (c.is_company ?? false) !== filterIsCompany) return false
-      return true
+  // KPIs from period-scoped customers
+  const total_customers     = customers.length
+  const prev_total_customers = prevCustomers.length
+  const company_count       = customers.filter((c) => c.is_company).length
+  const total_ltv           = customers.reduce((s, c) => s + (c.lifetime_value ?? 0), 0)
+  const prev_total_ltv      = prevCustomers.reduce((s, c) => s + (c.lifetime_value ?? 0), 0)
+  const hasPrevData         = prevCustomers.length > 0
+
+  // Update URL param helper — resets cpage to 0 on filter change
+  function setParam(key: string, value: string, resetPage = true) {
+    startTransition(() => {
+      const p = new URLSearchParams(searchParams.toString())
+      if (value) p.set(key, value)
+      else p.delete(key)
+      if (resetPage) p.delete('cpage')
+      router.replace(`${pathname}?${p.toString()}`)
     })
-  }, [allCustomers, filterText, filterType, filterLabel, filterIsCompany])
+  }
 
-  const filteredPrevCustomers = useMemo(() => {
-    const txt = filterText.toLowerCase()
-    return prevCustomers.filter((c) => {
-      if (txt) {
-        const name  = (c.full_name ?? '').toLowerCase()
-        const email = (c.email ?? '').toLowerCase()
-        const taxId = (c.tax_id ?? '').toLowerCase()
-        if (!name.includes(txt) && !email.includes(txt) && !taxId.includes(txt)) return false
-      }
-      if (filterType && (c.customer_type ?? '') !== filterType) return false
-      if (filterLabel && (c.label ?? '') !== filterLabel) return false
-      if (filterIsCompany !== null && (c.is_company ?? false) !== filterIsCompany) return false
-      return true
-    })
-  }, [prevCustomers, filterText, filterType, filterLabel, filterIsCompany])
+  function handlePage(next: number) {
+    const p = new URLSearchParams(searchParams.toString())
+    if (next > 0) p.set('cpage', String(next))
+    else p.delete('cpage')
+    router.replace(`${pathname}?${p.toString()}`)
+  }
 
-  // KPIs — count by label id or type id from catalog
-  const vipLabelId = useMemo(
-    () => customerLabels.find((l) => l.name.toLowerCase() === 'vip')?.id ?? '__none__',
-    [customerLabels]
-  )
-  const wholesaleTypeId = useMemo(
-    () => customerTypes.find((t) => t.name.toLowerCase().includes('mayor'))?.id ?? '__none__',
-    [customerTypes]
-  )
+  const totalPages = Math.ceil(tableTotal / tablePageSize)
 
-  const total_customers    = filteredCustomers.length
-  const company_count      = filteredCustomers.filter((c) => c.is_company).length
-  const total_ltv          = filteredCustomers.reduce((s, c) => s + (c.lifetime_value ?? 0), 0)
-
-  const prev_total_customers = filteredPrevCustomers.length
-  const prev_total_ltv       = filteredPrevCustomers.reduce((s, c) => s + (c.lifetime_value ?? 0), 0)
-
-  const hasPrevData = filteredPrevCustomers.length > 0
-
-  const exportData = filteredCustomers.map((c) => ({
+  const exportData = tableCustomers.map((c) => ({
     Nombre: c.full_name ?? '',
     'Tipo ID': c.id_type ?? '',
     'N° ID': c.tax_id ?? '',
@@ -119,66 +108,47 @@ export default function CustomersOverview({
     'Cliente desde': c.registered_since ?? '',
   }))
 
-  function handleFilterChange(
-    text: string,
-    type: string,
-    label: string,
-    isCompany: boolean | null
-  ) {
-    setFilterText(text)
-    setFilterType(type)
-    setFilterLabel(label)
-    setFilterIsCompany(isCompany)
-  }
+  const onFilterChange = useCallback((
+    text: string, type: string, label: string, isCompany: boolean | null
+  ) => {
+    startTransition(() => {
+      const p = new URLSearchParams(searchParams.toString())
+      if (text)  p.set('q', text);      else p.delete('q')
+      if (type)  p.set('ctype', type);  else p.delete('ctype')
+      if (label) p.set('clabel', label);else p.delete('clabel')
+      if (isCompany === true)  p.set('ciscompany', 'true')
+      else if (isCompany === false) p.set('ciscompany', 'false')
+      else p.delete('ciscompany')
+      p.delete('cpage')
+      router.replace(`${pathname}?${p.toString()}`)
+    })
+  }, [searchParams, pathname, router])
+
+  const filterIsCompany: boolean | null =
+    tableCiscompany === 'true' ? true : tableCiscompany === 'false' ? false : null
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 14,
-        flex: 1,
-        minHeight: 0,
-      }}
-    >
-      {/* KPIs */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 8,
-          flexShrink: 0,
-        }}
-      >
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1, minHeight: 0 }}>
+      {/* KPIs — período */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, flexShrink: 0 }}>
         <KpiCard
-          label="Total clientes"
+          label="Nuevos clientes"
           value={total_customers}
           delta={calcDelta(total_customers, prev_total_customers, hasPrevData)}
-          compare={
-            prev_total_customers > 0 ? `Ant: ${prev_total_customers}` : undefined
-          }
+          compare={prev_total_customers > 0 ? `Ant: ${prev_total_customers}` : undefined}
         />
+        <KpiCard label="Empresas (período)" value={company_count} />
         <KpiCard
-          label="Empresas"
-          value={company_count}
-        />
-        <KpiCard
-          label="LTV total"
+          label="LTV nuevos"
           prefix="$"
           value={Math.round(total_ltv)}
           delta={calcDelta(total_ltv, prev_total_ltv, hasPrevData)}
-          compare={
-            prev_total_ltv > 0 ? `Ant: $${Math.round(prev_total_ltv)}` : undefined
-          }
+          compare={prev_total_ltv > 0 ? `Ant: $${Math.round(prev_total_ltv)}` : undefined}
         />
         <KpiCard
-          label="Ticket promedio"
-          prefix="$"
-          value={
-            total_customers > 0
-              ? Math.round(total_ltv / total_customers)
-              : 0
-          }
+          label="Total en directorio"
+          value={tableTotal}
+          compare="todos los clientes activos"
         />
       </div>
 
@@ -204,12 +174,14 @@ export default function CustomersOverview({
             flexShrink: 0,
           }}
         >
-          <h2
-            className="font-syne font-bold"
-            style={{ fontSize: 16, color: 'var(--text)' }}
-          >
-            Directorio de clientes
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h2 className="font-syne font-bold" style={{ fontSize: 16, color: 'var(--text)' }}>
+              Directorio de clientes
+            </h2>
+            {isPending && (
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Cargando…</span>
+            )}
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <ExportButton
               data={exportData}
@@ -220,31 +192,77 @@ export default function CustomersOverview({
           </div>
         </div>
 
-        {allCustomers.length === 0 ? (
+        {tableTotal === 0 && !tableQ && !tableCtype && !tableClabel && !tableCiscompany ? (
           <AiInsightBox
             variant="blue"
             title="Sin clientes registrados"
             text="Aún no hay clientes en el directorio. Usa el botón '+ Nuevo cliente' para agregar el primero."
           />
         ) : (
-          <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <CustomersTable
-              customers={filteredCustomers}
+              customers={tableCustomers}
               customerTypes={customerTypes}
               customerLabels={customerLabels}
-              filterText={filterText}
-              filterType={filterType}
-              filterLabel={filterLabel}
+              filterText={tableQ}
+              filterType={tableCtype}
+              filterLabel={tableClabel}
               filterIsCompany={filterIsCompany}
-              onFilterChange={handleFilterChange}
+              onFilterChange={onFilterChange}
             />
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingTop: 10,
+                  flexShrink: 0,
+                  borderTop: '1px solid var(--border)',
+                }}
+              >
+                <span style={{ fontSize: 11, color: 'var(--text2)' }}>
+                  Mostrando {tablePage * tablePageSize + 1}–{Math.min((tablePage + 1) * tablePageSize, tableTotal)} de {tableTotal} clientes
+                </span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    onClick={() => handlePage(tablePage - 1)}
+                    disabled={tablePage === 0}
+                    style={{
+                      padding: '4px 12px',
+                      borderRadius: 6,
+                      border: '1px solid var(--border2)',
+                      background: 'var(--surface)',
+                      color: tablePage === 0 ? 'var(--muted)' : 'var(--text)',
+                      fontSize: 12,
+                      cursor: tablePage === 0 ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    ← Anterior
+                  </button>
+                  <span style={{ padding: '4px 10px', fontSize: 12, color: 'var(--text2)' }}>
+                    {tablePage + 1} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => handlePage(tablePage + 1)}
+                    disabled={tablePage >= totalPages - 1}
+                    style={{
+                      padding: '4px 12px',
+                      borderRadius: 6,
+                      border: '1px solid var(--border2)',
+                      background: 'var(--surface)',
+                      color: tablePage >= totalPages - 1 ? 'var(--muted)' : 'var(--text)',
+                      fontSize: 12,
+                      cursor: tablePage >= totalPages - 1 ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    Siguiente →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

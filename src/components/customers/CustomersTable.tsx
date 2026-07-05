@@ -5,8 +5,6 @@ import Link from 'next/link'
 import { formatBusinessDate } from '@/lib/dateUtils'
 import { useUser } from '@/lib/context/UserContext'
 
-const PAGE_SIZE = 20
-
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export type CustomerRow = {
@@ -122,7 +120,6 @@ export default function CustomersTable({
 
   const [sortBy, setSortBy] = useState<SortKey>('full_name')
   const [sortAsc, setSortAsc] = useState(false)
-  const [page, setPage] = useState(0)
 
   // Build lookup maps from catalogs
   const typeMap = useMemo(() => {
@@ -137,24 +134,9 @@ export default function CustomersTable({
     return m
   }, [customerLabels])
 
-  const filteredCustomers = useMemo(() => {
-    const txt = filterText.toLowerCase()
-    return customers.filter((c) => {
-      if (txt) {
-        const name  = (c.full_name ?? '').toLowerCase()
-        const email = (c.email ?? '').toLowerCase()
-        const taxId = (c.tax_id ?? '').toLowerCase()
-        if (!name.includes(txt) && !email.includes(txt) && !taxId.includes(txt)) return false
-      }
-      if (filterType && (c.customer_type ?? '') !== filterType) return false
-      if (filterLabel && (c.label ?? '') !== filterLabel) return false
-      if (filterIsCompany !== null && (c.is_company ?? false) !== filterIsCompany) return false
-      return true
-    })
-  }, [customers, filterText, filterType, filterLabel, filterIsCompany])
-
+  // Data comes pre-filtered from server; only sort client-side within the page
   const sortedCustomers = useMemo(() => {
-    return [...filteredCustomers].sort((a, b) => {
+    return [...customers].sort((a, b) => {
       const va = getSortValue(a, sortBy)
       const vb = getSortValue(b, sortBy)
       const cmp =
@@ -163,18 +145,11 @@ export default function CustomersTable({
           : (va as number) - (vb as number)
       return sortAsc ? cmp : -cmp
     })
-  }, [filteredCustomers, sortBy, sortAsc])
-
-  const totalPages = Math.ceil(sortedCustomers.length / PAGE_SIZE)
-  const paginatedCustomers = sortedCustomers.slice(
-    page * PAGE_SIZE,
-    page * PAGE_SIZE + PAGE_SIZE
-  )
+  }, [customers, sortBy, sortAsc])
 
   function handleSort(key: SortKey) {
     if (sortBy === key) setSortAsc((p) => !p)
     else { setSortBy(key); setSortAsc(false) }
-    setPage(0)
   }
 
   const hasActiveFilters =
@@ -218,10 +193,7 @@ export default function CustomersTable({
         <input
           type="text"
           value={filterText}
-          onChange={(e) => {
-            onFilterChange(e.target.value, filterType, filterLabel, filterIsCompany)
-            setPage(0)
-          }}
+          onChange={(e) => onFilterChange(e.target.value, filterType, filterLabel, filterIsCompany)}
           placeholder="Nombre, email o ID…"
           style={{ ...filterInputStyle, minWidth: 160 }}
         />
@@ -229,10 +201,7 @@ export default function CustomersTable({
         {/* Type filter */}
         <select
           value={filterType}
-          onChange={(e) => {
-            onFilterChange(filterText, e.target.value, filterLabel, filterIsCompany)
-            setPage(0)
-          }}
+          onChange={(e) => onFilterChange(filterText, e.target.value, filterLabel, filterIsCompany)}
           style={filterInputStyle}
         >
           <option value="">Todos los tipos</option>
@@ -244,10 +213,7 @@ export default function CustomersTable({
         {/* Label filter */}
         <select
           value={filterLabel}
-          onChange={(e) => {
-            onFilterChange(filterText, filterType, e.target.value, filterIsCompany)
-            setPage(0)
-          }}
+          onChange={(e) => onFilterChange(filterText, filterType, e.target.value, filterIsCompany)}
           style={filterInputStyle}
         >
           <option value="">Todas las etiquetas</option>
@@ -258,18 +224,10 @@ export default function CustomersTable({
 
         {/* Is company toggle */}
         <select
-          value={
-            filterIsCompany === null ? '' : filterIsCompany ? 'true' : 'false'
-          }
+          value={filterIsCompany === null ? '' : filterIsCompany ? 'true' : 'false'}
           onChange={(e) => {
             const v = e.target.value
-            onFilterChange(
-              filterText,
-              filterType,
-              filterLabel,
-              v === '' ? null : v === 'true'
-            )
-            setPage(0)
+            onFilterChange(filterText, filterType, filterLabel, v === '' ? null : v === 'true')
           }}
           style={filterInputStyle}
         >
@@ -282,10 +240,7 @@ export default function CustomersTable({
         {hasActiveFilters && (
           <button
             type="button"
-            onClick={() => {
-              onFilterChange('', '', '', null)
-              setPage(0)
-            }}
+            onClick={() => onFilterChange('', '', '', null)}
             style={{
               ...filterInputStyle,
               minWidth: 'auto',
@@ -299,28 +254,17 @@ export default function CustomersTable({
         )}
 
         <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>
-          {filteredCustomers.length} resultado{filteredCustomers.length !== 1 ? 's' : ''}
+          {customers.length} resultado{customers.length !== 1 ? 's' : ''}
         </span>
       </div>
     )
   }
 
-  if (customers.length === 0) {
+  if (customers.length === 0 && !hasActiveFilters) {
     return (
       <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 14, padding: 32 }}>
         No hay clientes en el directorio.
       </p>
-    )
-  }
-
-  if (filteredCustomers.length === 0) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        <FilterBar />
-        <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 14, padding: 32 }}>
-          No hay clientes que coincidan con los filtros.
-        </p>
-      </div>
     )
   }
 
@@ -384,7 +328,7 @@ export default function CustomersTable({
             </tr>
           </thead>
           <tbody>
-            {paginatedCustomers.map((c) => {
+            {sortedCustomers.map((c) => {
               const typeCfg = typeMap.get(c.customer_type ?? '')
               const labelCfg = labelMap.get(c.label ?? '')
               const ltv = c.lifetime_value ?? 0
@@ -581,76 +525,6 @@ export default function CustomersTable({
         </table>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '12px 0 0',
-            marginTop: 8,
-            borderTop: '1px solid var(--border)',
-            gap: 12,
-            flexWrap: 'wrap',
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-            Mostrando {page * PAGE_SIZE + 1}–
-            {Math.min((page + 1) * PAGE_SIZE, sortedCustomers.length)} de{' '}
-            {sortedCustomers.length}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-              style={{
-                padding: '5px 10px',
-                fontSize: 11,
-                borderRadius: 6,
-                border: '1px solid var(--border2)',
-                background: 'var(--surface)',
-                color: page === 0 ? 'var(--muted)' : 'var(--text2)',
-                cursor: page === 0 ? 'not-allowed' : 'pointer',
-                fontFamily: 'var(--font-jakarta)',
-                opacity: page === 0 ? 0.5 : 1,
-              }}
-            >
-              ← Anterior
-            </button>
-            <span
-              style={{
-                fontSize: 11,
-                color: 'var(--text2)',
-                minWidth: 70,
-                textAlign: 'center',
-              }}
-            >
-              Página {page + 1} de {totalPages}
-            </span>
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
-              style={{
-                padding: '5px 10px',
-                fontSize: 11,
-                borderRadius: 6,
-                border: '1px solid var(--border2)',
-                background: 'var(--surface)',
-                color: page >= totalPages - 1 ? 'var(--muted)' : 'var(--text2)',
-                cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer',
-                fontFamily: 'var(--font-jakarta)',
-                opacity: page >= totalPages - 1 ? 0.5 : 1,
-              }}
-            >
-              Siguiente →
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
