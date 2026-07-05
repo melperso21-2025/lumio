@@ -146,9 +146,7 @@ export async function POST(request: NextRequest) {
     ]
     if (successCount > 0 && ENTITIES_THAT_AFFECT_DASHBOARD.includes(entityType)) {
       // Fire and forget — no bloqueamos la respuesta, Supabase ejecuta en DB
-      supabaseAdmin.rpc('recalculate_all_snapshots', { p_company_id: companyId })
-        .then(() => {})
-        .catch(() => {})
+      void supabaseAdmin.rpc('recalculate_all_snapshots', { p_company_id: companyId })
     }
 
     return NextResponse.json({
