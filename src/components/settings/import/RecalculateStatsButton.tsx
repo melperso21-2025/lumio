@@ -7,16 +7,20 @@ type State = 'idle' | 'loading' | 'ok' | 'error'
 export default function RecalculateStatsButton() {
   const [state, setState] = useState<State>('idle')
   const [msg, setMsg]     = useState('')
+  const [detail, setDetail] = useState('')
 
   async function handleClick() {
     setState('loading')
     setMsg('')
+    setDetail('')
     try {
       const res = await fetch('/api/recalculate-stats', { method: 'POST' })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Error desconocido')
       setState('ok')
+      const snapshots = json.snapshotsCalculated ?? 0
       setMsg('Estadísticas recalculadas correctamente.')
+      setDetail(`Ventas, clientes y ${snapshots} semanas del dashboard actualizados.`)
     } catch (e) {
       setState('error')
       setMsg(e instanceof Error ? e.message : 'Error desconocido')
@@ -60,8 +64,14 @@ export default function RecalculateStatsButton() {
         )}
       </div>
 
+      {detail && (
+        <p style={{ fontSize: 11, color: 'var(--green)', margin: 0, fontFamily: 'var(--font-syne)' }}>
+          {detail}
+        </p>
+      )}
+
       <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0 }}>
-        Actualiza LTV, última compra y totales de ventas a partir de los datos importados.
+        Actualiza LTV, totales de ventas y snapshots del dashboard para todos los datos importados.
       </p>
     </div>
   )
