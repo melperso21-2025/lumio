@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserData } from '@/lib/queries/getUser'
 import Topbar from '@/components/layout/Topbar'
 import ProfileForm, { type ProfileData } from '@/components/settings/ProfileForm'
+import ThemeToggle from '@/components/settings/ThemeToggle'
 import type { Database } from '@/lib/supabase/database.types'
 
 type UserRow = Database['public']['Tables']['users']['Row']
@@ -74,6 +75,15 @@ export default async function ProfilePage() {
         }}
       >
         <ProfileForm profile={profileData} />
+        <div style={{ marginTop: 24 }}>
+          <h2
+            className="font-syne font-bold"
+            style={{ fontSize: 14, color: 'var(--text)', marginBottom: 10 }}
+          >
+            Preferencias
+          </h2>
+          <ThemeToggle />
+        </div>
       </div>
     </>
   )

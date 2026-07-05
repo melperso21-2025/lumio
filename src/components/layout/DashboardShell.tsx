@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/layout/Sidebar'
 import { UserProvider } from '@/lib/context/UserContext'
+import { ThemeProvider, useTheme } from '@/lib/context/ThemeContext'
 import { createClient } from '@/lib/supabase/client'
 
 // ── Constantes de timeout ──────────────────────────────────────────────────
@@ -98,6 +99,7 @@ export default function DashboardShell({
   }, [])
 
   return (
+    <ThemeProvider>
     <UserProvider
       userName={userName}
       userRole={userRole}
@@ -219,5 +221,6 @@ export default function DashboardShell({
         <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>{children}</div>
       </div>
     </UserProvider>
+    </ThemeProvider>
   )
 }
