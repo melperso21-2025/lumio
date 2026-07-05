@@ -242,14 +242,19 @@ export default async function AiInsightsPage({
       .eq('id', currentInsight.id)
   }
 
-  // 8. Datos suficientes para generar
-  const { count: salesCount } = await supabase
-    .from('sales')
-    .select('id', { count: 'exact', head: true })
+  // 8. Datos suficientes para generar — requiere snapshot de la semana con al menos
+  // 3 ventas y $1 en ventas, para evitar análisis de IA sobre semanas vacías o incompletas
+  const { data: weekSnap } = await supabase
+    .from('weekly_snapshots')
+    .select('total_sales, total_transactions')
     .eq('company_id', companyId)
-    .is('deleted_at', null)
+    .eq('week_number', selectedWeek)
+    .eq('year', selectedYear)
+    .maybeSingle()
 
-  const hasEnoughData = (salesCount ?? 0) >= 1
+  const hasEnoughData =
+    (weekSnap?.total_sales ?? 0) > 0 &&
+    (weekSnap?.total_transactions ?? 0) >= 3
 
   // Subtítulo dinámico del Topbar según vista activa
   const topbarSubtitle =
@@ -643,8 +648,12 @@ export default async function AiInsightsPage({
                   {!hasEnoughData && (
                     <AiInsightBox
                       variant="blue"
-                      title="Datos insuficientes"
-                      text="Registra ventas, pautas y movimientos bancarios para que la IA pueda analizar tu negocio con precisión."
+                      title="Datos insuficientes para esta semana"
+                      text={
+                        (weekSnap?.total_transactions ?? 0) === 0
+                          ? `La semana ${selectedWeek}/${selectedYear} no tiene un snapshot calculado. Asegúrate de haber registrado ventas y de haber recalculado las estadísticas.`
+                          : `La semana ${selectedWeek}/${selectedYear} solo tiene ${weekSnap?.total_transactions ?? 0} transacción(es). Se necesitan al menos 3 ventas para generar un análisis confiable.`
+                      }
                     />
                   )}
                 </div>
