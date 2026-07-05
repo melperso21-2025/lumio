@@ -212,7 +212,7 @@ export default async function FinancePage({
                 <tbody>
                   {receivables.map((r) => {
                     const isOverdue = r.status === 'overdue'
-                    const customer = r.customers as { full_name: string | null } | null
+                    const customer = r.customers as unknown as { full_name: string | null } | null
                     return (
                       <tr key={r.id} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '7px 10px', color: 'var(--text)', whiteSpace: 'nowrap', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>

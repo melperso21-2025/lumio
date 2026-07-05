@@ -9,9 +9,23 @@ import EditSupplierModal from './EditSupplierModal'
 
 interface SuppliersOverviewProps {
   companyId: string
+  from?: string
+  to?: string
+  suppliersWithActivity?: number
+  totalUnitsIn?: number
+  movementsCount?: number
+  totalSuppliersWithProducts?: number
 }
 
-export default function SuppliersOverview({ companyId }: SuppliersOverviewProps) {
+export default function SuppliersOverview({
+  companyId,
+  from,
+  to,
+  suppliersWithActivity = 0,
+  totalUnitsIn = 0,
+  movementsCount = 0,
+  totalSuppliersWithProducts = 0,
+}: SuppliersOverviewProps) {
   const [suppliers, setSuppliers] = useState<SupplierRow[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<SupplierRow | null>(null)
@@ -35,7 +49,7 @@ export default function SuppliersOverview({ companyId }: SuppliersOverviewProps)
 
   useEffect(() => { loadSuppliers() }, [loadSuppliers])
 
-  // KPIs
+  // KPIs — directorio
   const active      = suppliers.filter((s) => s.is_active !== false)
   const withBanking = active.filter((s) => s.bank_account && s.bank_account.trim())
   const withRUC     = active.filter((s) => s.id_type === 'ruc' && s.tax_id)
@@ -56,7 +70,28 @@ export default function SuppliersOverview({ companyId }: SuppliersOverviewProps)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
-      {/* KPIs */}
+      {/* KPIs — período */}
+      {(from && to) && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          <KpiCard
+            label="Proveedores con entradas"
+            value={suppliersWithActivity}
+            compare="en el período seleccionado"
+          />
+          <KpiCard
+            label="Unidades ingresadas"
+            value={totalUnitsIn.toLocaleString('es-EC')}
+            compare={`${movementsCount} movimiento${movementsCount !== 1 ? 's' : ''} de entrada`}
+          />
+          <KpiCard
+            label="Con productos asignados"
+            value={totalSuppliersWithProducts}
+            compare="proveedores con catálogo"
+          />
+        </div>
+      )}
+
+      {/* KPIs — directorio */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
         <KpiCard label="Proveedores activos"   value={loading ? '…' : active.length} />
         <KpiCard label="Con datos bancarios"   value={loading ? '…' : withBanking.length} />
