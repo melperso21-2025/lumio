@@ -894,7 +894,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                           <span
                             style={{
                               fontSize: 7,
-                              color: isLast ? 'var(--gold-light)' : 'var(--border2)',
+                              color: isLast ? 'var(--gold-light)' : 'var(--text2)',
                               whiteSpace: 'nowrap',
                             }}
                           >
