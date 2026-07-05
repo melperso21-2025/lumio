@@ -265,7 +265,7 @@ Playbook: 3–5 acciones. Máximo 1 urgent. Si una métrica está bien, reconóc
     // ── 6. Llamar a Claude ────────────────────────────────────────────────────
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-sonnet-4-7',
       max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }],
     })
