@@ -53,8 +53,7 @@ CREATE INDEX IF NOT EXISTS idx_bank_transactions_company_date
 
 -- Inventory movements: filtro por empresa + fecha
 CREATE INDEX IF NOT EXISTS idx_inventory_movements_company_date
-  ON public.inventory_movements (company_id, movement_date DESC)
-  WHERE deleted_at IS NULL;
+  ON public.inventory_movements (company_id, movement_date DESC);
 
 -- Weekly snapshots: lookup por empresa + año + semana (ya existe UNIQUE, pero lo cubrimos)
 CREATE INDEX IF NOT EXISTS idx_weekly_snapshots_company_year_week
