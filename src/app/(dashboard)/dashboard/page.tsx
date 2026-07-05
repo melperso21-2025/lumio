@@ -698,6 +698,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             suffix="%"
             value={avgNetMargin.toFixed(1)}
             delta={calcDelta(avgNetMargin, prevAvgNetMargin)}
+            compare="desde egresos bancarios"
           />
           <KpiCard
             label="Gastos fijos / Egr"

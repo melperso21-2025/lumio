@@ -211,7 +211,7 @@ con los números y accionable.
 - LPP promedio: ${currentSnap?.avg_lpp?.toFixed(1) ?? '0'} líneas por pedido
 - Descuentos: $${(currentSnap?.total_discounts ?? 0).toFixed(2)}
 - Margen bruto: ${currentSnap?.gross_margin_pct?.toFixed(1) ?? '0'}%
-- Margen neto: ${currentSnap?.net_margin_pct?.toFixed(1) ?? '0'}%
+- Margen neto bancario (ventas netas - COGS - egresos bancarios - pauta): ${currentSnap?.net_margin_pct?.toFixed(1) ?? '0'}%
 
 ### Pautas Publicitarias
 - Inversión: $${(currentSnap?.total_ad_spend ?? totalAdSpend).toFixed(2)} (${pct(currentSnap?.total_ad_spend, prevSnap?.total_ad_spend, prevWeek)})
@@ -239,7 +239,7 @@ ${topFrozenProduct ? `- Mayor capital paralizado: "${topFrozenProduct.name}" ($$
 ## SEMANA ANTERIOR S${prevWeek}/${year}
 - Ventas: $${prevSnap?.total_sales?.toFixed(2) ?? 'sin datos'}
 - ROAS: ${prevSnap?.avg_roas?.toFixed(2) ?? 'sin datos'}
-- Margen neto: ${prevSnap?.net_margin_pct?.toFixed(1) ?? 'sin datos'}%
+- Margen neto bancario: ${prevSnap?.net_margin_pct?.toFixed(1) ?? 'sin datos'}%
 - Días de caja: ${prevSnap?.cash_days ?? 'sin datos'}
 
 ## FORMATO — responde SOLO con JSON válido, sin markdown:

@@ -556,7 +556,7 @@ export default async function ProfitLossPage({
                 </span>
               </div>
               <PGRow
-                label="Margen neto"
+                label="Margen neto contable"
                 value={`${net_margin_pct.toFixed(1)}%`}
                 valueStyle={{ color: 'var(--muted)', fontSize: 11 }}
               />

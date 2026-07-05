@@ -205,7 +205,7 @@ accionable. Tono: consultor senior hablándole directamente al dueño.
 - Ticket promedio: $${sales.length > 0 ? (totalSalesAll / sales.length).toFixed(2) : '0'}
 - Canal más rentable: ${topChannel ? `${topChannel[0]} ($${topChannel[1].toLocaleString('es-EC', { minimumFractionDigits: 0 })})` : 'sin datos'}
 - Margen bruto promedio: ${avgMarginGlobal.toFixed(1)}%
-- Margen neto promedio: ${avgNetMarginGlobal.toFixed(1)}%
+- Margen neto bancario promedio (ventas netas - COGS - egresos - pauta): ${avgNetMarginGlobal.toFixed(1)}%
 - Mejor semana: S${bestWeek?.week_number ?? '?'}/${bestWeek?.year ?? '?'} con $${bestWeek?.total_sales?.toFixed(2) ?? '0'}
 - Peor semana: S${worstWeek?.week_number ?? '?'}/${worstWeek?.year ?? '?'} con $${worstWeek?.total_sales?.toFixed(2) ?? '0'}
 - Tendencia (últimas 4 vs primeras 4 semanas): ${growthTrend}% de variación
