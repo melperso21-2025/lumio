@@ -140,12 +140,24 @@ export async function POST(request: NextRequest) {
         .eq('id', importLogId)
     }
 
+    // Recalcular snapshots automáticamente si se importaron entidades que afectan el dashboard
+    const ENTITIES_THAT_AFFECT_DASHBOARD: EntityType[] = [
+      'sales', 'sale_items', 'bank_transactions', 'ad_campaigns',
+    ]
+    if (successCount > 0 && ENTITIES_THAT_AFFECT_DASHBOARD.includes(entityType)) {
+      // Fire and forget — no bloqueamos la respuesta, Supabase ejecuta en DB
+      supabaseAdmin.rpc('recalculate_all_snapshots', { p_company_id: companyId })
+        .then(() => {})
+        .catch(() => {})
+    }
+
     return NextResponse.json({
       importLogId,
       success:    successCount,
       total:      rows.length,
       errors:     errorList,
       status:     finalStatus,
+      recalculated: successCount > 0 && ENTITIES_THAT_AFFECT_DASHBOARD.includes(entityType),
     })
 
   } catch (err) {
