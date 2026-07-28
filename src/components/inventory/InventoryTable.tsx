@@ -453,7 +453,7 @@ export default function InventoryTable({
                   >
                     {/* Producto */}
                     <td style={{ padding: '10px 12px', color: 'var(--text)' }}>
-                      <div style={{ fontWeight: 500 }}>{p.name}</div>
+                      <div style={{ fontWeight: 500, color: 'var(--blue)', textDecoration: 'underline', textUnderlineOffset: 2 }}>{p.name}</div>
                       {p.sku && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{p.sku}</div>}
                     </td>
 

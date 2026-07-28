@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from 'react'
 import KpiCard from '@/components/ui/KpiCard'
-import AiInsightBox from '@/components/ui/AiInsightBox'
 import ExportButton from '@/components/ui/ExportButton'
 import NewCampaignForm from '@/components/ad-campaigns/NewCampaignForm'
 import CampaignsTable from '@/components/ad-campaigns/CampaignsTable'
@@ -239,11 +238,6 @@ export default function AdCampaignsOverview({
         minHeight: 0,
       }}
     >
-      <AiInsightBox
-        title="lumio IA · Análisis de pautas"
-        text="Aquí verás un análisis automático de tus campañas: qué conjuntos de anuncios están generando el mejor ROAS, dónde se está desperdiciando inversión y qué ajustes priorizar esta semana."
-      />
-
       {/* KPIs con deltas */}
       <div
         style={{

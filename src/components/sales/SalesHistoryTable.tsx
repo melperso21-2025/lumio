@@ -16,6 +16,7 @@ type SaleRow = {
   status: string | null
   channel_id: string | null
   sales_channels?: { name: string } | { name: string }[] | null
+  customers?: { full_name: string | null } | null
 }
 
 type SortKey =
@@ -552,6 +553,17 @@ export default function SalesHistoryTable({
                   </th>
                 )
               })}
+              <th
+                style={{
+                  padding: '10px 12px',
+                  color: 'var(--muted)',
+                  fontWeight: 600,
+                  textAlign: 'left',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Cliente
+              </th>
               {canEdit && (
                 <th
                   style={{
@@ -612,6 +624,9 @@ export default function SalesHistoryTable({
                 </td>
                 <td style={{ padding: '10px 12px' }}>
                   <StatusBadge status={sale.status} />
+                </td>
+                <td style={{ padding: '10px 12px', color: 'var(--text2)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {(sale.customers as { full_name?: string | null } | null)?.full_name ?? <span style={{ color: 'var(--muted)' }}>—</span>}
                 </td>
                 {(canEdit || canCancel) && (
                   <td style={{ padding: '10px 12px' }}>

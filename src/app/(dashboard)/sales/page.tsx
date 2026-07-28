@@ -67,7 +67,7 @@ export default async function SalesPage({
     supabase
       .from('sales')
       .select(
-        'id, sale_date, week_number, gross_total, discount_amount, production_cost, lines_per_order, status, channel_id, sales_channels(name)'
+        'id, sale_date, week_number, gross_total, discount_amount, production_cost, lines_per_order, status, channel_id, sales_channels(name), customers(full_name)'
       )
       .eq('company_id', companyId)
       .is('deleted_at', null)
@@ -78,7 +78,7 @@ export default async function SalesPage({
     supabase
       .from('sales')
       .select(
-        'id, sale_date, week_number, gross_total, discount_amount, production_cost, lines_per_order, status, channel_id, sales_channels(name)'
+        'id, sale_date, week_number, gross_total, discount_amount, production_cost, lines_per_order, status, channel_id, sales_channels(name), customers(full_name)'
       )
       .eq('company_id', companyId)
       .is('deleted_at', null)

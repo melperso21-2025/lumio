@@ -9,6 +9,7 @@ import QuickSaleForm from '@/components/sales/QuickSaleForm'
 import { UserMenu } from '@/components/layout/Topbar'
 import DateRangePicker from '@/components/ui/DateRangePicker'
 import InsightReminderModal, { type ModalScenario } from '@/components/dashboard/InsightReminderModal'
+import DashboardExportButton from '@/components/dashboard/DashboardExportButton'
 import {
   getWeeksInRange,
   toLocalISO,
@@ -578,26 +579,23 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <Suspense fallback={null}>
             <DateRangePicker snapToWeeks />
           </Suspense>
-          <button
-            type="button"
-            title="Exportar CSV — próximamente"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '6px 12px',
-              borderRadius: 6,
-              fontSize: 11,
-              border: '1px solid var(--border2)',
-              background: 'transparent',
-              color: 'var(--muted)',
-              cursor: 'not-allowed',
-              fontFamily: 'var(--font-jakarta)',
-              opacity: 0.6,
+          <DashboardExportButton
+            periodLabel={periodLabel}
+            kpis={{
+              totalSales,
+              totalTransactions,
+              avgLpp,
+              avgGrossMargin,
+              avgNetMargin,
+              avgCashDays,
+              totalAdSpend,
+              avgRoas,
+              totalLeads,
+              totalDiscounts,
+              overdueRec,
             }}
-          >
-            ⬇ Exportar
-          </button>
+            channelData={channelData}
+          />
           <QuickSaleForm
             companyId={companyId}
             branches={branches}
