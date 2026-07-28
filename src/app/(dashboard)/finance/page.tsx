@@ -78,46 +78,50 @@ export default async function FinancePage({
     )
   }
 
-  const { data: accountsList } = await supabase
-    .from('bank_accounts')
-    .select(
-      'id, bank_name, account_type, account_number, initial_balance, current_balance, is_active'
-    )
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .eq('is_active', true)
-    .order('bank_name')
-
-  const { data: txList } = await supabase
-    .from('bank_transactions')
-    .select('id, account_id, type, amount, category, concept, tx_date, is_fixed')
-    .eq('company_id', companyId)
-    .gte('tx_date', from)
-    .lte('tx_date', to)
-    .order('tx_date', { ascending: false })
-    .limit(200)
-
-  const { data: prevTxList } = await supabase
-    .from('bank_transactions')
-    .select('id, account_id, type, amount, category, concept, tx_date, is_fixed')
-    .eq('company_id', companyId)
-    .gte('tx_date', prevFrom)
-    .lte('tx_date', prevTo)
-    .order('tx_date', { ascending: false })
-    .limit(200)
+  const [
+    { data: accountsList },
+    { data: txList },
+    { data: prevTxList },
+    { data: receivablesList },
+  ] = await Promise.all([
+    supabase
+      .from('bank_accounts')
+      .select(
+        'id, bank_name, account_type, account_number, initial_balance, current_balance, is_active'
+      )
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .eq('is_active', true)
+      .order('bank_name'),
+    supabase
+      .from('bank_transactions')
+      .select('id, account_id, type, amount, category, concept, tx_date, is_fixed')
+      .eq('company_id', companyId)
+      .gte('tx_date', from)
+      .lte('tx_date', to)
+      .order('tx_date', { ascending: false })
+      .limit(200),
+    supabase
+      .from('bank_transactions')
+      .select('id, account_id, type, amount, category, concept, tx_date, is_fixed')
+      .eq('company_id', companyId)
+      .gte('tx_date', prevFrom)
+      .lte('tx_date', prevTo)
+      .order('tx_date', { ascending: false })
+      .limit(200),
+    supabase
+      .from('accounts_receivable')
+      .select('id, amount, due_date, issue_date, invoice_ref, status, notes, customer_id, customers(full_name)')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .neq('status', 'paid')
+      .order('due_date', { ascending: true })
+      .limit(500),
+  ])
 
   const accounts = accountsList ?? []
   const transactions = txList ?? []
   const prevTransactions = prevTxList ?? []
-
-  // Cuentas por cobrar (sin filtro de período — se muestran todas las activas)
-  const { data: receivablesList } = await supabase
-    .from('accounts_receivable')
-    .select('id, amount, due_date, issue_date, invoice_ref, status, notes, customer_id, customers(full_name)')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .neq('status', 'paid')
-    .order('due_date', { ascending: true })
 
   const receivables = receivablesList ?? []
   const totalPending  = receivables.filter(r => r.status !== 'overdue').reduce((s, r) => s + (r.amount ?? 0), 0)

@@ -82,31 +82,51 @@ export default async function InventoryPage({
     )
   }
 
-  const { data: productsList } = await supabase
-    .from('products')
-    .select(
-      'id, name, sku, sale_price, unit_cost, supplier_price, current_stock, min_stock_alert, lead_time_days, category_id, supplier_id, is_active, product_type, unit_type, unit_label, is_perishable, shelf_life_days, expiry_date'
-    )
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .eq('is_active', true)
-    .order('name', { ascending: true })
-    .limit(500)
-
-  const { data: categoriesList } = await supabase
-    .from('product_categories')
-    .select('id, name, parent_id')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .order('name')
-
-  const { data: suppliersList } = await supabase
-    .from('suppliers')
-    .select('id, name')
-    .eq('company_id', companyId)
-    .eq('is_active', true)
-    .is('deleted_at', null)
-    .order('name')
+  const [
+    { data: productsList },
+    { data: categoriesList },
+    { data: suppliersList },
+    { data: movementsList },
+    { data: prevMovementsList },
+  ] = await Promise.all([
+    supabase
+      .from('products')
+      .select(
+        'id, name, sku, sale_price, unit_cost, supplier_price, current_stock, min_stock_alert, lead_time_days, category_id, supplier_id, is_active, product_type, unit_type, unit_label, is_perishable, shelf_life_days, expiry_date'
+      )
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .eq('is_active', true)
+      .order('name', { ascending: true })
+      .limit(500),
+    supabase
+      .from('product_categories')
+      .select('id, name, parent_id')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .order('name'),
+    supabase
+      .from('suppliers')
+      .select('id, name')
+      .eq('company_id', companyId)
+      .eq('is_active', true)
+      .is('deleted_at', null)
+      .order('name'),
+    supabase
+      .from('inventory_movements')
+      .select('type, quantity')
+      .eq('company_id', companyId)
+      .gte('movement_date', from)
+      .lte('movement_date', to)
+      .limit(2000),
+    supabase
+      .from('inventory_movements')
+      .select('type, quantity')
+      .eq('company_id', companyId)
+      .gte('movement_date', prevFrom)
+      .lte('movement_date', prevTo)
+      .limit(2000),
+  ])
 
   const products  = productsList ?? []
   const categories = categoriesList ?? []
@@ -115,14 +135,6 @@ export default async function InventoryPage({
     categories.map((c) => [c.id, c.name])
   ) as Record<string, string>
 
-  // Movimientos del período actual
-  const { data: movementsList } = await supabase
-    .from('inventory_movements')
-    .select('type, quantity')
-    .eq('company_id', companyId)
-    .gte('movement_date', from)
-    .lte('movement_date', to)
-
   const movements = movementsList ?? []
   const movementsIn = movements
     .filter((m) => m.type === 'in')
@@ -130,14 +142,6 @@ export default async function InventoryPage({
   const movementsOut = movements
     .filter((m) => m.type === 'out')
     .reduce((s, m) => s + (m.quantity ?? 0), 0)
-
-  // Movimientos del período anterior
-  const { data: prevMovementsList } = await supabase
-    .from('inventory_movements')
-    .select('type, quantity')
-    .eq('company_id', companyId)
-    .gte('movement_date', prevFrom)
-    .lte('movement_date', prevTo)
 
   const prevMovements = prevMovementsList ?? []
   const prevMovementsIn = prevMovements

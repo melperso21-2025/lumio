@@ -50,72 +50,63 @@ export default async function SalesPage({
     )
   }
 
-  // Contar total de ventas en el período (sin límite) para avisar si hay truncamiento
-  const { count: totalSalesCount } = await supabase
-    .from('sales')
-    .select('id', { count: 'exact', head: true })
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .gte('sale_date', from)
-    .lte('sale_date', to)
-
-  const { data: salesList } = await supabase
-    .from('sales')
-    .select(
-      'id, sale_date, week_number, gross_total, discount_amount, production_cost, lines_per_order, status, channel_id,  sales_channels(name)'
-    )
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .gte('sale_date', from)
-    .lte('sale_date', to)
-    .order('sale_date', { ascending: false })
-    .limit(200)
+  const [
+    { count: totalSalesCount },
+    { data: salesList },
+    { data: prevSalesList },
+    { data: channelsList },
+    { data: branchesList },
+  ] = await Promise.all([
+    supabase
+      .from('sales')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .gte('sale_date', from)
+      .lte('sale_date', to),
+    supabase
+      .from('sales')
+      .select(
+        'id, sale_date, week_number, gross_total, discount_amount, production_cost, lines_per_order, status, channel_id, sales_channels(name)'
+      )
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .gte('sale_date', from)
+      .lte('sale_date', to)
+      .order('sale_date', { ascending: false })
+      .limit(200),
+    supabase
+      .from('sales')
+      .select(
+        'id, sale_date, week_number, gross_total, discount_amount, production_cost, lines_per_order, status, channel_id, sales_channels(name)'
+      )
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .gte('sale_date', prevFrom)
+      .lte('sale_date', prevTo)
+      .order('sale_date', { ascending: false })
+      .limit(200),
+    supabase
+      .from('sales_channels')
+      .select('id, name')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .order('name'),
+    supabase
+      .from('branches')
+      .select('id, name, type')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .eq('is_active', true)
+      .order('name', { ascending: true }),
+  ])
 
   const sales = salesList ?? []
   const salesTruncated = (totalSalesCount ?? 0) > 200
-
-  const { data: prevSalesList } = await supabase
-    .from('sales')
-    .select(
-      'id, sale_date, week_number, gross_total, discount_amount, production_cost, lines_per_order, status, channel_id, sales_channels(name)'
-    )
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .gte('sale_date', prevFrom)
-    .lte('sale_date', prevTo)
-    .order('sale_date', { ascending: false })
-    .limit(200)
-
   const prevSales = prevSalesList ?? []
-
-  // Cargar canales de la empresa
-  const { data: channelsList } = await supabase
-    .from('sales_channels')
-    .select('id, name')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .order('name')
-
   const channels = channelsList ?? []
-
-  const { data: customersList } = await supabase
-    .from('customers')
-    .select('id, full_name, customer_type, label')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .order('full_name', { ascending: true })
-    .limit(10000)
-
-  const { data: branchesList } = await supabase
-    .from('branches')
-    .select('id, name, type')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .eq('is_active', true)
-    .order('name', { ascending: true })
-
-  const customers = customersList ?? []
   const branches = branchesList ?? []
+  const customers: { id: string; full_name: string | null; customer_type: string | null; label: string | null }[] = []
 
   return (
     <>

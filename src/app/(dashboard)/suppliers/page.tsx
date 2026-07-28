@@ -41,24 +41,24 @@ export default async function SuppliersPage({
     )
   }
 
-  // Movimientos de entrada en el período (para KPIs de período)
-  const { data: movData } = await supabase
-    .from('inventory_movements')
-    .select('id, quantity, movement_date, product_id, products(supplier_id)')
-    .eq('company_id', companyId)
-    .eq('type', 'in')
-    .gte('movement_date', from)
-    .lte('movement_date', to)
+  const [{ data: movData }, { data: suppliersData }] = await Promise.all([
+    supabase
+      .from('inventory_movements')
+      .select('id, quantity, movement_date, product_id, products(supplier_id)')
+      .eq('company_id', companyId)
+      .eq('type', 'in')
+      .gte('movement_date', from)
+      .lte('movement_date', to)
+      .limit(2000),
+    supabase
+      .from('suppliers')
+      .select('id, name, products(id)')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .eq('is_active', true),
+  ])
 
   const movements = movData ?? []
-
-  // Proveedores activos con conteo de productos
-  const { data: suppliersData } = await supabase
-    .from('suppliers')
-    .select('id, name, products(id)')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .eq('is_active', true)
 
   const suppliersWithProducts = suppliersData ?? []
   const suppliersWithActivity = new Set(

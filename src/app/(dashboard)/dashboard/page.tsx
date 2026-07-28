@@ -128,30 +128,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     )
   }
 
-  const { data: customersList } = await supabase
-    .from('customers')
-    .select('id, full_name, customer_type, label')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .order('full_name', { ascending: true })
-    .limit(10000)
+  const [{ data: branchesList }, { data: channelsList }] = await Promise.all([
+    supabase
+      .from('branches')
+      .select('id, name, type')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .eq('is_active', true)
+      .order('name', { ascending: true }),
+    supabase
+      .from('sales_channels')
+      .select('id, name')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .order('name', { ascending: true }),
+  ])
 
-  const { data: branchesList } = await supabase
-    .from('branches')
-    .select('id, name, type')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .eq('is_active', true)
-    .order('name', { ascending: true })
-
-  const { data: channelsList } = await supabase
-    .from('sales_channels')
-    .select('id, name')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .order('name', { ascending: true })
-
-  const customers = customersList ?? []
   const branches  = branchesList ?? []
   const channels  = channelsList ?? []
 
@@ -187,17 +179,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   )
 
   // Snapshot período actual — un query por año si hay múltiples
-  const allSnaps: Record<string, unknown>[] = []
-  for (const [yearStr, weekNums] of Object.entries(weeksByYear)) {
-    const { data } = await supabase
-      .from('weekly_snapshots')
-      .select('*')
-      .eq('company_id', companyId)
-      .eq('year', Number(yearStr))
-      .in('week_number', weekNums.length > 0 ? weekNums : [0])
-      .order('week_number', { ascending: false })
-    allSnaps.push(...(data ?? []))
-  }
+  const allSnapsArrays = await Promise.all(
+    Object.entries(weeksByYear).map(([yearStr, weekNums]) =>
+      supabase
+        .from('weekly_snapshots')
+        .select('*')
+        .eq('company_id', companyId)
+        .eq('year', Number(yearStr))
+        .in('week_number', weekNums.length > 0 ? weekNums : [0])
+        .order('week_number', { ascending: false })
+        .then(({ data }) => data ?? [])
+    )
+  )
+  const allSnaps: Record<string, unknown>[] = allSnapsArrays.flat()
   const snaps = allSnaps.sort(
     (a, b) =>
       Number(b.year ?? 0) - Number(a.year ?? 0) ||
@@ -205,21 +199,23 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   )
 
   // Snapshot período anterior — para deltas (todas las columnas numéricas)
-  let prevSnapsData: { total_sales?: number; total_transactions?: number; avg_lpp?: number; total_discounts?: number; gross_margin_pct?: number; total_ad_spend?: number; avg_roas?: number; total_leads?: number; avg_effectiveness?: number; avg_ctr?: number; cash_days?: number; net_margin_pct?: number; fixed_vs_total_pct?: number }[] = []
+  type PrevSnapRow = { total_sales?: number; total_transactions?: number; avg_lpp?: number; total_discounts?: number; gross_margin_pct?: number; total_ad_spend?: number; avg_roas?: number; total_leads?: number; avg_effectiveness?: number; avg_ctr?: number; cash_days?: number; net_margin_pct?: number; fixed_vs_total_pct?: number }
+  let prevSnapsData: PrevSnapRow[] = []
   if (Object.keys(prevWeeksByYear).length > 0) {
-    const prevAll: typeof prevSnapsData = []
-    for (const [yearStr, weekNums] of Object.entries(prevWeeksByYear)) {
-      const { data } = await supabase
-        .from('weekly_snapshots')
-        .select(
-          'total_sales, total_transactions, avg_lpp, total_discounts, gross_margin_pct, total_ad_spend, avg_roas, total_leads, avg_effectiveness, avg_ctr, cash_days, net_margin_pct, fixed_vs_total_pct'
-        )
-        .eq('company_id', companyId)
-        .eq('year', Number(yearStr))
-        .in('week_number', weekNums.length > 0 ? weekNums : [0])
-      prevAll.push(...(data ?? []))
-    }
-    prevSnapsData = prevAll
+    const prevArrays = await Promise.all(
+      Object.entries(prevWeeksByYear).map(([yearStr, weekNums]) =>
+        supabase
+          .from('weekly_snapshots')
+          .select(
+            'total_sales, total_transactions, avg_lpp, total_discounts, gross_margin_pct, total_ad_spend, avg_roas, total_leads, avg_effectiveness, avg_ctr, cash_days, net_margin_pct, fixed_vs_total_pct'
+          )
+          .eq('company_id', companyId)
+          .eq('year', Number(yearStr))
+          .in('week_number', weekNums.length > 0 ? weekNums : [0])
+          .then(({ data }) => (data ?? []) as PrevSnapRow[])
+      )
+    )
+    prevSnapsData = prevArrays.flat()
   }
 
   // ── Agregar valores del período actual ───────────────────
@@ -324,57 +320,78 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     return Math.round(((current - previous) / previous) * 100)
   }
 
-  // ── Últimas 10 semanas para gráfica (SIEMPRE) ────────────
-  const { data: historySnaps } = await supabase
-    .from('weekly_snapshots')
-    .select('week_number, year, total_sales')
-    .eq('company_id', companyId)
-    .order('year', { ascending: false })
-    .order('week_number', { ascending: false })
-    .limit(10)
+  // ── Todas las queries independientes en paralelo ─────────
+  const [
+    { data: historySnaps },
+    { data: insight },
+    { count: globalSalesCount },
+    { data: initialInsightModal },
+    { data: lastWeeklyInsight },
+    { data: salesByChanDataRaw },
+    { data: productsData },
+    { data: txData },
+  ] = await Promise.all([
+    supabase
+      .from('weekly_snapshots')
+      .select('week_number, year, total_sales')
+      .eq('company_id', companyId)
+      .order('year', { ascending: false })
+      .order('week_number', { ascending: false })
+      .limit(10),
+    supabase
+      .from('ai_insights')
+      .select('executive_summary, week_number, year')
+      .eq('company_id', companyId)
+      .order('year', { ascending: false })
+      .order('week_number', { ascending: false })
+      .limit(1)
+      .single(),
+    supabase
+      .from('sales')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .is('deleted_at', null),
+    supabase
+      .from('ai_insights')
+      .select('executive_summary, playbook, created_at')
+      .eq('company_id', companyId)
+      .eq('type', 'initial')
+      .maybeSingle(),
+    supabase
+      .from('ai_insights')
+      .select('executive_summary, playbook, week_number, year')
+      .eq('company_id', companyId)
+      .eq('type', 'weekly')
+      .gt('week_number', 0)
+      .order('year', { ascending: false })
+      .order('week_number', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('sales')
+      .select('gross_total, channel_id, sales_channels(name)')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .neq('status', 'cancelled')
+      .gte('sale_date', from)
+      .lte('sale_date', to),
+    supabase
+      .from('products')
+      .select('id, name, current_stock, min_stock_alert, unit_cost')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .eq('is_active', true),
+    supabase
+      .from('bank_transactions')
+      .select('type, amount, is_fixed')
+      .eq('company_id', companyId)
+      .gte('tx_date', from)
+      .lte('tx_date', to),
+  ])
+
   const history = (historySnaps ?? []).reverse()
   const maxSales = Math.max(...history.map((h) => h.total_sales ?? 0), 1)
-
-  // ── Insight más reciente (para la caja del dashboard) ────
-  const { data: insight } = await supabase
-    .from('ai_insights')
-    .select('executive_summary, week_number, year')
-    .eq('company_id', companyId)
-    .order('year', { ascending: false })
-    .order('week_number', { ascending: false })
-    .limit(1)
-    .single()
-
-  // ── Datos para el modal de recordatorio ──────────────────
-
-  // ¿Hay alguna venta registrada (global, sin filtro de período)?
-  const { count: globalSalesCount } = await supabase
-    .from('sales')
-    .select('id', { count: 'exact', head: true })
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-
   const hasSalesData = (globalSalesCount ?? 0) > 0
-
-  // Diagnóstico inicial
-  const { data: initialInsightModal } = await supabase
-    .from('ai_insights')
-    .select('executive_summary, playbook, created_at')
-    .eq('company_id', companyId)
-    .eq('type', 'initial')
-    .maybeSingle()
-
-  // Insight semanal más reciente (week_number > 0)
-  const { data: lastWeeklyInsight } = await supabase
-    .from('ai_insights')
-    .select('executive_summary, playbook, week_number, year')
-    .eq('company_id', companyId)
-    .eq('type', 'weekly')
-    .gt('week_number', 0)
-    .order('year', { ascending: false })
-    .order('week_number', { ascending: false })
-    .limit(1)
-    .maybeSingle()
 
   // Semana anterior completa (la que debería tener insights ya)
   const prevWeekNumber = currentWeek > 1 ? currentWeek - 1 : 52
@@ -428,16 +445,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     // (scenario queda como 'no-data' pero hasSalesData=true lo ajustaremos)
   }
 
-  // ── Ventas por canal ─────────────────────────────────────
-  const { data: salesByChanData } = await supabase
-    .from('sales')
-    .select('gross_total, channel_id, sales_channels(name)')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .neq('status', 'cancelled')
-    .gte('sale_date', from)
-    .lte('sale_date', to)
+  const salesByChanData = salesByChanDataRaw
 
+  // ── Ventas por canal ─────────────────────────────────────
   const channelMap: Record<string, { name: string; total: number }> = {}
   const totalAllSales =
     salesByChanData?.reduce((s, r) => s + (r.gross_total ?? 0), 0) ?? 0
@@ -459,13 +469,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .slice(0, 5)
 
   // ── Inventario ───────────────────────────────────────────
-  const { data: productsData } = await supabase
-    .from('products')
-    .select('id, name, current_stock, min_stock_alert, unit_cost')
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .eq('is_active', true)
-
   const products = productsData ?? []
   const frozenCapital = products.reduce(
     (s, p) => s + (p.current_stock ?? 0) * (p.unit_cost ?? 0),
@@ -494,13 +497,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const inventoryDaysPct = Math.min(Math.round((inventoryDays / 60) * 100), 100)
 
   // ── Finanzas ─────────────────────────────────────────────
-  const { data: txData } = await supabase
-    .from('bank_transactions')
-    .select('type, amount, is_fixed')
-    .eq('company_id', companyId)
-    .gte('tx_date', from)
-    .lte('tx_date', to)
-
   const totalIncome = (txData ?? [])
     .filter((t) => t.type === 'income')
     .reduce((s, t) => s + (t.amount ?? 0), 0)
