@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { ENTITY_DEFS, type EntityType } from '@/lib/import/entityConfig'
-import { buildContext, parseFileToRows } from '@/lib/import/buildContext'
+import { buildContext, parseFileToRowsAsync } from '@/lib/import/buildContext'
 import { validateAndTransform } from '@/lib/import/rowProcessor'
 import { toLocalISO } from '@/lib/dateUtils'
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     // Parse file
     let rows: Record<string, string>[]
     try {
-      rows = parseFileToRows(fileData, mapping)
+      rows = await parseFileToRowsAsync(fileData, mapping)
     } catch (e) {
       return NextResponse.json({ error: `Error leyendo archivo: ${(e as Error).message}` }, { status: 400 })
     }

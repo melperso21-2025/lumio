@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { ENTITY_DEFS, type EntityType } from '@/lib/import/entityConfig'
-import { buildContext, parseFileToRows } from '@/lib/import/buildContext'
+import { buildContext, parseFileToRowsAsync } from '@/lib/import/buildContext'
 import { validateAndTransform } from '@/lib/import/rowProcessor'
 
 /** Respuesta de error con forma estable para el wizard (incl. cuando no se procesaron filas). */
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     // Parse file
     let rows: Record<string, string>[]
     try {
-      rows = parseFileToRows(fileData, mapping)
+      rows = await parseFileToRowsAsync(fileData, mapping)
     } catch (e) {
       return errorJson(`Error leyendo archivo: ${(e as Error).message}`, 400)
     }

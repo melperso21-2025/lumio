@@ -147,22 +147,40 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
   const parseFile = useCallback(async (file: File) => {
     setParseError(null)
     try {
-      // Lazy load xlsx (only needed here)
-      const XLSX = (await import('xlsx')).default ?? (await import('xlsx'))
-      const ab   = await file.arrayBuffer()
-      const wb   = XLSX.read(new Uint8Array(ab), { type: 'array', raw: false })
-      const ws   = wb.Sheets[wb.SheetNames[0]]
-      const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, raw: false, defval: '' }) as string[][]
+      const isCsv = file.name.toLowerCase().endsWith('.csv')
+      let rows: string[][]
+
+      if (isCsv) {
+        const Papa = (await import('papaparse')).default
+        const text = await file.text()
+        const result = Papa.parse<string[]>(text, { header: false, skipEmptyLines: true })
+        rows = result.data as string[][]
+      } else {
+        const ExcelJS = (await import('exceljs')).default
+        const ab = await file.arrayBuffer()
+        const wb = new ExcelJS.Workbook()
+        await wb.xlsx.load(ab)
+        const ws = wb.worksheets[0]
+        rows = []
+        ws.eachRow((row) => {
+          const cells = (row.values as unknown[]).slice(1)
+          rows.push(cells.map((c) => {
+            if (c === null || c === undefined) return ''
+            if (typeof c === 'object' && c !== null && 'text' in c) return String((c as { text: string }).text ?? '')
+            if (c instanceof Date) return c.toISOString().slice(0, 10)
+            return String(c)
+          }))
+        })
+      }
 
       if (rows.length < 1) { setParseError('El archivo está vacío'); return }
 
-      const headers = (rows[0] as string[]).map((h) => String(h ?? '').trim()).filter(Boolean)
+      const headers = rows[0].map((h) => String(h ?? '').trim()).filter(Boolean)
       if (headers.length === 0) { setParseError('No se encontraron encabezados en la primera fila'); return }
 
       setFileHeaders(headers)
-      setFileRows(rows.slice(1, 6))  // preview first 5 data rows
+      setFileRows(rows.slice(1, 6))
 
-      // Auto-map: if system field label matches a file header (case-insensitive)
       if (def) {
         const autoMap: Record<string, string> = {}
         def.fields.forEach((f) => {

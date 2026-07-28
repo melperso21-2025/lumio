@@ -1,9 +1,5 @@
 'use client'
 
-import * as XLSX from 'xlsx'
-
-// ── Tipos ──────────────────────────────────────────────────
-
 export interface ExportButtonProps {
   data: Record<string, unknown>[]
   filename: string
@@ -11,23 +7,38 @@ export interface ExportButtonProps {
   disabled?: boolean
 }
 
-// ── Componente ──────────────────────────────────────────────
-
-/**
- * Botón que exporta los datos a un archivo .xlsx usando SheetJS.
- */
 export default function ExportButton({
   data,
   filename,
   sheetName = 'Datos',
   disabled = false,
 }: ExportButtonProps) {
-  function handleExport() {
+  async function handleExport() {
     if (!data.length) return
-    const ws = XLSX.utils.json_to_sheet(data)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, sheetName)
-    XLSX.writeFile(wb, `${filename}.xlsx`)
+    const ExcelJS = (await import('exceljs')).default
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet(sheetName)
+
+    // Headers from first row keys
+    const keys = Object.keys(data[0])
+    ws.addRow(keys)
+    data.forEach((row) => ws.addRow(keys.map((k) => row[k] ?? '')))
+
+    // Auto column widths
+    ws.columns = keys.map((k) => ({ width: Math.max(k.length, 12) }))
+
+    const buf = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buf], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${filename}.xlsx`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   const isDisabled = disabled || !data.length

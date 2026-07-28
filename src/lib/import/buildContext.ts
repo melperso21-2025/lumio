@@ -188,31 +188,85 @@ export function parseFileToRows(
   fileDataBase64: string,
   mapping: Record<string, string>
 ): Record<string, string>[] {
-  // Lazy import of xlsx (server-side only)
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const XLSX = require('xlsx') as typeof import('xlsx')
+  const buf = Buffer.from(fileDataBase64, 'base64')
 
-  const buf  = Buffer.from(fileDataBase64, 'base64')
-  const wb   = XLSX.read(buf, { type: 'buffer', cellDates: false })
-  const ws   = wb.Sheets[wb.SheetNames[0]]
-  const raw = XLSX.utils.sheet_to_json<string[]>(ws, {
-    header: 1,
-    raw: false,
-    defval: '',
-    dateNF: 'yyyy-mm-dd',  // preserva formato ISO en celdas detectadas como fecha
-  }) as string[][]
+  // Detect CSV by magic bytes (text or UTF-8 BOM)
+  const isCsv = buf[0] === 0xef || buf[0] < 0x80
+
+  let raw: string[][]
+
+  if (isCsv) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Papa = require('papaparse') as typeof import('papaparse')
+    const text = buf.toString('utf-8').replace(/^﻿/, '') // strip BOM
+    const result = Papa.parse<string[]>(text, { header: false, skipEmptyLines: true })
+    raw = result.data as string[][]
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const ExcelJS = require('exceljs') as typeof import('exceljs')
+    const wb = new ExcelJS.Workbook()
+    // ExcelJS.xlsx.load is async — use sync workaround via stream
+    // We block here using a shared buffer approach supported by ExcelJS
+    // Note: this function is called from async contexts; wrap caller if needed
+    // For now we throw to force callers to use parseFileToRowsAsync
+    throw new Error('Use parseFileToRowsAsync for xlsx files')
+  }
 
   if (raw.length < 2) return []
   const fileHeaders = (raw[0] as string[]).map((h) => String(h ?? '').trim())
 
   return raw.slice(1).filter((r) => r.some((c) => c !== '')).map((row) => {
     const mapped: Record<string, string> = {}
-    // mapping: systemFieldLabel → fileColumnHeader
     Object.entries(mapping).forEach(([systemLabel, fileHeader]) => {
       const colIdx = fileHeaders.indexOf(fileHeader)
-      if (colIdx !== -1) {
-        mapped[systemLabel] = String(row[colIdx] ?? '').trim()
-      }
+      if (colIdx !== -1) mapped[systemLabel] = String(row[colIdx] ?? '').trim()
+    })
+    return mapped
+  })
+}
+
+export async function parseFileToRowsAsync(
+  fileDataBase64: string,
+  mapping: Record<string, string>
+): Promise<Record<string, string>[]> {
+  const buf = Buffer.from(fileDataBase64, 'base64')
+  const isCsv = buf[0] === 0xef || buf[0] < 0x80
+
+  let raw: string[][]
+
+  if (isCsv) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Papa = require('papaparse') as typeof import('papaparse')
+    const text = buf.toString('utf-8').replace(/^﻿/, '')
+    const result = Papa.parse<string[]>(text, { header: false, skipEmptyLines: true })
+    raw = result.data as string[][]
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const ExcelJS = require('exceljs') as typeof import('exceljs')
+    const wb = new ExcelJS.Workbook()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (wb.xlsx as any).load(buf)
+    const ws = wb.worksheets[0]
+    raw = []
+    ws.eachRow((row) => {
+      const cells = (row.values as unknown[]).slice(1) // index 0 is empty
+      raw.push(cells.map((c) => {
+        if (c === null || c === undefined) return ''
+        if (typeof c === 'object' && c !== null && 'text' in c) return String((c as { text: string }).text ?? '')
+        if (c instanceof Date) return c.toISOString().slice(0, 10)
+        return String(c)
+      }))
+    })
+  }
+
+  if (raw.length < 2) return []
+  const fileHeaders = raw[0].map((h) => String(h ?? '').trim())
+
+  return raw.slice(1).filter((r) => r.some((c) => c !== '')).map((row) => {
+    const mapped: Record<string, string> = {}
+    Object.entries(mapping).forEach(([systemLabel, fileHeader]) => {
+      const colIdx = fileHeaders.indexOf(fileHeader)
+      if (colIdx !== -1) mapped[systemLabel] = String(row[colIdx] ?? '').trim()
     })
     return mapped
   })
