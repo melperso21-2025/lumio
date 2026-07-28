@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { formatBusinessDate } from '@/lib/dateUtils'
 import { useUser } from '@/lib/context/UserContext'
@@ -85,6 +85,129 @@ const filterInputStyle: React.CSSProperties = {
   minWidth: 100,
 }
 
+// ── FilterBar — componente externo para evitar remount en cada render ──────
+
+interface FilterBarProps {
+  localText: string
+  onLocalTextChange: (v: string) => void
+  filterType: string
+  filterLabel: string
+  filterIsCompany: boolean | null
+  customerTypes: CatalogItem[]
+  customerLabels: CatalogItem[]
+  resultCount: number
+  hasActiveFilters: boolean
+  onSelectChange: (type: string, label: string, isCompany: boolean | null) => void
+  onClear: () => void
+}
+
+function CustomerFilterBar({
+  localText,
+  onLocalTextChange,
+  filterType,
+  filterLabel,
+  filterIsCompany,
+  customerTypes,
+  customerLabels,
+  resultCount,
+  hasActiveFilters,
+  onSelectChange,
+  onClear,
+}: FilterBarProps) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 10,
+        alignItems: 'center',
+        padding: '10px 0 12px',
+        borderBottom: '1px solid var(--border)',
+        marginBottom: 12,
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 10,
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          color: 'var(--muted)',
+          fontWeight: 600,
+        }}
+      >
+        Filtros
+      </span>
+
+      {/* Text search — estado local, no viene de URL directamente */}
+      <input
+        type="text"
+        value={localText}
+        onChange={(e) => onLocalTextChange(e.target.value)}
+        placeholder="Nombre, email o ID…"
+        style={{ ...filterInputStyle, minWidth: 160 }}
+        autoComplete="off"
+        spellCheck={false}
+      />
+
+      <select
+        value={filterType}
+        onChange={(e) => onSelectChange(e.target.value, filterLabel, filterIsCompany)}
+        style={filterInputStyle}
+      >
+        <option value="">Todos los tipos</option>
+        {customerTypes.map((t) => (
+          <option key={t.id} value={t.id}>{t.name}</option>
+        ))}
+      </select>
+
+      <select
+        value={filterLabel}
+        onChange={(e) => onSelectChange(filterType, e.target.value, filterIsCompany)}
+        style={filterInputStyle}
+      >
+        <option value="">Todas las etiquetas</option>
+        {customerLabels.map((l) => (
+          <option key={l.id} value={l.id}>{l.name}</option>
+        ))}
+      </select>
+
+      <select
+        value={filterIsCompany === null ? '' : filterIsCompany ? 'true' : 'false'}
+        onChange={(e) => {
+          const v = e.target.value
+          onSelectChange(filterType, filterLabel, v === '' ? null : v === 'true')
+        }}
+        style={filterInputStyle}
+      >
+        <option value="">Personas y empresas</option>
+        <option value="true">Solo empresas</option>
+        <option value="false">Solo personas</option>
+      </select>
+
+      {hasActiveFilters && (
+        <button
+          type="button"
+          onClick={onClear}
+          style={{
+            ...filterInputStyle,
+            minWidth: 'auto',
+            background: 'var(--hover)',
+            color: 'var(--text2)',
+            cursor: 'pointer',
+          }}
+        >
+          Limpiar
+        </button>
+      )}
+
+      <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>
+        {resultCount} resultado{resultCount !== 1 ? 's' : ''}
+      </span>
+    </div>
+  )
+}
+
 // ── Props ──────────────────────────────────────────────────────────────────
 
 interface CustomersTableProps {
@@ -120,6 +243,39 @@ export default function CustomersTable({
 
   const [sortBy, setSortBy] = useState<SortKey>('full_name')
   const [sortAsc, setSortAsc] = useState(false)
+
+  // Estado local para el input de texto — desacoplado de la URL.
+  // El debounce evita un router.replace por cada keystroke.
+  const [localText, setLocalText] = useState(filterText)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Sincronizar si la URL cambia externamente (ej: botón Limpiar desde el padre)
+  const prevFilterText = useRef(filterText)
+  useEffect(() => {
+    if (filterText !== prevFilterText.current) {
+      prevFilterText.current = filterText
+      setLocalText(filterText)
+    }
+  }, [filterText])
+
+  function handleLocalTextChange(value: string) {
+    setLocalText(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      onFilterChange(value, filterType, filterLabel, filterIsCompany)
+    }, 350)
+  }
+
+  function handleSelectChange(type: string, label: string, isCompany: boolean | null) {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    onFilterChange(localText, type, label, isCompany)
+  }
+
+  function handleClear() {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    setLocalText('')
+    onFilterChange('', '', '', null)
+  }
 
   // Build lookup maps from catalogs
   const typeMap = useMemo(() => {
@@ -161,105 +317,6 @@ export default function CustomersTable({
     pasaporte: 'PAS',
   }
 
-  // ── Filter bar ──────────────────────────────────────────────────────────
-
-  function FilterBar() {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 10,
-          alignItems: 'center',
-          padding: '10px 0 12px',
-          borderBottom: '1px solid var(--border)',
-          marginBottom: 12,
-          flexShrink: 0,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 10,
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            color: 'var(--muted)',
-            fontWeight: 600,
-          }}
-        >
-          Filtros
-        </span>
-
-        {/* Text search */}
-        <input
-          type="text"
-          value={filterText}
-          onChange={(e) => onFilterChange(e.target.value, filterType, filterLabel, filterIsCompany)}
-          placeholder="Nombre, email o ID…"
-          style={{ ...filterInputStyle, minWidth: 160 }}
-        />
-
-        {/* Type filter */}
-        <select
-          value={filterType}
-          onChange={(e) => onFilterChange(filterText, e.target.value, filterLabel, filterIsCompany)}
-          style={filterInputStyle}
-        >
-          <option value="">Todos los tipos</option>
-          {customerTypes.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
-          ))}
-        </select>
-
-        {/* Label filter */}
-        <select
-          value={filterLabel}
-          onChange={(e) => onFilterChange(filterText, filterType, e.target.value, filterIsCompany)}
-          style={filterInputStyle}
-        >
-          <option value="">Todas las etiquetas</option>
-          {customerLabels.map((l) => (
-            <option key={l.id} value={l.id}>{l.name}</option>
-          ))}
-        </select>
-
-        {/* Is company toggle */}
-        <select
-          value={filterIsCompany === null ? '' : filterIsCompany ? 'true' : 'false'}
-          onChange={(e) => {
-            const v = e.target.value
-            onFilterChange(filterText, filterType, filterLabel, v === '' ? null : v === 'true')
-          }}
-          style={filterInputStyle}
-        >
-          <option value="">Personas y empresas</option>
-          <option value="true">Solo empresas</option>
-          <option value="false">Solo personas</option>
-        </select>
-
-        {/* Clear */}
-        {hasActiveFilters && (
-          <button
-            type="button"
-            onClick={() => onFilterChange('', '', '', null)}
-            style={{
-              ...filterInputStyle,
-              minWidth: 'auto',
-              background: 'var(--hover)',
-              color: 'var(--text2)',
-              cursor: 'pointer',
-            }}
-          >
-            Limpiar
-          </button>
-        )}
-
-        <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>
-          {customers.length} resultado{customers.length !== 1 ? 's' : ''}
-        </span>
-      </div>
-    )
-  }
-
   if (customers.length === 0 && !hasActiveFilters) {
     return (
       <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 14, padding: 32 }}>
@@ -270,7 +327,19 @@ export default function CustomersTable({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <FilterBar />
+      <CustomerFilterBar
+        localText={localText}
+        onLocalTextChange={handleLocalTextChange}
+        filterType={filterType}
+        filterLabel={filterLabel}
+        filterIsCompany={filterIsCompany}
+        customerTypes={customerTypes}
+        customerLabels={customerLabels}
+        resultCount={customers.length}
+        hasActiveFilters={!!hasActiveFilters}
+        onSelectChange={handleSelectChange}
+        onClear={handleClear}
+      />
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>

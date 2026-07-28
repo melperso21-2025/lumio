@@ -124,6 +124,97 @@ const fStyle: React.CSSProperties = {
   minWidth: 100,
 }
 
+// ── InventoryFilterBar — fuera del componente para evitar remount ──────────
+
+interface InventoryFilterBarProps {
+  filterText: string
+  filterCategory: string
+  filterType: string
+  filterStock: string
+  filterPerishable: boolean
+  uniqueCategories: string[]
+  resultCount: number
+  hasActiveFilters: boolean | string
+  onFilterChange: (text: string, category: string, type: string, stock: string, perishable: boolean) => void
+  onResetPage: () => void
+}
+
+function InventoryFilterBar({
+  filterText, filterCategory, filterType, filterStock, filterPerishable,
+  uniqueCategories, resultCount, hasActiveFilters,
+  onFilterChange, onResetPage,
+}: InventoryFilterBarProps) {
+  return (
+    <div
+      style={{
+        display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center',
+        padding: '10px 0 12px', borderBottom: '1px solid var(--border)',
+        marginBottom: 12, flexShrink: 0,
+      }}
+    >
+      <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', fontWeight: 600 }}>
+        Filtros
+      </span>
+
+      <input
+        type="text"
+        value={filterText}
+        onChange={(e) => { onFilterChange(e.target.value, filterCategory, filterType, filterStock, filterPerishable); onResetPage() }}
+        placeholder="Nombre o SKU…"
+        style={{ ...fStyle, minWidth: 140 }}
+        autoComplete="off"
+        spellCheck={false}
+      />
+
+      <select value={filterCategory}
+        onChange={(e) => { onFilterChange(filterText, e.target.value, filterType, filterStock, filterPerishable); onResetPage() }}
+        style={fStyle}>
+        <option value="">Todas las categorías</option>
+        {uniqueCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+      </select>
+
+      <select value={filterType}
+        onChange={(e) => { onFilterChange(filterText, filterCategory, e.target.value, filterStock, filterPerishable); onResetPage() }}
+        style={fStyle}>
+        <option value="">Todos los tipos</option>
+        <option value="product">Producto</option>
+        <option value="service">Servicio</option>
+      </select>
+
+      <select value={filterStock}
+        onChange={(e) => { onFilterChange(filterText, filterCategory, filterType, e.target.value, filterPerishable); onResetPage() }}
+        style={fStyle}>
+        <option value="">Stock: todos</option>
+        <option value="critical">🔴 Crítico</option>
+        <option value="low">🟡 Bajo</option>
+        <option value="ok">🟢 Normal</option>
+      </select>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={filterPerishable}
+          onChange={(e) => { onFilterChange(filterText, filterCategory, filterType, filterStock, e.target.checked); onResetPage() }}
+          style={{ width: 14, height: 14, accentColor: 'var(--orange)' }}
+        />
+        <span style={{ fontSize: 11, color: 'var(--text2)' }}>Perecederos</span>
+      </label>
+
+      {hasActiveFilters && (
+        <button type="button"
+          onClick={() => { onFilterChange('', '', '', '', false); onResetPage() }}
+          style={{ ...fStyle, minWidth: 'auto', background: 'var(--hover)', color: 'var(--text2)', cursor: 'pointer' }}>
+          Limpiar
+        </button>
+      )}
+
+      <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>
+        {resultCount} resultado{resultCount !== 1 ? 's' : ''}
+      </span>
+    </div>
+  )
+}
+
 // ── Props ──────────────────────────────────────────────────────────────────
 
 interface InventoryTableProps {
@@ -265,80 +356,13 @@ export default function InventoryTable({
 
   const hasActiveFilters = filterText || filterCategory || filterType || filterStock || filterPerishable
 
-  // ── Filter bar ────────────────────────────────────────────────────────────
-  function FilterBar() {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 10,
-          alignItems: 'center',
-          padding: '10px 0 12px',
-          borderBottom: '1px solid var(--border)',
-          marginBottom: 12,
-          flexShrink: 0,
-        }}
-      >
-        <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', fontWeight: 600 }}>
-          Filtros
-        </span>
-
-        <input
-          type="text"
-          value={filterText}
-          onChange={(e) => { onFilterChange(e.target.value, filterCategory, filterType, filterStock, filterPerishable); setPage(0) }}
-          placeholder="Nombre o SKU…"
-          style={{ ...fStyle, minWidth: 140 }}
-        />
-
-        <select value={filterCategory}
-          onChange={(e) => { onFilterChange(filterText, e.target.value, filterType, filterStock, filterPerishable); setPage(0) }}
-          style={fStyle}>
-          <option value="">Todas las categorías</option>
-          {uniqueCategories.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-
-        <select value={filterType}
-          onChange={(e) => { onFilterChange(filterText, filterCategory, e.target.value, filterStock, filterPerishable); setPage(0) }}
-          style={fStyle}>
-          <option value="">Todos los tipos</option>
-          <option value="product">Producto</option>
-          <option value="service">Servicio</option>
-        </select>
-
-        <select value={filterStock}
-          onChange={(e) => { onFilterChange(filterText, filterCategory, filterType, e.target.value, filterPerishable); setPage(0) }}
-          style={fStyle}>
-          <option value="">Stock: todos</option>
-          <option value="critical">🔴 Crítico</option>
-          <option value="low">🟡 Bajo</option>
-          <option value="ok">🟢 Normal</option>
-        </select>
-
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={filterPerishable}
-            onChange={(e) => { onFilterChange(filterText, filterCategory, filterType, filterStock, e.target.checked); setPage(0) }}
-            style={{ width: 14, height: 14, accentColor: 'var(--orange)' }}
-          />
-          <span style={{ fontSize: 11, color: 'var(--text2)' }}>Perecederos</span>
-        </label>
-
-        {hasActiveFilters && (
-          <button type="button"
-            onClick={() => { onFilterChange('', '', '', '', false); setPage(0) }}
-            style={{ ...fStyle, minWidth: 'auto', background: 'var(--hover)', color: 'var(--text2)', cursor: 'pointer' }}>
-            Limpiar
-          </button>
-        )}
-
-        <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>
-          {filteredProducts.length} resultado{filteredProducts.length !== 1 ? 's' : ''}
-        </span>
-      </div>
-    )
+  const filterBarProps: InventoryFilterBarProps = {
+    filterText, filterCategory, filterType, filterStock, filterPerishable,
+    uniqueCategories,
+    resultCount: filteredProducts.length,
+    hasActiveFilters,
+    onFilterChange,
+    onResetPage: () => setPage(0),
   }
 
   if (products.length === 0) {
@@ -352,7 +376,7 @@ export default function InventoryTable({
   if (filteredProducts.length === 0) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        <FilterBar />
+        <InventoryFilterBar {...filterBarProps} />
         <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 14, padding: 32 }}>
           No hay productos que coincidan con los filtros.
         </p>
@@ -363,7 +387,7 @@ export default function InventoryTable({
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        <FilterBar />
+        <InventoryFilterBar {...filterBarProps} />
 
         {/* ── Alert banner ── */}
         {(criticalCount > 0 || expiryAlertCount > 0) && (
