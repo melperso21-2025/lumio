@@ -108,14 +108,14 @@ export default function NewTransactionForm({ accounts = [] }: NewTransactionForm
 
       if (!userRow?.company_id) { setLoadingCats(false); return }
 
-      const { data } = await supabase
+      const { data, error: catError } = await supabase
         .from('bank_transaction_categories')
         .select('id, name, type')
         .eq('company_id', userRow.company_id)
         .is('deleted_at', null)
-        .eq('is_active', true)
         .order('name', { ascending: true })
 
+      if (catError) console.error('[NewTransactionForm] categories load failed:', catError)
       setAllCategories((data ?? []) as TxCategory[])
       setLoadingCats(false)
     }

@@ -74,7 +74,6 @@ export default function FinanceCatalogsManager({ companyId }: { companyId: strin
       .select('id, name, type, is_active')
       .eq('company_id', companyId)
       .is('deleted_at', null)
-      .eq('is_active', true)
       .order('name', { ascending: true })
     setCategories((data ?? []) as TxCategory[])
     setLoading(false)
