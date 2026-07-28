@@ -100,7 +100,7 @@ export default async function SalesPage({
 
   const { data: customersList } = await supabase
     .from('customers')
-    .select('id, full_name')
+    .select('id, full_name, customer_type, label')
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .order('full_name', { ascending: true })
