@@ -1,22 +1,44 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 // ── Tipos ──────────────────────────────────────────────────
-type View = 'login' | 'recovery' | 'recovery-sent'
+type View = 'login' | 'recovery' | 'recovery-sent' | 'select-company'
+
+interface CompanyOption {
+  company_id: string
+  name: string
+  role: string
+}
 
 // ── Componente principal ───────────────────────────────────
 export default function LoginPage() {
   const router   = useRouter()
   const supabase = createClient()
 
-  const [view,     setView]     = useState<View>('login')
-  const [email,    setEmail]    = useState('')
-  const [password, setPassword] = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
+  const [view,      setView]      = useState<View>('login')
+  const [email,     setEmail]     = useState('')
+  const [password,  setPassword]  = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading,   setLoading]   = useState(false)
+  const [error,     setError]     = useState<string | null>(null)
+  const [companies, setCompanies] = useState<CompanyOption[]>([])
+  const [switchingCompany, setSwitchingCompany] = useState<string | null>(null)
+
+  // Leer mensajes de error provenientes del middleware via ?error=
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const errorParam = params.get('error')
+    if (errorParam === 'session_expired') {
+      setError('Tu sesión expiró. Inicia sesión de nuevo.')
+    } else if (errorParam === 'session_replaced') {
+      setError(
+        'Tu sesión fue iniciada en otro dispositivo. Por seguridad, fuiste desconectado.'
+      )
+    }
+  }, [])
 
   // ── Login con email + contraseña ──────────────────────────
   async function handleLogin(e: React.FormEvent) {
@@ -24,21 +46,44 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
     })
 
-    if (error) {
-      setError(
-        error.message === 'Invalid login credentials'
-          ? 'Email o contraseña incorrectos. Verifica tus datos.'
-          : 'Ocurrió un error. Intenta de nuevo.'
-      )
+    if (!res.ok) {
+      const data = (await res.json()) as { message?: string }
+      setError(data.message ?? 'Error al iniciar sesión')
       setLoading(false)
       return
     }
 
+    // Verificar si el usuario pertenece a más de una empresa
+    const companiesRes = await fetch('/api/companies/my-companies')
+    if (companiesRes.ok) {
+      const { companies: userCompanies } = (await companiesRes.json()) as {
+        companies: CompanyOption[]
+      }
+      if (userCompanies.length > 1) {
+        setCompanies(userCompanies)
+        setLoading(false)
+        setView('select-company')
+        return
+      }
+    }
+
+    router.push('/dashboard')
+    router.refresh()
+  }
+
+  async function handleSelectCompany(companyId: string) {
+    setSwitchingCompany(companyId)
+    await fetch('/api/companies/switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company_id: companyId }),
+    })
     router.push('/dashboard')
     router.refresh()
   }
@@ -50,7 +95,7 @@ export default function LoginPage() {
     setError(null)
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
+      redirectTo: `${window.location.origin}/auth/callback?next=/auth/update-password`,
     })
 
     if (error) {
@@ -243,30 +288,46 @@ export default function LoginPage() {
                       ¿Olvidaste tu contraseña?
                     </button>
                   </div>
-                  <input
-                    id="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-3.5 py-2.5 rounded-lg text-sm transition-all outline-none"
-                    style={{
-                      background: 'var(--surface)',
-                      border:     '1px solid var(--border2)',
-                      color:      'var(--text)',
-                      fontFamily: 'var(--font-jakarta)',
-                    }}
-                    onFocus={e => {
-                      e.target.style.borderColor = 'var(--gold)'
-                      e.target.style.boxShadow   = '0 0 0 3px var(--gold-bg)'
-                    }}
-                    onBlur={e => {
-                      e.target.style.borderColor = 'var(--border2)'
-                      e.target.style.boxShadow   = 'none'
-                    }}
-                  />
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      required
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3.5 py-2.5 pr-10 rounded-lg text-sm transition-all outline-none"
+                      style={{
+                        background: 'var(--surface)',
+                        border:     '1px solid var(--border2)',
+                        color:      'var(--text)',
+                        fontFamily: 'var(--font-jakarta)',
+                      }}
+                      onFocus={e => {
+                        e.target.style.borderColor = 'var(--gold)'
+                        e.target.style.boxShadow   = '0 0 0 3px var(--gold-bg)'
+                      }}
+                      onBlur={e => {
+                        e.target.style.borderColor = 'var(--border2)'
+                        e.target.style.boxShadow   = 'none'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-lg leading-none"
+                      style={{
+                        color: 'var(--muted)',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {showPassword ? '👁‍🗨' : '👁'}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Error */}
@@ -391,6 +452,48 @@ export default function LoginPage() {
                   {loading ? 'Enviando...' : 'Enviar enlace de recuperación'}
                 </button>
               </form>
+            </div>
+          )}
+
+          {/* ── Vista: SELECCIÓN DE EMPRESA ── */}
+          {view === 'select-company' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="font-syne font-bold text-2xl" style={{ color: 'var(--text)' }}>
+                  ¿Con qué empresa deseas entrar?
+                </h2>
+                <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
+                  Tu cuenta tiene acceso a múltiples empresas.
+                </p>
+              </div>
+              <div className="space-y-2">
+                {companies.map((c) => (
+                  <button
+                    key={c.company_id}
+                    type="button"
+                    onClick={() => handleSelectCompany(c.company_id)}
+                    disabled={!!switchingCompany}
+                    className="w-full flex items-center justify-between gap-3 rounded-lg transition-all text-left"
+                    style={{
+                      padding: '12px 16px',
+                      border: '1px solid var(--border2)',
+                      background: switchingCompany === c.company_id ? 'var(--gold-bg)' : 'var(--surface)',
+                      color: 'var(--text)',
+                      cursor: switchingCompany ? 'wait' : 'pointer',
+                      opacity: switchingCompany && switchingCompany !== c.company_id ? 0.5 : 1,
+                      fontFamily: 'var(--font-jakarta)',
+                    }}
+                  >
+                    <div>
+                      <div className="font-semibold text-sm">{c.name}</div>
+                      <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{c.role}</div>
+                    </div>
+                    <span style={{ color: 'var(--gold)', fontSize: 16 }}>
+                      {switchingCompany === c.company_id ? '⏳' : '→'}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

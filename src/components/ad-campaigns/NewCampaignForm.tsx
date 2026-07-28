@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import AiInsightBox from '@/components/ui/AiInsightBox'
+import { toLocalISO } from '@/lib/dateUtils'
 
 type PlatformValue = 'meta' | 'google' | 'tiktok' | 'other'
 
@@ -21,9 +22,7 @@ export default function NewCampaignForm() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  const [campaign_date, setCampaignDate] = useState<string>(
-    new Date().toISOString().slice(0, 10)
-  )
+  const [campaign_date, setCampaignDate] = useState<string>(toLocalISO(new Date()))
   const [campaign_name, setCampaignName] = useState<string>('')
   const [platform, setPlatform] = useState<PlatformValue>('meta')
   const [creative_name, setCreativeName] = useState<string>('')
@@ -119,20 +118,22 @@ export default function NewCampaignForm() {
     router.refresh()
   }
 
+  function handleClose() {
+    if (loading) return
+    setOpen(false)
+    setError(null)
+    setSuccess(false)
+  }
+
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => setOpen(true)}
         className="font-syne font-bold text-sm px-4 py-2 rounded-lg transition-opacity hover:opacity-90"
         style={{
-          position: 'fixed',
-          right: 24,
-          bottom: 24,
           background: 'linear-gradient(135deg, #F5C842, #F09A1A)',
           color: '#1A1B2E',
-          boxShadow: '0 10px 24px rgba(0,0,0,0.18)',
-          zIndex: 40,
         }}
       >
         + Registrar pauta
@@ -140,14 +141,64 @@ export default function NewCampaignForm() {
 
       {open && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Registrar pauta publicitaria"
           style={{
-            marginTop: 20,
-            borderRadius: 12,
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            padding: 20,
+            position: 'fixed',
+            inset: 0,
+            zIndex: 50,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0,0,0,0.45)',
+            padding: 16,
           }}
+          onClick={handleClose}
         >
+          <div
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--border)',
+              borderRadius: 12,
+              padding: '14px 16px',
+              width: '100%',
+              maxWidth: 720,
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.14)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 12,
+              }}
+            >
+              <h3
+                className="font-syne font-bold"
+                style={{ fontSize: 16, color: 'var(--text)' }}
+              >
+                Registrar pauta
+              </h3>
+              <button
+                type="button"
+                onClick={handleClose}
+                style={{
+                  color: 'var(--muted)',
+                  fontSize: 18,
+                  lineHeight: 1,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                ×
+              </button>
+            </div>
           {error && (
             <div style={{ marginBottom: 12 }}>
               <AiInsightBox title="Error al guardar pauta" text={error} variant="red" />
@@ -601,6 +652,7 @@ export default function NewCampaignForm() {
               </button>
             </div>
           </form>
+          </div>
         </div>
       )}
     </>

@@ -43,3 +43,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+
+# Agrega al .gitignore
+echo ".tmp.driveupload/" >> .gitignore
+echo "desktop.ini" >> .gitignore
+echo "src/app/(dashboard)/test-patch/" >> .gitignore

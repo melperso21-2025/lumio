@@ -22,6 +22,28 @@
   --orange:      #D97706;
 }
 
+[data-theme="dark"] {
+  --bg:          #0F1017;
+  --surface:     #161820;
+  --card:        #1C1E2A;
+  --border:      #2A2D3E;
+  --border2:     #363948;
+  --text:        #F0F1F8;
+  --text2:       #9BA0BC;
+  --muted:       #5C6080;
+  --hover:       rgba(240, 241, 248, 0.05);
+  --gold:        #E8A500;
+  --gold-light:  #F5C842;
+  --gold-dark:   #C8880A;
+  --amber:       #F09A1A;
+  --gold-bg:     rgba(232, 165, 0, 0.10);
+  --gold-bdr:    rgba(232, 165, 0, 0.25);
+  --green:       #10B981;
+  --red:         #EF4444;
+  --blue:        #3B82F6;
+  --orange:      #F59E0B;
+}
+
 body {
   background-color: var(--bg);
   color: var(--text);
@@ -37,4 +59,24 @@ body {
 *:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
+}
+
+/* Botón secundario discreto (p. ej. acciones admin) */
+.btn-ghost {
+  background: transparent;
+  color: var(--text2);
+  font-family: var(--font-syne);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border2);
+  cursor: pointer;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--hover);
+}
+.btn-ghost:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

@@ -141,7 +141,7 @@ companies          → empresa cliente (tenant principal)
 users              → extiende auth.users, tiene rol: admin|manager|operator
 branches           → locales/sucursales de cada empresa
 sales_channels     → canales: physical|web|whatsapp|marketplace|b2b
-customers          → CRM básico con customer_type y label
+customers          → CRM básico con customer_type y label; lifetime_value y last_purchase_at se actualizan vía trigger tg_update_customer_stats
 sales              → ventas, tiene week_number GENERATED automático
 ad_campaigns       → pautas, tiene roas/ctr/cpm/effectiveness GENERATED
 product_categories → categorías jerárquicas

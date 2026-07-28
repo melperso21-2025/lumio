@@ -1,0 +1,55 @@
+# Cursor Rules — Lumio / Pulse
+
+## Idioma
+- Responde siempre en español.
+- Los comentarios en el código pueden ser en inglés (convención estándar de desarrollo).
+
+## Stack del proyecto
+- **Framework:** Next.js (App Router, no Pages Router)
+- **Lenguaje:** TypeScript estricto — siempre tipar, nunca usar `any`
+- **Base de datos:** Supabase (PostgreSQL). Cliente: `@supabase/supabase-js`
+- **Estilos:** Tailwind CSS v4
+- **IA:** Anthropic SDK (`claude-sonnet-4-20250514`)
+- **Archivos Excel:** SheetJS
+- **Deploy target:** Vercel
+
+## Arquitectura
+- Usar Server Components por defecto; Client Components solo cuando sea necesario (`'use client'`)
+- Las rutas de API van en `app/api/` como Route Handlers (`route.ts`)
+- No usar `getServerSideProps` ni `getStaticProps` — esto es App Router
+- Separar lógica de negocio de la UI (no poner queries de Supabase directo en componentes)
+
+## Base de datos — reglas críticas
+- Consultar siempre `DATABASE_CONTEXT.md` antes de crear tablas, columnas o funciones
+- **Nunca** crear una tabla o columna que ya exista en el schema
+- Todas las queries deben incluir filtro por `company_id` — el sistema es multi-tenant
+- **No mezclar** `bank_transactions (category='marketing')` con `ad_campaigns` para calcular gastos de publicidad — produce doble conteo. `ad_campaigns` es la fuente autoritativa
+- Los triggers existentes manejan automáticamente: `updated_at`, `current_balance`, `current_stock`, LTV de clientes y auditoría. No replicar esa lógica en el código
+- Para renombrar parámetros de funciones PostgreSQL: usar `DROP + CREATE`, no `CREATE OR REPLACE`
+- Las semanas usan estándar ISO (lunes a domingo). `week_number` y `year` deben calcularse con funciones ISO
+
+## Seguridad
+- RLS (Row Level Security) está activo en todas las tablas — no bypassear con `service_role` salvo en operaciones de Pulse Admin explícitamente justificadas
+- `is_pulse_admin()` y `get_user_company_id()` son las funciones de seguridad centrales — no duplicar esa lógica
+- Nunca exponer `service_role` key en el cliente
+
+## Convenciones de código
+- Nombres de archivos: `kebab-case` para rutas y componentes
+- Nombres de componentes: `PascalCase`
+- Nombres de funciones y variables: `camelCase`
+- Nombres de tablas y columnas en DB: `snake_case`
+- Soft deletes: usar `deleted_at` timestamp, nunca borrar registros físicamente
+- Usar `uuid_generate_v4()` para IDs, nunca IDs numéricos secuenciales
+
+## AI Insights — reglas de negocio
+- `week_number = 0` + `type = 'initial'` es el análisis inicial único — no sobreescribir
+- Clientes solo pueden generar 1 análisis por semana ISO completa
+- Regeneración forzada solo permitida con `is_pulse_admin = true` y `forcedByPulse: true`
+- UNIQUE constraint activo en `(company_id, week_number, year)`
+
+## Lo que NO debes hacer
+- No sugerir `pages/` — el proyecto usa App Router exclusivamente
+- No usar `useEffect` para fetching de datos — usar Server Components o React Query
+- No crear funciones o triggers que ya existen (ver `DATABASE_CONTEXT.md`)
+- No hardcodear el `company_id` de demo (`4dd15f94-a915-4555-8f54-58951a7d1335`) en lógica de producción
+- No usar `AVG()` simple para ROAS o effectiveness_rate — usar promedios ponderados (`SUM/SUM`)

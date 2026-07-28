@@ -10,6 +10,8 @@ export interface AiInsightBoxProps {
   text: string
   /** variante de color, default: gold */
   variant?: AiInsightBoxVariant
+  /** Menos padding y márgenes. Por defecto activo; `compact={false}` para caja más aireada. */
+  compact?: boolean
 }
 
 const VARIANT_STYLES: Record<
@@ -50,15 +52,16 @@ export default function AiInsightBox({
   title,
   text,
   variant = 'gold',
+  compact = true,
 }: AiInsightBoxProps) {
   const styles = VARIANT_STYLES[variant]
 
   return (
     <div
-      className="flex flex-row gap-3 items-start mb-5"
+      className={`flex flex-row items-start ${compact ? 'gap-2 mb-3' : 'gap-3 mb-5'}`}
       style={{
         borderRadius: 10,
-        padding: '14px 18px',
+        padding: compact ? '10px 14px' : '14px 18px',
         border: `1px solid ${styles.border}`,
         background: styles.bg,
       }}
@@ -67,11 +70,11 @@ export default function AiInsightBox({
       <div
         className="shrink-0 flex items-center justify-center"
         style={{
-          width: 28,
-          height: 28,
+          width: compact ? 24 : 28,
+          height: compact ? 24 : 28,
           borderRadius: 8,
           background: styles.iconBg,
-          fontSize: 14,
+          fontSize: compact ? 12 : 14,
           color: styles.color,
         }}
       >
@@ -81,9 +84,9 @@ export default function AiInsightBox({
       {/* Contenido derecho */}
       <div className="min-w-0 flex-1">
         <div
-          className="font-syne font-semibold mb-1"
+          className={`font-syne font-semibold ${compact ? 'mb-0.5' : 'mb-1'}`}
           style={{
-            fontSize: 11,
+            fontSize: compact ? 10 : 11,
             color: styles.color,
           }}
         >
@@ -91,9 +94,9 @@ export default function AiInsightBox({
         </div>
         <p
           style={{
-            fontSize: 12,
+            fontSize: compact ? 11 : 12,
             color: 'var(--text2)',
-            lineHeight: 1.6,
+            lineHeight: compact ? 1.45 : 1.6,
             margin: 0,
           }}
         >
