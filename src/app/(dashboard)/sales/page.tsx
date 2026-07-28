@@ -104,7 +104,7 @@ export default async function SalesPage({
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .order('full_name', { ascending: true })
-    .limit(300)
+    .limit(10000)
 
   const { data: branchesList } = await supabase
     .from('branches')
