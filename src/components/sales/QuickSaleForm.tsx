@@ -98,11 +98,13 @@ export default function QuickSaleForm({
   const [success, setSuccess] = useState(false)
 
   // ── Header fields ─────────────────────────────────────────
-  const [customer_id, setCustomerId] = useState('')
-  const [branch_id,   setBranchId]   = useState('')
-  const [channel_id,  setChannelId]  = useState('')
-  const [sale_date,   setSaleDate]   = useState(() => toLocalISO(new Date()))
-  const [status,      setStatus]     = useState('closed')
+  const [customer_id,     setCustomerId]     = useState('')
+  const [branch_id,       setBranchId]       = useState('')
+  const [channel_id,      setChannelId]      = useState('')
+  const [sale_date,       setSaleDate]       = useState(() => toLocalISO(new Date()))
+  const [status,          setStatus]         = useState('closed')
+  const [payment_method,  setPaymentMethod]  = useState('cash')
+  const [credit_days,     setCreditDays]     = useState(30)
 
   // ── Customer search (server-side, on demand) ──────────────
   const [customerSearch,       setCustomerSearch]       = useState('')
@@ -246,6 +248,8 @@ export default function QuickSaleForm({
     setChannelId('')
     setSaleDate(toLocalISO(new Date()))
     setStatus('closed')
+    setPaymentMethod('cash')
+    setCreditDays(30)
     setLines([])
     setProductSearch('')
     setShowDropdown(false)
@@ -307,13 +311,15 @@ export default function QuickSaleForm({
     const { data: saleData, error: saleError } = await supabase
       .from('sales')
       .insert({
-        company_id:  companyId,
+        company_id:     companyId,
         customer_id,
         branch_id,
         channel_id,
         sale_date,
         status,
-        gross_total: 0,
+        payment_method,
+        credit_days:    payment_method === 'credit' ? credit_days : 0,
+        gross_total:    0,
       })
       .select('id')
       .single()
@@ -566,22 +572,59 @@ export default function QuickSaleForm({
                   </div>
                 </div>
 
-                {/* Estado */}
-                <div>
-                  <label htmlFor="qs-status" style={labelSt}>Estado</label>
-                  <select
-                    id="qs-status"
-                    value={status}
-                    onChange={e => setStatus(e.target.value)}
-                    style={inputBase}
-                    onFocus={onFocus}
-                    onBlur={onBlur}
-                  >
-                    {STATUS_OPTIONS.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
+                {/* Estado + Método de pago */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label htmlFor="qs-status" style={labelSt}>Estado</label>
+                    <select
+                      id="qs-status"
+                      value={status}
+                      onChange={e => setStatus(e.target.value)}
+                      style={inputBase}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                    >
+                      {STATUS_OPTIONS.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="qs-pm" style={labelSt}>Método de pago</label>
+                    <select
+                      id="qs-pm"
+                      value={payment_method}
+                      onChange={e => setPaymentMethod(e.target.value)}
+                      style={inputBase}
+                      onFocus={onFocus}
+                      onBlur={onBlur}
+                    >
+                      <option value="cash">Contado</option>
+                      <option value="credit">Crédito</option>
+                      <option value="transfer">Transferencia</option>
+                      <option value="card">Tarjeta</option>
+                    </select>
+                  </div>
                 </div>
+
+                {/* Plazo si es crédito */}
+                {payment_method === 'credit' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <label style={labelSt}>Plazo crédito (días)</label>
+                      <input
+                        type="number" min={1} value={credit_days}
+                        onChange={e => setCreditDays(parseInt(e.target.value) || 30)}
+                        style={inputBase} onFocus={onFocus} onBlur={onBlur}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 2 }}>
+                      <div style={{ fontSize: 11, color: '#F97316', background: 'rgba(249,115,22,0.08)', borderRadius: 6, padding: '6px 10px', lineHeight: 1.4 }}>
+                        CxC se genera automáticamente al guardar
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* ═══════════════════════════════════════════════
