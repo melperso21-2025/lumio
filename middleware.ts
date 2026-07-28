@@ -100,11 +100,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  // Si hay sesión y está en login → redirigir al dashboard
+  // Si hay sesión y está en login → redirigir al dashboard,
+  // pero solo si también tiene el lumio-session-token válido.
+  // Sin ese token dejaría en un loop: dashboard→login→dashboard.
   if (user && request.nextUrl.pathname === '/login') {
-    const dashboardUrl = request.nextUrl.clone()
-    dashboardUrl.pathname = '/dashboard'
-    return NextResponse.redirect(dashboardUrl)
+    const hasLumioToken = !!request.cookies.get('lumio-session-token')?.value
+    if (hasLumioToken) {
+      const dashboardUrl = request.nextUrl.clone()
+      dashboardUrl.pathname = '/dashboard'
+      return NextResponse.redirect(dashboardUrl)
+    }
   }
 
   // Verificar session token solo para rutas autenticadas no-API
