@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 // ── Types ───────────────────────────────────────────────────
@@ -130,6 +130,14 @@ export default function EditSaleModal({
   const [channel_id, setChannelId] = useState('')
   const [status, setStatus] = useState('closed')
 
+  // Customer combobox
+  const [customerSearch,        setCustomerSearch]        = useState('')
+  const [selectedCustomerName,  setSelectedCustomerName]  = useState('')
+  const [showCustomerDropdown,  setShowCustomerDropdown]  = useState(false)
+  const [customerResults,       setCustomerResults]       = useState<{ id: string; full_name: string | null }[]>([])
+  const [customerLoading,       setCustomerLoading]       = useState(false)
+  const customerDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Products & lines
   const [products, setProducts] = useState<Product[]>([])
   const [productsLoading, setProductsLoading] = useState(false)
@@ -150,8 +158,22 @@ export default function EditSaleModal({
     setBranchId(sale.branch_id ?? '')
     setChannelId(sale.channel_id ?? '')
     setStatus(sale.status ?? 'closed')
+    setCustomerSearch('')
     setError(null)
     setSuccess(false)
+
+    // Cargar nombre del cliente actual
+    if (sale.customer_id) {
+      const supabase = createClient()
+      supabase
+        .from('customers')
+        .select('full_name')
+        .eq('id', sale.customer_id)
+        .single()
+        .then(({ data }) => setSelectedCustomerName(data?.full_name ?? '—'))
+    } else {
+      setSelectedCustomerName('')
+    }
 
     const initialLines: EditSaleLine[] = sale.items.map(item => {
       const p = item.products
@@ -174,6 +196,28 @@ export default function EditSaleModal({
     })
     setLines(initialLines)
   }, [sale])
+
+  // Customer search with debounce
+  useEffect(() => {
+    const q = customerSearch.trim()
+    if (q.length < 2) { setCustomerResults([]); return }
+    if (customerDebounceRef.current) clearTimeout(customerDebounceRef.current)
+    customerDebounceRef.current = setTimeout(async () => {
+      setCustomerLoading(true)
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('customers')
+        .select('id, full_name')
+        .eq('company_id', companyId)
+        .is('deleted_at', null)
+        .ilike('full_name', `%${q}%`)
+        .order('full_name', { ascending: true })
+        .limit(20)
+      setCustomerResults(data ?? [])
+      setCustomerLoading(false)
+    }, 300)
+    return () => { if (customerDebounceRef.current) clearTimeout(customerDebounceRef.current) }
+  }, [customerSearch, companyId])
 
   // Load active products for search dropdown
   useEffect(() => {
@@ -450,26 +494,55 @@ export default function EditSaleModal({
 
             {/* Cliente + Sucursal */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <div>
-                <label htmlFor="es-customer" style={labelSt}>
+              <div style={{ position: 'relative' }}>
+                <label style={labelSt}>
                   Cliente <span style={{ color: 'var(--red)' }}>*</span>
                 </label>
-                <select
-                  id="es-customer"
-                  required
-                  value={customer_id}
-                  onChange={e => setCustomerId(e.target.value)}
-                  style={inputBase}
-                  onFocus={onFocus}
-                  onBlur={onBlur}
-                >
-                  <option value="">Selecciona…</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.full_name ?? '—'}
-                    </option>
-                  ))}
-                </select>
+                {customer_id ? (
+                  <div
+                    style={{ ...inputBase, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => { setCustomerId(''); setSelectedCustomerName(''); setTimeout(() => document.getElementById('es-customer-search')?.focus(), 50) }}
+                  >
+                    <span style={{ fontSize: 13 }}>{selectedCustomerName || '—'}</span>
+                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>✕</span>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      id="es-customer-search"
+                      type="text"
+                      autoComplete="off"
+                      value={customerSearch}
+                      onChange={e => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true) }}
+                      onFocus={e => { setShowCustomerDropdown(true); onFocus(e) }}
+                      onBlur={e => { setTimeout(() => setShowCustomerDropdown(false), 160); onBlur(e) }}
+                      placeholder="Buscar cliente…"
+                      style={{ ...inputBase, paddingLeft: 34 }}
+                    />
+                    <span style={{ position: 'absolute', left: 11, top: 'calc(50% + 10px)', transform: 'translateY(-50%)', fontSize: 12, color: 'var(--muted)', pointerEvents: 'none' }}>🔍</span>
+                    {showCustomerDropdown && (
+                      <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 300, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, maxHeight: 200, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.14)' }}>
+                        {customerSearch.trim().length < 2 ? (
+                          <div style={{ padding: '10px 14px', fontSize: 12, color: 'var(--muted)' }}>Escribe al menos 2 letras…</div>
+                        ) : customerLoading ? (
+                          <div style={{ padding: '10px 14px', fontSize: 12, color: 'var(--muted)' }}>Buscando…</div>
+                        ) : customerResults.length === 0 ? (
+                          <div style={{ padding: '10px 14px', fontSize: 12, color: 'var(--muted)' }}>Sin resultados para "{customerSearch}"</div>
+                        ) : customerResults.map(c => (
+                          <div
+                            key={c.id}
+                            onMouseDown={() => { setCustomerId(c.id); setSelectedCustomerName(c.full_name ?? '—'); setCustomerSearch(''); setShowCustomerDropdown(false) }}
+                            style={{ padding: '9px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)', fontSize: 13, color: 'var(--text)' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = '')}
+                          >
+                            {c.full_name ?? '—'}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
               <div>
                 <label htmlFor="es-branch" style={labelSt}>
