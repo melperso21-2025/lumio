@@ -246,33 +246,42 @@ export default function CustomersTable({
 
   // Estado local para el input de texto — desacoplado de la URL.
   // El debounce evita un router.replace por cada keystroke.
+  // isTypingRef bloquea la re-sincronización desde la URL mientras el
+  // usuario sigue escribiendo (evita el reset al dispararse el debounce).
   const [localText, setLocalText] = useState(filterText)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isTypingRef  = useRef(false)
 
-  // Sincronizar si la URL cambia externamente (ej: botón Limpiar desde el padre)
-  const prevFilterText = useRef(filterText)
+  // Solo sincroniza hacia atrás (URL → input) cuando el usuario NO está
+  // escribiendo activamente; p.ej. al navegar con URL pre-cargada o
+  // al hacer "Limpiar" desde el componente padre.
   useEffect(() => {
-    if (filterText !== prevFilterText.current) {
-      prevFilterText.current = filterText
+    if (!isTypingRef.current) {
       setLocalText(filterText)
     }
   }, [filterText])
 
   function handleLocalTextChange(value: string) {
     setLocalText(value)
+    isTypingRef.current = true
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
+      isTypingRef.current = false
       onFilterChange(value, filterType, filterLabel, filterIsCompany)
-    }, 350)
+    }, 400)
   }
 
   function handleSelectChange(type: string, label: string, isCompany: boolean | null) {
+    // Los selects responden de inmediato; cancelamos cualquier debounce pendiente
+    // pero propagamos el texto local actual (no el de la URL)
     if (debounceRef.current) clearTimeout(debounceRef.current)
+    isTypingRef.current = false
     onFilterChange(localText, type, label, isCompany)
   }
 
   function handleClear() {
     if (debounceRef.current) clearTimeout(debounceRef.current)
+    isTypingRef.current = false
     setLocalText('')
     onFilterChange('', '', '', null)
   }
