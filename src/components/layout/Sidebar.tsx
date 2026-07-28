@@ -99,11 +99,20 @@ export default function Sidebar({
         id: 'operations',
         label: 'Operaciones',
         items: [
-          { href: '/finance', label: 'Bancos', icon: '🏦', roles: ['manager', 'admin'] },
-          { href: '/customers', label: 'Clientes', icon: '👥' },
-          { href: '/inventory', label: 'Inventario', icon: '📦', roles: ['operator', 'manager', 'admin'] },
-          { href: '/suppliers', label: 'Proveedores', icon: '🏭', roles: ['operator', 'manager', 'admin'] },
-          { href: '/sales', label: 'Ventas', icon: '💰' },
+          { href: '/finance',     label: 'Bancos',       icon: '🏦', roles: ['manager', 'admin'] },
+          { href: '/customers',   label: 'Clientes',     icon: '👥' },
+          { href: '/inventory',   label: 'Inventario',   icon: '📦', roles: ['operator', 'manager', 'admin'] },
+          { href: '/purchases',   label: 'Compras',      icon: '🛒', roles: ['operator', 'manager', 'admin'] },
+          { href: '/suppliers',   label: 'Proveedores',  icon: '🏭', roles: ['operator', 'manager', 'admin'] },
+          { href: '/sales',       label: 'Ventas',       icon: '💰' },
+        ],
+      },
+      {
+        id: 'finance',
+        label: 'Finanzas',
+        items: [
+          { href: '/receivables', label: 'CxC',          icon: '📥', roles: ['manager', 'admin'] },
+          { href: '/payables',    label: 'CxP',          icon: '📤', roles: ['manager', 'admin'] },
         ],
       },
       {
