@@ -148,10 +148,10 @@ export default function QuickSaleForm({
   // ── Filtered customers ────────────────────────────────────
   const filteredCustomers = useMemo(() => {
     const q = customerSearch.trim().toLowerCase()
-    if (!q) return customers.slice(0, 60)
+    if (!q) return []
     return customers.filter(c =>
       (c.full_name ?? '').toLowerCase().includes(q)
-    ).slice(0, 60)
+    ).slice(0, 80)
   }, [customers, customerSearch])
 
   // ── Filtered products (client-side, no extra queries) ─────
@@ -462,9 +462,13 @@ export default function QuickSaleForm({
 
                         {showCustomerDropdown && (
                           <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 300, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, maxHeight: 220, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.14)' }}>
-                            {filteredCustomers.length === 0 ? (
+                            {!customerSearch.trim() ? (
                               <div style={{ padding: '10px 14px', fontSize: 12, color: 'var(--muted)' }}>
-                                Sin resultados{customerSearch ? ` para "${customerSearch}"` : ''}
+                                Escribe el nombre para buscar…
+                              </div>
+                            ) : filteredCustomers.length === 0 ? (
+                              <div style={{ padding: '10px 14px', fontSize: 12, color: 'var(--muted)' }}>
+                                Sin resultados para "{customerSearch}"
                               </div>
                             ) : (
                               filteredCustomers.map(c => (
