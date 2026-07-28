@@ -45,15 +45,24 @@ export default async function ProductDetailPage({
 
   if (error || !product) notFound()
 
-  // ── Movements ─────────────────────────────────────────────────────────────
-  const { data: movementsList } = await supabaseAdmin
-    .from('inventory_movements')
-    .select('id, type, reason, quantity, movement_date, notes, batch_number, created_at')
-    .eq('product_id', id)
-    .eq('company_id', companyId)
-    .order('movement_date', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(100)
+  // ── Movements + Price history ─────────────────────────────────────────────
+  const [{ data: movementsList }, { data: priceHistoryList }] = await Promise.all([
+    supabaseAdmin
+      .from('inventory_movements')
+      .select('id, type, reason, quantity, movement_date, notes, batch_number, created_at')
+      .eq('product_id', id)
+      .eq('company_id', companyId)
+      .order('movement_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(100),
+    supabaseAdmin
+      .from('product_price_history')
+      .select('id, sale_price, unit_cost, supplier_price, changed_at, notes')
+      .eq('product_id', id)
+      .eq('company_id', companyId)
+      .order('changed_at', { ascending: false })
+      .limit(50),
+  ])
 
   // ── Catalogs for edit modal ───────────────────────────────────────────────
   const [{ data: categoriesList }, { data: suppliersList }] = await Promise.all([
@@ -110,6 +119,7 @@ export default async function ProductDetailPage({
       <ProductDetailView
         product={productDetail}
         movements={movementsList ?? []}
+        priceHistory={priceHistoryList ?? []}
         categories={categoriesList ?? []}
         suppliers={suppliersList ?? []}
         userRole={userRole}

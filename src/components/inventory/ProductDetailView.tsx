@@ -8,6 +8,7 @@ import EditProductModal, {
   type Supplier,
 } from '@/components/inventory/EditProductModal'
 import AddMovementForm from '@/components/inventory/AddMovementForm'
+import PriceHistoryView, { type PriceHistoryRow } from '@/components/inventory/PriceHistoryView'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ interface Movement {
 interface ProductDetailViewProps {
   product: ProductWithMeta
   movements: Movement[]
+  priceHistory: PriceHistoryRow[]
   categories: ProductCategory[]
   suppliers: Supplier[]
   userRole: string
@@ -107,6 +109,7 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
 export default function ProductDetailView({
   product,
   movements,
+  priceHistory,
   categories,
   suppliers,
   userRole,
@@ -329,6 +332,14 @@ export default function ProductDetailView({
           </div>
         )}
       </div>
+
+      {/* ── Historial de precios ── */}
+      <PriceHistoryView
+        history={priceHistory}
+        currentSalePrice={product.sale_price}
+        currentUnitCost={product.unit_cost}
+        currentSupplierPrice={product.supplier_price}
+      />
 
       {/* ── Historial de movimientos ── */}
       <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>

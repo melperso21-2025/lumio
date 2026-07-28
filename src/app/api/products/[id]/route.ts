@@ -53,7 +53,16 @@ export async function GET(
       .order('created_at', { ascending: false })
       .limit(100)
 
-    return NextResponse.json({ product, movements: movements ?? [] })
+    // Price history
+    const { data: priceHistory } = await supabaseAdmin
+      .from('product_price_history')
+      .select('id, sale_price, unit_cost, supplier_price, changed_at, notes')
+      .eq('product_id', id)
+      .eq('company_id', userData.company_id)
+      .order('changed_at', { ascending: false })
+      .limit(50)
+
+    return NextResponse.json({ product, movements: movements ?? [], priceHistory: priceHistory ?? [] })
   } catch (err) {
     console.error('GET /api/products/[id]:', err)
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
@@ -88,10 +97,10 @@ export async function PATCH(
         { status: 403 }
       )
 
-    // Verify ownership
+    // Verify ownership and read current prices for comparison
     const { data: existing } = await supabaseAdmin
       .from('products')
-      .select('id, company_id')
+      .select('id, company_id, sale_price, unit_cost, supplier_price')
       .eq('id', id)
       .is('deleted_at', null)
       .single()
@@ -142,6 +151,28 @@ export async function PATCH(
 
     if (updateErr)
       return NextResponse.json({ error: updateErr.message }, { status: 500 })
+
+    // Registrar historial de precios si alguno cambió
+    const newSalePrice     = 'sale_price'     in updates ? (updates.sale_price     as number | null) : existing.sale_price
+    const newUnitCost      = 'unit_cost'      in updates ? (updates.unit_cost      as number | null) : existing.unit_cost
+    const newSupplierPrice = 'supplier_price' in updates ? (updates.supplier_price as number | null) : existing.supplier_price
+
+    const priceChanged =
+      newSalePrice     !== existing.sale_price     ||
+      newUnitCost      !== existing.unit_cost      ||
+      newSupplierPrice !== existing.supplier_price
+
+    if (priceChanged) {
+      await supabaseAdmin.from('product_price_history').insert({
+        product_id:     id,
+        company_id:     userData.company_id,
+        sale_price:     newSalePrice,
+        unit_cost:      newUnitCost,
+        supplier_price: newSupplierPrice,
+        changed_by:     user.id,
+        notes:          (body.price_change_notes as string | undefined) ?? null,
+      })
+    }
 
     const { data: updated } = await supabaseAdmin
       .from('products')
