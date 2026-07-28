@@ -527,67 +527,76 @@ export default function InventoryTable({
                       style={{ padding: '10px 12px', textAlign: 'center', whiteSpace: 'nowrap' }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
-                        {!isService && (
-                          <AddMovementForm
-                            product={{
-                              id: p.id,
-                              name: p.name,
-                              current_stock: stock,
-                              unit_label: p.unit_label,
-                              unit_cost: p.unit_cost,
-                              supplier_price: p.supplier_price,
-                              product_type: p.product_type,
-                            }}
-                          />
-                        )}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'auto auto auto', gap: 4, alignItems: 'center', justifyContent: 'center' }}>
+                        {/* Columna 1: Movimiento (vacío para servicios) */}
+                        <div>
+                          {!isService && (
+                            <AddMovementForm
+                              product={{
+                                id: p.id,
+                                name: p.name,
+                                current_stock: stock,
+                                unit_label: p.unit_label,
+                                unit_cost: p.unit_cost,
+                                supplier_price: p.supplier_price,
+                                product_type: p.product_type,
+                              }}
+                            />
+                          )}
+                        </div>
 
-                        {canManage && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setEditingProduct(p as ProductDetail)
-                            }}
-                            style={{
-                              padding: '4px 10px',
-                              fontSize: 11,
-                              borderRadius: 6,
-                              border: '1px solid var(--border)',
-                              background: 'var(--hover)',
-                              color: 'var(--text2)',
-                              cursor: 'pointer',
-                              fontFamily: 'var(--font-jakarta)',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            Editar
-                          </button>
-                        )}
+                        {/* Columna 2: Editar */}
+                        <div>
+                          {canManage && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingProduct(p as ProductDetail)
+                              }}
+                              style={{
+                                padding: '4px 10px',
+                                fontSize: 11,
+                                borderRadius: 6,
+                                border: '1px solid var(--border)',
+                                background: 'var(--hover)',
+                                color: 'var(--text2)',
+                                cursor: 'pointer',
+                                fontFamily: 'var(--font-jakarta)',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              Editar
+                            </button>
+                          )}
+                        </div>
 
-                        {userRole === 'admin' && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setDeleteError(null)
-                              setDeletingProduct(p)
-                            }}
-                            style={{
-                              padding: '4px 10px',
-                              fontSize: 11,
-                              borderRadius: 6,
-                              border: '1px solid rgba(220,38,38,0.3)',
-                              background: 'rgba(220,38,38,0.06)',
-                              color: 'var(--red)',
-                              cursor: 'pointer',
-                              fontFamily: 'var(--font-jakarta)',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            Eliminar
-                          </button>
-                        )}
+                        {/* Columna 3: Eliminar */}
+                        <div>
+                          {userRole === 'admin' && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setDeleteError(null)
+                                setDeletingProduct(p)
+                              }}
+                              style={{
+                                padding: '4px 10px',
+                                fontSize: 11,
+                                borderRadius: 6,
+                                border: '1px solid rgba(220,38,38,0.3)',
+                                background: 'rgba(220,38,38,0.06)',
+                                color: 'var(--red)',
+                                cursor: 'pointer',
+                                fontFamily: 'var(--font-jakarta)',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              Eliminar
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
