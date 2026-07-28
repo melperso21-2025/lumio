@@ -103,6 +103,10 @@ export default function SalesOverview({
   function handleEditSuccess() {
     setEditOpen(false)
     setSelectedSale(null)
+  }
+
+  function handleCancel() {
+    router.refresh()
     router.refresh()
   }
 
@@ -291,6 +295,7 @@ export default function SalesOverview({
             onFilterChange={handleFilterChange}
             userRole={userRole}
             onEdit={handleEdit}
+            onCancel={handleCancel}
           />
         </div>
       </div>

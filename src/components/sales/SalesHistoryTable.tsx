@@ -96,6 +96,7 @@ interface SalesHistoryTableProps {
   onFilterChange?: (week: string, channel: string, status: string) => void
   userRole?: string
   onEdit?: (saleId: string) => void
+  onCancel?: (saleId: string) => void
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -113,9 +114,33 @@ export default function SalesHistoryTable({
   onFilterChange,
   userRole,
   onEdit,
+  onCancel,
 }: SalesHistoryTableProps) {
   const router  = useRouter()
   const canEdit = (userRole === 'admin' || userRole === 'manager') && !!onEdit
+  const canCancel = (userRole === 'admin' || userRole === 'manager') && !!onCancel
+
+  // Modal de confirmación de anulación
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null)
+  const [cancelLoading, setCancelLoading] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+
+  async function confirmCancel() {
+    if (!cancelTarget || !onCancel) return
+    setCancelLoading(true)
+    setCancelError(null)
+    try {
+      const res = await fetch(`/api/sales/${cancelTarget}/cancel`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) { setCancelError(json.error ?? 'Error al anular'); setCancelLoading(false); return }
+      setCancelTarget(null)
+      setCancelLoading(false)
+      onCancel(cancelTarget)
+    } catch {
+      setCancelError('Error de red'); setCancelLoading(false)
+    }
+  }
+
   const [sortBy, setSortBy] = useState<SortKey>('sale_date')
   const [sortAsc, setSortAsc] = useState(false)
   const [page, setPage] = useState(0)
@@ -588,25 +613,51 @@ export default function SalesHistoryTable({
                 <td style={{ padding: '10px 12px' }}>
                   <StatusBadge status={sale.status} />
                 </td>
-                {canEdit && (
+                {(canEdit || canCancel) && (
                   <td style={{ padding: '10px 12px' }}>
-                    <button
-                      type="button"
-                      onClick={e => { e.stopPropagation(); onEdit!(sale.id) }}
-                      style={{
-                        padding: '4px 10px',
-                        fontSize: 11,
-                        borderRadius: 6,
-                        border: '1px solid var(--border2)',
-                        background: 'var(--hover)',
-                        color: 'var(--text2)',
-                        cursor: 'pointer',
-                        fontFamily: 'var(--font-jakarta)',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      ✏ Editar
-                    </button>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {canEdit && sale.status !== 'cancelled' && (
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); onEdit!(sale.id) }}
+                          style={{
+                            padding: '4px 10px',
+                            fontSize: 11,
+                            borderRadius: 6,
+                            border: '1px solid var(--border2)',
+                            background: 'var(--hover)',
+                            color: 'var(--text2)',
+                            cursor: 'pointer',
+                            fontFamily: 'var(--font-jakarta)',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          ✏ Editar
+                        </button>
+                      )}
+                      {canCancel && sale.status !== 'cancelled' && (
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); setCancelTarget(sale.id); setCancelError(null) }}
+                          style={{
+                            padding: '4px 10px',
+                            fontSize: 11,
+                            borderRadius: 6,
+                            border: '1px solid rgba(220,38,38,0.3)',
+                            background: 'rgba(220,38,38,0.06)',
+                            color: 'var(--red)',
+                            cursor: 'pointer',
+                            fontFamily: 'var(--font-jakarta)',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          ✕ Anular
+                        </button>
+                      )}
+                      {sale.status === 'cancelled' && (
+                        <span style={{ fontSize: 11, color: 'var(--muted)', padding: '4px 0' }}>—</span>
+                      )}
+                    </div>
                   </td>
                 )}
               </tr>
@@ -680,6 +731,50 @@ export default function SalesHistoryTable({
             >
               Siguiente →
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal confirmación anulación ─────────────────────── */}
+      {cancelTarget && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)' }}
+          onClick={() => { if (!cancelLoading) { setCancelTarget(null); setCancelError(null) } }}
+        >
+          <div
+            style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '24px', width: '100%', maxWidth: 400, boxShadow: '0 24px 48px rgba(0,0,0,0.2)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="font-syne font-bold" style={{ fontSize: 15, color: 'var(--text)', marginBottom: 10 }}>
+              Anular venta
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16, lineHeight: 1.5 }}>
+              Esta acción es irreversible. Se revertirá el inventario de todos los productos de esta venta y el estado cambiará a <strong>Anulada</strong>.
+            </p>
+            {cancelError && (
+              <div style={{ background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: 'var(--red)', marginBottom: 12 }}>
+                {cancelError}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => { setCancelTarget(null); setCancelError(null) }}
+                disabled={cancelLoading}
+                style={{ flex: 1, padding: '9px 0', borderRadius: 8, fontSize: 13, fontWeight: 500, background: 'var(--hover)', color: 'var(--text2)', border: '1px solid var(--border)', cursor: cancelLoading ? 'not-allowed' : 'pointer' }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmCancel}
+                disabled={cancelLoading}
+                className="font-syne font-bold"
+                style={{ flex: 1, padding: '9px 0', borderRadius: 8, fontSize: 13, background: cancelLoading ? 'rgba(220,38,38,0.4)' : 'rgba(220,38,38,0.85)', color: '#fff', border: 'none', cursor: cancelLoading ? 'not-allowed' : 'pointer' }}
+              >
+                {cancelLoading ? 'Anulando…' : 'Sí, anular venta'}
+              </button>
+            </div>
           </div>
         </div>
       )}
