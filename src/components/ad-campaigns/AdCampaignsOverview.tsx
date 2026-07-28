@@ -361,11 +361,11 @@ export default function AdCampaignsOverview({
         />
       </div>
 
-      {/* Desglose por plataforma */}
-      <PlatformBreakdown campaigns={filteredCampaigns} />
-
-      {/* Gráfico de tendencia ROAS */}
-      <RoasTrendChart campaigns={filteredCampaigns} from={from} to={to} roasBenchmark={3} />
+      {/* Desglose por plataforma + gráfico ROAS lado a lado */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, flexShrink: 0 }}>
+        <PlatformBreakdown campaigns={filteredCampaigns} />
+        <RoasTrendChart campaigns={filteredCampaigns} from={from} to={to} roasBenchmark={3} />
+      </div>
 
       {/* Card historial */}
       <div

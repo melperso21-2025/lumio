@@ -112,6 +112,7 @@ export default function RoasTrendChart({ campaigns, from, to, roasBenchmark = 3 
         borderRadius: 12,
         padding: '14px 16px',
         flexShrink: 0,
+        height: '100%',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
