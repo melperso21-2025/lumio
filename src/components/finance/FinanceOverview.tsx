@@ -7,6 +7,7 @@ import NewBankAccountForm from '@/components/finance/NewBankAccountForm'
 import NewTransactionForm from '@/components/finance/NewTransactionForm'
 import TransactionsTable from '@/components/finance/TransactionsTable'
 import ExportButton from '@/components/ui/ExportButton'
+import BalanceTrendChart from '@/components/charts/BalanceTrendChart'
 
 const accountTypeConfig: Record<string, { bg: string; color: string; label: string }> = {
   checking: { bg: 'rgba(37,99,235,0.1)', color: 'var(--blue)', label: 'Corriente' },
@@ -346,6 +347,14 @@ export default function FinanceOverview({
           />
         </div>
       )}
+
+      {/* Gráfico de flujo de caja */}
+      <BalanceTrendChart
+        transactions={transactions}
+        accounts={accounts}
+        from={from}
+        to={to}
+      />
 
       {/* Filtros Banco y Cuenta (afectan ambas secciones) */}
       <div

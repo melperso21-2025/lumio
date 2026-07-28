@@ -5,6 +5,7 @@ import KpiCard from '@/components/ui/KpiCard'
 import ExportButton from '@/components/ui/ExportButton'
 import NewCampaignForm from '@/components/ad-campaigns/NewCampaignForm'
 import CampaignsTable from '@/components/ad-campaigns/CampaignsTable'
+import RoasTrendChart from '@/components/charts/RoasTrendChart'
 
 type CampaignRow = {
   id: string
@@ -358,6 +359,9 @@ export default function AdCampaignsOverview({
           }
         />
       </div>
+
+      {/* Gráfico de tendencia ROAS */}
+      <RoasTrendChart campaigns={campaigns} from={from} to={to} roasBenchmark={3} />
 
       {/* Card historial */}
       <div

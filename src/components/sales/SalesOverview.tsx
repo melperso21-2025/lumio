@@ -7,6 +7,7 @@ import ExportButton from '@/components/ui/ExportButton'
 import QuickSaleForm from '@/components/sales/QuickSaleForm'
 import SalesHistoryTable from '@/components/sales/SalesHistoryTable'
 import EditSaleModal, { type SaleWithItems } from '@/components/sales/EditSaleModal'
+import SalesTrendChart from '@/components/charts/SalesTrendChart'
 
 type SaleRow = {
   id: string
@@ -242,6 +243,9 @@ export default function SalesOverview({
           }
         />
       </div>
+
+      {/* Gráfico de tendencia */}
+      <SalesTrendChart sales={filteredSales} from={from} to={to} />
 
       {/* Historial + formulario */}
       <div
