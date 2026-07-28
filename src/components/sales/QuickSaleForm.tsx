@@ -106,6 +106,11 @@ export default function QuickSaleForm({
   const [sale_date,   setSaleDate]   = useState(() => toLocalISO(new Date()))
   const [status,      setStatus]     = useState('closed')
 
+  // ── Customer search ───────────────────────────────────────
+  const [customerSearch,      setCustomerSearch]      = useState('')
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+  const [selectedCustomerName, setSelectedCustomerName] = useState('')
+
   // ── Products & lines ──────────────────────────────────────
   const [products,        setProducts]        = useState<Product[]>([])
   const [productsLoading, setProductsLoading] = useState(false)
@@ -139,6 +144,15 @@ export default function QuickSaleForm({
         setProductsLoading(false)
       })
   }, [open, companyId])
+
+  // ── Filtered customers ────────────────────────────────────
+  const filteredCustomers = useMemo(() => {
+    const q = customerSearch.trim().toLowerCase()
+    if (!q) return customers.slice(0, 60)
+    return customers.filter(c =>
+      (c.full_name ?? '').toLowerCase().includes(q)
+    ).slice(0, 60)
+  }, [customers, customerSearch])
 
   // ── Filtered products (client-side, no extra queries) ─────
   const filteredProducts = useMemo(() => {
@@ -197,9 +211,20 @@ export default function QuickSaleForm({
     l => (l.discount_amount || 0) > l.quantity * l.unit_price
   )
 
+  // ── Customer select helper ────────────────────────────────
+  function selectCustomer(id: string, name: string) {
+    setCustomerId(id)
+    setSelectedCustomerName(name)
+    setCustomerSearch('')
+    setShowCustomerDropdown(false)
+  }
+
   // ── Reset ─────────────────────────────────────────────────
   function resetForm() {
     setCustomerId('')
+    setSelectedCustomerName('')
+    setCustomerSearch('')
+    setShowCustomerDropdown(false)
     setBranchId('')
     setChannelId('')
     setSaleDate(toLocalISO(new Date()))
@@ -394,24 +419,70 @@ export default function QuickSaleForm({
 
                 {/* Cliente + Sucursal */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div>
-                    <label htmlFor="qs-customer" style={labelSt}>
+                  <div style={{ position: 'relative' }}>
+                    <label htmlFor="qs-customer-search" style={labelSt}>
                       Cliente <span style={{ color: 'var(--red)' }}>*</span>
                     </label>
-                    <select
-                      id="qs-customer"
-                      required
-                      value={customer_id}
-                      onChange={e => setCustomerId(e.target.value)}
-                      style={inputBase}
-                      onFocus={onFocus}
-                      onBlur={onBlur}
-                    >
-                      <option value="">Selecciona…</option>
-                      {customers.map(c => (
-                        <option key={c.id} value={c.id}>{c.full_name ?? '—'}</option>
-                      ))}
-                    </select>
+                    {customer_id ? (
+                      /* Cliente ya seleccionado */
+                      <div
+                        style={{
+                          ...inputBase,
+                          display:        'flex',
+                          alignItems:     'center',
+                          justifyContent: 'space-between',
+                          cursor:         'pointer',
+                          userSelect:     'none',
+                        }}
+                        onClick={() => {
+                          selectCustomer('', '')
+                          setTimeout(() => document.getElementById('qs-customer-search')?.focus(), 50)
+                        }}
+                      >
+                        <span style={{ fontSize: 13 }}>{selectedCustomerName || '—'}</span>
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>✕</span>
+                      </div>
+                    ) : (
+                      /* Buscador */
+                      <>
+                        <input
+                          id="qs-customer-search"
+                          type="text"
+                          autoComplete="off"
+                          value={customerSearch}
+                          onChange={e => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true) }}
+                          onFocus={e => { setShowCustomerDropdown(true); onFocus(e) }}
+                          onBlur={e => { setTimeout(() => setShowCustomerDropdown(false), 160); onBlur(e) }}
+                          placeholder="Buscar cliente…"
+                          style={{ ...inputBase, paddingLeft: 34 }}
+                        />
+                        <span style={{ position: 'absolute', left: 11, top: 'calc(50% + 10px)', transform: 'translateY(-50%)', fontSize: 12, color: 'var(--muted)', pointerEvents: 'none' }}>
+                          🔍
+                        </span>
+
+                        {showCustomerDropdown && (
+                          <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 300, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, maxHeight: 220, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.14)' }}>
+                            {filteredCustomers.length === 0 ? (
+                              <div style={{ padding: '10px 14px', fontSize: 12, color: 'var(--muted)' }}>
+                                Sin resultados{customerSearch ? ` para "${customerSearch}"` : ''}
+                              </div>
+                            ) : (
+                              filteredCustomers.map(c => (
+                                <div
+                                  key={c.id}
+                                  onMouseDown={() => selectCustomer(c.id, c.full_name ?? '—')}
+                                  style={{ padding: '9px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)', fontSize: 13, color: 'var(--text)' }}
+                                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover)')}
+                                  onMouseLeave={e => (e.currentTarget.style.background = '')}
+                                >
+                                  {c.full_name ?? '—'}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                   <div>
                     <label htmlFor="qs-branch" style={labelSt}>
