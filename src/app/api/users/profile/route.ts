@@ -43,7 +43,20 @@ export async function PATCH(request: NextRequest) {
     if (body.phone        !== undefined) payload.phone        = body.phone ? body.phone.trim() : null
     if (body.notify_whatsapp !== undefined) payload.notify_whatsapp = body.notify_whatsapp
     if (body.notify_email    !== undefined) payload.notify_email    = body.notify_email
-    if (body.avatar_url   !== undefined) payload.avatar_url   = body.avatar_url
+    if (body.avatar_url !== undefined) {
+      // Validar que la URL pertenece al bucket de avatars de este proyecto Supabase
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+      const allowedPrefix = `${supabaseUrl}/storage/v1/object/public/avatars/`
+      // Eliminar query string para comparar solo el path
+      const urlWithoutQuery = body.avatar_url.split('?')[0]
+      if (!urlWithoutQuery.startsWith(allowedPrefix)) {
+        return NextResponse.json(
+          { error: 'URL de avatar no permitida' },
+          { status: 400 }
+        )
+      }
+      payload.avatar_url = body.avatar_url
+    }
 
     if (Object.keys(payload).length === 0) {
       return NextResponse.json({ error: 'Sin campos para actualizar' }, { status: 400 })
