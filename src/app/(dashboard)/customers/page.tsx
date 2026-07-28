@@ -115,6 +115,7 @@ export default async function CustomersPage({
     { data: prevCustomersList },
     { data: typesList },
     { data: labelsList },
+    { data: rfmList },
   ] = await Promise.all([
     tableQuery,
     // Clientes nuevos en el período — para KPIs
@@ -150,6 +151,12 @@ export default async function CustomersPage({
       .is('deleted_at', null)
       .eq('is_active', true)
       .order('name', { ascending: true }),
+    // Todos los clientes con compras — para RFM (campos mínimos)
+    supabase
+      .from('customers')
+      .select('id, full_name, last_purchase_at, total_orders, lifetime_value')
+      .eq('company_id', companyId)
+      .is('deleted_at', null),
   ])
 
   const tableCustomers = (tableList ?? []) as Parameters<typeof CustomersOverview>[0]['tableCustomers']
@@ -157,6 +164,7 @@ export default async function CustomersPage({
   const prevCustomers  = prevCustomersList ?? []
   const customerTypes  = typesList ?? []
   const customerLabels = labelsList ?? []
+  const rfmCustomers   = rfmList ?? []
 
   return (
     <>
@@ -189,6 +197,7 @@ export default async function CustomersPage({
           prevCustomers={prevCustomers}
           customerTypes={customerTypes}
           customerLabels={customerLabels}
+          rfmCustomers={rfmCustomers}
           from={from}
           to={to}
           prevFrom={prevFrom}

@@ -7,6 +7,7 @@ import ExportButton from '@/components/ui/ExportButton'
 import NewCustomerForm from '@/components/customers/NewCustomerForm'
 import CustomersTable, { type CustomerRow, type CatalogItem } from '@/components/customers/CustomersTable'
 import AiInsightBox from '@/components/ui/AiInsightBox'
+import RFMSegmentation, { type RFMCustomer } from '@/components/customers/RFMSegmentation'
 
 function calcDelta(
   current: number,
@@ -30,6 +31,7 @@ interface CustomersOverviewProps {
   prevCustomers?: CustomerRow[]
   customerTypes?: CatalogItem[]
   customerLabels?: CatalogItem[]
+  rfmCustomers?: RFMCustomer[]
   from: string
   to: string
   prevFrom: string
@@ -49,6 +51,7 @@ export default function CustomersOverview({
   prevCustomers = [],
   customerTypes = [],
   customerLabels = [],
+  rfmCustomers = [],
   from,
   to,
 }: CustomersOverviewProps) {
@@ -151,6 +154,13 @@ export default function CustomersOverview({
           compare="todos los clientes activos"
         />
       </div>
+
+      {/* Segmentación RFM */}
+      {rfmCustomers.length > 0 && (
+        <div style={{ flexShrink: 0 }}>
+          <RFMSegmentation customers={rfmCustomers} />
+        </div>
+      )}
 
       {/* Directorio card */}
       <div
