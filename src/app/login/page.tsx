@@ -5,19 +5,27 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 // ── Tipos ──────────────────────────────────────────────────
-type View = 'login' | 'recovery' | 'recovery-sent'
+type View = 'login' | 'recovery' | 'recovery-sent' | 'select-company'
+
+interface CompanyOption {
+  company_id: string
+  name: string
+  role: string
+}
 
 // ── Componente principal ───────────────────────────────────
 export default function LoginPage() {
   const router   = useRouter()
   const supabase = createClient()
 
-  const [view,     setView]     = useState<View>('login')
-  const [email,    setEmail]    = useState('')
-  const [password, setPassword] = useState('')
+  const [view,      setView]      = useState<View>('login')
+  const [email,     setEmail]     = useState('')
+  const [password,  setPassword]  = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
+  const [loading,   setLoading]   = useState(false)
+  const [error,     setError]     = useState<string | null>(null)
+  const [companies, setCompanies] = useState<CompanyOption[]>([])
+  const [switchingCompany, setSwitchingCompany] = useState<string | null>(null)
 
   // Leer mensajes de error provenientes del middleware via ?error=
   useEffect(() => {
@@ -51,6 +59,31 @@ export default function LoginPage() {
       return
     }
 
+    // Verificar si el usuario pertenece a más de una empresa
+    const companiesRes = await fetch('/api/companies/my-companies')
+    if (companiesRes.ok) {
+      const { companies: userCompanies } = (await companiesRes.json()) as {
+        companies: CompanyOption[]
+      }
+      if (userCompanies.length > 1) {
+        setCompanies(userCompanies)
+        setLoading(false)
+        setView('select-company')
+        return
+      }
+    }
+
+    router.push('/dashboard')
+    router.refresh()
+  }
+
+  async function handleSelectCompany(companyId: string) {
+    setSwitchingCompany(companyId)
+    await fetch('/api/companies/switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company_id: companyId }),
+    })
     router.push('/dashboard')
     router.refresh()
   }
@@ -419,6 +452,48 @@ export default function LoginPage() {
                   {loading ? 'Enviando...' : 'Enviar enlace de recuperación'}
                 </button>
               </form>
+            </div>
+          )}
+
+          {/* ── Vista: SELECCIÓN DE EMPRESA ── */}
+          {view === 'select-company' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="font-syne font-bold text-2xl" style={{ color: 'var(--text)' }}>
+                  ¿Con qué empresa deseas entrar?
+                </h2>
+                <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
+                  Tu cuenta tiene acceso a múltiples empresas.
+                </p>
+              </div>
+              <div className="space-y-2">
+                {companies.map((c) => (
+                  <button
+                    key={c.company_id}
+                    type="button"
+                    onClick={() => handleSelectCompany(c.company_id)}
+                    disabled={!!switchingCompany}
+                    className="w-full flex items-center justify-between gap-3 rounded-lg transition-all text-left"
+                    style={{
+                      padding: '12px 16px',
+                      border: '1px solid var(--border2)',
+                      background: switchingCompany === c.company_id ? 'var(--gold-bg)' : 'var(--surface)',
+                      color: 'var(--text)',
+                      cursor: switchingCompany ? 'wait' : 'pointer',
+                      opacity: switchingCompany && switchingCompany !== c.company_id ? 0.5 : 1,
+                      fontFamily: 'var(--font-jakarta)',
+                    }}
+                  >
+                    <div>
+                      <div className="font-semibold text-sm">{c.name}</div>
+                      <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{c.role}</div>
+                    </div>
+                    <span style={{ color: 'var(--gold)', fontSize: 16 }}>
+                      {switchingCompany === c.company_id ? '⏳' : '→'}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

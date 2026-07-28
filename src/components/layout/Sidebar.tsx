@@ -5,6 +5,7 @@ import { useLayoutEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useUser } from '@/lib/context/UserContext'
+import CompanySwitcher from '@/components/layout/CompanySwitcher'
 
 // ── Tipos ──────────────────────────────────────────────────
 
@@ -351,6 +352,11 @@ export default function Sidebar({
         </nav>
       </div>
 
+      {/* Selector de empresa (visible solo si hay más de 1) */}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 6, paddingBottom: 4 }}>
+        <CompanySwitcher />
+      </div>
+
       <div
         className="shrink-0 flex items-center gap-2"
         style={{
@@ -379,7 +385,6 @@ export default function Sidebar({
             style={{ color: 'var(--muted)' }}
           >
             {userRole}
-            {companyName ? ` · ${companyName}` : ''}
           </div>
         </div>
       </div>

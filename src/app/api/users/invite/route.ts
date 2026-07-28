@@ -168,28 +168,62 @@ export async function POST(request: NextRequest) {
     }
 
     if (userId) {
-      const { error: userError } = await supabaseAdmin
+      // Verificar si el usuario ya tiene una fila en users (ya pertenece a otra empresa)
+      const { data: existingUser } = await supabaseAdmin
         .from('users')
-        .upsert(
-          {
-            id: userId,
-            company_id: company_id,
-            full_name: full_name,
-            email: email,
-            role: role ?? 'operator',
-            job_title: job_title ?? null,
-            is_pulse_admin: false,
-          },
-          {
-            onConflict: 'id',
-          }
-        )
+        .select('id, company_id')
+        .eq('id', userId)
+        .single()
 
-      if (userError) {
-        return NextResponse.json(
-          { error: userError.message },
-          { status: 500 }
-        )
+      if (existingUser) {
+        // Usuario existente: solo agregar la membresía nueva sin tocar su empresa activa
+        const { error: membershipError } = await supabaseAdmin
+          .from('user_company_memberships')
+          .upsert(
+            {
+              user_id:    userId,
+              company_id: company_id,
+              role:       role ?? 'operator',
+              is_default: false,
+            },
+            { onConflict: 'user_id,company_id' }
+          )
+
+        if (membershipError) {
+          return NextResponse.json(
+            { error: membershipError.message },
+            { status: 500 }
+          )
+        }
+      } else {
+        // Usuario nuevo: crear fila en users + membresía default
+        const { error: userError } = await supabaseAdmin
+          .from('users')
+          .insert({
+            id:             userId,
+            company_id:     company_id,
+            full_name:      full_name,
+            email:          email,
+            role:           role ?? 'operator',
+            job_title:      job_title ?? null,
+            is_pulse_admin: false,
+          })
+
+        if (userError) {
+          return NextResponse.json(
+            { error: userError.message },
+            { status: 500 }
+          )
+        }
+
+        await supabaseAdmin
+          .from('user_company_memberships')
+          .insert({
+            user_id:    userId,
+            company_id: company_id,
+            role:       role ?? 'operator',
+            is_default: true,
+          })
       }
     }
 

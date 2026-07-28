@@ -6,6 +6,7 @@ import Sidebar from '@/components/layout/Sidebar'
 import { UserProvider } from '@/lib/context/UserContext'
 import { ThemeProvider, useTheme } from '@/lib/context/ThemeContext'
 import { createClient } from '@/lib/supabase/client'
+import type { UserCompany } from '@/lib/queries/getUser'
 
 // ── Constantes de timeout ──────────────────────────────────────────────────
 const TIMEOUT_MS = 60 * 60 * 1000        // 60 min
@@ -19,8 +20,10 @@ type DashboardShellProps = {
   userName?: string | null
   userRole?: string | null
   companyName?: string | null
+  companyId?: string | null
   isPulseAdmin?: boolean
   avatarUrl?: string | null
+  companies?: UserCompany[]
 }
 
 export default function DashboardShell({
@@ -28,8 +31,10 @@ export default function DashboardShell({
   userName,
   userRole,
   companyName,
+  companyId,
   isPulseAdmin,
   avatarUrl,
+  companies,
 }: DashboardShellProps) {
   const router = useRouter()
   const [sidebarHidden, setSidebarHidden] = useState(false)
@@ -104,8 +109,10 @@ export default function DashboardShell({
       userName={userName}
       userRole={userRole}
       companyName={companyName}
+      companyId={companyId}
       isPulseAdmin={isPulseAdmin}
       avatarUrl={avatarUrl}
+      companies={companies}
     >
       {/* Modal de advertencia de inactividad */}
       {showWarning && (

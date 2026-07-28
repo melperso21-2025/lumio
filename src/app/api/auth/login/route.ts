@@ -46,6 +46,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Garantizar que existe una membresía para el usuario en su empresa activa
+    const { data: userRow } = await supabaseAdmin
+      .from('users')
+      .select('company_id, role')
+      .eq('id', data.user.id)
+      .single()
+
+    if (userRow?.company_id) {
+      await supabaseAdmin
+        .from('user_company_memberships')
+        .upsert(
+          {
+            user_id:    data.user.id,
+            company_id: userRow.company_id,
+            role:       userRow.role ?? 'operator',
+            is_default: true,
+          },
+          { onConflict: 'user_id,company_id' }
+        )
+    }
+
     // Generar token único de sesión
     const sessionToken = crypto.randomUUID()
 

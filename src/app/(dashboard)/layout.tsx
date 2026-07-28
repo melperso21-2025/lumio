@@ -1,14 +1,17 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import DashboardShell from '@/components/layout/DashboardShell'
-import { getUserData } from '@/lib/queries/getUser'
+import { getUserData, getUserCompanies } from '@/lib/queries/getUser'
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const userData = await getUserData()
+  const [userData, companies] = await Promise.all([
+    getUserData(),
+    getUserCompanies(),
+  ])
 
   if (!userData) {
     redirect('/login')
@@ -26,8 +29,10 @@ export default async function DashboardLayout({
       userName={userData.full_name}
       userRole={userData.role}
       companyName={companyData?.name}
+      companyId={userData.company_id}
       isPulseAdmin={userData.is_pulse_admin}
       avatarUrl={userData.avatar_url}
+      companies={companies}
     >
       {children}
     </DashboardShell>
