@@ -275,7 +275,6 @@ export default function SalesOverview({
             />
             <QuickSaleForm
               channels={channels}
-              customers={customers}
               branches={branches}
               companyId={companyId}
               userRole={userRole}

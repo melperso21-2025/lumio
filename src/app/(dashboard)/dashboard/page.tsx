@@ -604,7 +604,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </button>
           <QuickSaleForm
             companyId={companyId}
-            customers={customers}
             branches={branches}
             channels={channels}
             userRole={userRole}

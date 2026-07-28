@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toLocalISO } from '@/lib/dateUtils'
@@ -24,7 +24,6 @@ interface SaleLine {
 }
 
 export interface QuickSaleFormProps {
-  customers: { id: string; full_name: string | null }[]
   branches:  { id: string; name: string }[]
   channels:  { id: string; name: string }[]
   companyId: string
@@ -84,7 +83,6 @@ function fmt(n: number): string {
 // ── Component ──────────────────────────────────────────────
 
 export default function QuickSaleForm({
-  customers,
   branches,
   channels,
   companyId,
@@ -106,10 +104,13 @@ export default function QuickSaleForm({
   const [sale_date,   setSaleDate]   = useState(() => toLocalISO(new Date()))
   const [status,      setStatus]     = useState('closed')
 
-  // ── Customer search ───────────────────────────────────────
-  const [customerSearch,      setCustomerSearch]      = useState('')
+  // ── Customer search (server-side, on demand) ──────────────
+  const [customerSearch,       setCustomerSearch]       = useState('')
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
   const [selectedCustomerName, setSelectedCustomerName] = useState('')
+  const [customerResults,      setCustomerResults]      = useState<{ id: string; full_name: string | null }[]>([])
+  const [customerLoading,      setCustomerLoading]      = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Products & lines ──────────────────────────────────────
   const [products,        setProducts]        = useState<Product[]>([])
@@ -145,14 +146,30 @@ export default function QuickSaleForm({
       })
   }, [open, companyId])
 
-  // ── Filtered customers ────────────────────────────────────
-  const filteredCustomers = useMemo(() => {
-    const q = customerSearch.trim().toLowerCase()
-    if (!q) return []
-    return customers.filter(c =>
-      (c.full_name ?? '').toLowerCase().includes(q)
-    ).slice(0, 80)
-  }, [customers, customerSearch])
+  // ── Buscar clientes en Supabase al escribir (debounce 300ms) ─
+  useEffect(() => {
+    const q = customerSearch.trim()
+    if (q.length < 2) {
+      setCustomerResults([])
+      return
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      setCustomerLoading(true)
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('customers')
+        .select('id, full_name')
+        .eq('company_id', companyId)
+        .is('deleted_at', null)
+        .ilike('full_name', `%${q}%`)
+        .order('full_name', { ascending: true })
+        .limit(20)
+      setCustomerResults(data ?? [])
+      setCustomerLoading(false)
+    }, 300)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [customerSearch, companyId])
 
   // ── Filtered products (client-side, no extra queries) ─────
   const filteredProducts = useMemo(() => {
@@ -462,16 +479,20 @@ export default function QuickSaleForm({
 
                         {showCustomerDropdown && (
                           <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 300, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, maxHeight: 220, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.14)' }}>
-                            {!customerSearch.trim() ? (
+                            {customerSearch.trim().length < 2 ? (
                               <div style={{ padding: '10px 14px', fontSize: 12, color: 'var(--muted)' }}>
-                                Escribe el nombre para buscar…
+                                Escribe al menos 2 letras para buscar…
                               </div>
-                            ) : filteredCustomers.length === 0 ? (
+                            ) : customerLoading ? (
+                              <div style={{ padding: '10px 14px', fontSize: 12, color: 'var(--muted)' }}>
+                                Buscando…
+                              </div>
+                            ) : customerResults.length === 0 ? (
                               <div style={{ padding: '10px 14px', fontSize: 12, color: 'var(--muted)' }}>
                                 Sin resultados para "{customerSearch}"
                               </div>
                             ) : (
-                              filteredCustomers.map(c => (
+                              customerResults.map(c => (
                                 <div
                                   key={c.id}
                                   onMouseDown={() => selectCustomer(c.id, c.full_name ?? '—')}
