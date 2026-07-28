@@ -5,16 +5,25 @@ import { useState } from 'react'
 interface EditUserRoleFormProps {
   userId: string
   currentRole: string
+  isPulseAdmin?: boolean
+  currentUserId?: string
 }
 
 export default function EditUserRoleForm({
   userId,
   currentRole,
+  isPulseAdmin = false,
+  currentUserId,
 }: EditUserRoleFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [role, setRole] = useState(currentRole)
   const [saved, setSaved] = useState(false)
+
+  // No se puede cambiar el propio rol
+  const isSelf = currentUserId === userId
+  // Un admin regular no puede asignar ni ver la opción 'admin'
+  const canAssignAdmin = isPulseAdmin
 
   async function handleChange(newRole: string) {
     setRole(newRole)
@@ -48,6 +57,14 @@ export default function EditUserRoleForm({
     }
   }
 
+  if (isSelf) {
+    return (
+      <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-jakarta)', padding: '3px 8px' }}>
+        {role === 'admin' ? 'Admin' : role === 'manager' ? 'Gerente' : 'Operativo'}
+      </span>
+    )
+  }
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <select
@@ -68,7 +85,7 @@ export default function EditUserRoleForm({
       >
         <option value="operator">Operativo</option>
         <option value="manager">Gerente</option>
-        <option value="admin">Admin</option>
+        {canAssignAdmin && <option value="admin">Admin</option>}
       </select>
       {loading && (
         <span style={{ fontSize: 10, color: 'var(--muted)' }}>...</span>

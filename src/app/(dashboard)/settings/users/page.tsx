@@ -317,6 +317,8 @@ export default async function SettingsUsersPage() {
                                 <EditUserRoleForm
                                   userId={u.id}
                                   currentRole={u.role ?? 'operator'}
+                                  isPulseAdmin={isPulseAdmin}
+                                  currentUserId={user.id}
                                 />
                                 {isCompanyOnlyAdmin && !u.last_seen_at && (
                                   <ReinviteUserButton
