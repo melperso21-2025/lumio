@@ -25,6 +25,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sin datos de archivo' }, { status: 400 })
     }
 
+    // Validar tamaño antes de decodificar (base64 ~= 4/3 del original)
+    if (fileData.length > 14_000_000) {
+      return NextResponse.json({ error: 'El archivo supera el límite de 10 MB' }, { status: 400 })
+    }
+
+    // Validar magic bytes
+    const raw = Buffer.from(fileData, 'base64')
+    const isCsv  = raw[0] === 0xef || raw[0] < 0x80
+    const isXlsx = raw[0] === 0x50 && raw[1] === 0x4b
+    const isXls  = raw[0] === 0xd0 && raw[1] === 0xcf
+    if (!isCsv && !isXlsx && !isXls) {
+      return NextResponse.json({ error: 'Formato de archivo no permitido. Solo se aceptan .xlsx, .xls o .csv' }, { status: 400 })
+    }
+
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })

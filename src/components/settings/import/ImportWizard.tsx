@@ -426,7 +426,9 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
             onDrop={(e) => {
               e.preventDefault(); setDragOver(false)
               const f = e.dataTransfer.files[0]
-              if (f) setUploadedFile(f)
+              if (!f) return
+              if (f.size > 10 * 1024 * 1024) { setParseError('El archivo supera el límite de 10 MB'); return }
+              setUploadedFile(f)
             }}
             onClick={() => fileInputRef.current?.click()}
             style={{
@@ -444,7 +446,13 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
               type="file"
               accept=".xlsx,.csv,.xls"
               style={{ display: 'none' }}
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) setUploadedFile(f); e.target.value = '' }}
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                e.target.value = ''
+                if (!f) return
+                if (f.size > 10 * 1024 * 1024) { setParseError('El archivo supera el límite de 10 MB'); return }
+                setUploadedFile(f)
+              }}
             />
             {uploadedFile ? (
               <>
