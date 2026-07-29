@@ -9,6 +9,7 @@ import QuickSaleForm from '@/components/sales/QuickSaleForm'
 import { UserMenu } from '@/components/layout/Topbar'
 import DateRangePicker from '@/components/ui/DateRangePicker'
 import InsightReminderModal, { type ModalScenario } from '@/components/dashboard/InsightReminderModal'
+import BusinessProfileBanner from '@/components/dashboard/BusinessProfileBanner'
 import DashboardExportButton from '@/components/dashboard/DashboardExportButton'
 import {
   getWeeksInRange,
@@ -129,7 +130,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     )
   }
 
-  const [{ data: branchesList }, { data: channelsList }] = await Promise.all([
+  const [{ data: branchesList }, { data: channelsList }, { data: companyProfile }] = await Promise.all([
     supabase
       .from('branches')
       .select('id, name, type')
@@ -143,6 +144,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .eq('company_id', companyId)
       .is('deleted_at', null)
       .order('name', { ascending: true }),
+    supabase
+      .from('companies')
+      .select('name, business_description, main_customer_type, avg_monthly_revenue_range')
+      .eq('id', companyId)
+      .single(),
   ])
 
   const branches  = branchesList ?? []
@@ -625,6 +631,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           gap: 0,
         }}
       >
+        {/* Banner de perfil de negocio incompleto — solo para admin/manager */}
+        {['admin', 'manager'].includes(userRole) &&
+          companyProfile &&
+          !(companyProfile.business_description && companyProfile.main_customer_type && companyProfile.avg_monthly_revenue_range) && (
+          <div style={{ marginBottom: 14 }}>
+            <BusinessProfileBanner companyName={companyProfile.name ?? 'tu empresa'} />
+          </div>
+        )}
+
         <div style={{ marginBottom: 12 }}>
           <AiInsightBox
             variant={insightIsStale ? 'blue' : 'gold'}

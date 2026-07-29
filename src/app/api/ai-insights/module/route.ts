@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
         .is('deleted_at', null),
       supabase
         .from('companies')
-        .select('name, sector')
+        .select('name, sector, business_description, main_customer_type, avg_monthly_revenue_range')
         .eq('id', userData.company_id)
         .single(),
     ])
@@ -140,10 +140,27 @@ export async function POST(request: NextRequest) {
       : margenBruto < 35 ? '⚠️ Margen bruto ajustado (20-35%)'
       : '✅ Margen bruto saludable'
 
-    const globalContext = `
-CONTEXTO ACTUAL DEL NEGOCIO${companyInfo?.name ? ` — ${companyInfo.name}` : ''}${companyInfo?.sector ? ` (sector: ${companyInfo.sector})` : ''}:
+    const CUSTOMER_TYPE_LABELS: Record<string, string> = {
+      b2c:   'consumidor final (B2C — personas que compran para uso propio)',
+      b2b:   'otras empresas (B2B — ciclos de pago más largos, facturas mayores)',
+      mixed: 'mixto — vende tanto a consumidores como a empresas',
+    }
+    const REVENUE_LABELS: Record<string, string> = {
+      lt5k:     'menos de $5,000/mes',
+      '5k_20k': 'entre $5,000 y $20,000/mes',
+      '20k_100k': 'entre $20,000 y $100,000/mes',
+      gt100k:   'más de $100,000/mes',
+    }
 
-Semana ${weekNumber}/${year}:
+    const globalContext = `
+CONTEXTO DEL NEGOCIO${companyInfo?.name ? ` — ${companyInfo.name}` : ''}:
+${companyInfo?.business_description ? `Descripción: ${companyInfo.business_description}` : ''}
+${companyInfo?.sector ? `Sector: ${companyInfo.sector}` : ''}
+${companyInfo?.main_customer_type ? `Tipo de cliente principal: ${CUSTOMER_TYPE_LABELS[companyInfo.main_customer_type] ?? companyInfo.main_customer_type}` : ''}
+${companyInfo?.avg_monthly_revenue_range ? `Facturación mensual aproximada: ${REVENUE_LABELS[companyInfo.avg_monthly_revenue_range] ?? companyInfo.avg_monthly_revenue_range}` : ''}
+
+SITUACIÓN FINANCIERA ACTUAL (semana ${weekNumber}/${year}):
+
 - Ventas esta semana: $${ventasSemana.toFixed(2)}${tendenciaVentas ? ` (${Number(tendenciaVentas) >= 0 ? '+' : ''}${tendenciaVentas}% vs semana pasada)` : ''}
 - Ventas semana pasada: $${ventasAnterior > 0 ? ventasAnterior.toFixed(2) : 'sin datos'}
 - Margen bruto: ${margenBruto.toFixed(1)}% — ${alertaMargen}

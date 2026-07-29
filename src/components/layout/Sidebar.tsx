@@ -134,6 +134,7 @@ export default function Sidebar({
         id: 'settings',
         label: 'Configuración',
         items: [
+          { href: '/settings/business',  label: 'Mi negocio', icon: '✦', roles: ['admin', 'manager'] },
           { href: '/settings/customers', label: 'Clientes', icon: '🏷', roles: ['admin', 'manager'] },
           { href: '/settings/finance', label: 'Finanzas', icon: '💳', roles: ['admin', 'manager'] },
           { href: '/settings/import', label: 'Importar datos', icon: '⬆', roles: ['admin'] },
