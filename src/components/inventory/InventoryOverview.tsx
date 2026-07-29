@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import KpiCard from '@/components/ui/KpiCard'
+import ModuleAiButton from '@/components/ai/ModuleAiButton'
 import ExportButton from '@/components/ui/ExportButton'
 import NewProductForm from '@/components/inventory/NewProductForm'
 import InventoryTable, { type ProductRow } from '@/components/inventory/InventoryTable'
@@ -145,8 +146,36 @@ export default function InventoryOverview({
     parent_id: c.parent_id,
   }))
 
+  const getModuleData = useCallback(() => ({
+    totalProductos: physicalProducts.length,
+    servicios: serviceCount,
+    stockBajo: low_stock_count,
+    capitalEnStock: parseFloat(frozen_capital.toFixed(2)),
+    entradasPeriodo: movementsIn,
+    salidasPeriodo: movementsOut,
+    productosRestock: restockProducts.slice(0, 10).map(p => ({
+      nombre: p.name,
+      stockActual: p.current_stock,
+      minimo: p.min_stock_alert,
+      leadTimeDias: p.lead_time_days,
+    })),
+    productosCriticos: physicalProducts
+      .filter(p => (p.current_stock ?? 0) <= (p.min_stock_alert ?? 0) && (p.min_stock_alert ?? 0) > 0)
+      .slice(0, 10)
+      .map(p => ({
+        nombre: p.name,
+        stockActual: p.current_stock,
+        minimo: p.min_stock_alert,
+        capitalParalizado: parseFloat(((p.current_stock ?? 0) * (p.unit_cost ?? 0)).toFixed(2)),
+      })),
+  }), [physicalProducts, serviceCount, low_stock_count, frozen_capital, movementsIn, movementsOut, restockProducts])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Botón IA */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <ModuleAiButton module="inventory" getModuleData={getModuleData} />
+      </div>
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, flexShrink: 0 }}>
         <KpiCard label="Productos activos" value={physicalProducts.length} />
