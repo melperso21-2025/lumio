@@ -93,68 +93,147 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ── 3. Obtener snapshot global compacto ───────────────────────────────────
+    // ── 3. Obtener contexto global enriquecido (2 semanas) ───────────────────
     const now = new Date()
     const year = now.getFullYear()
     const weekNumber = getISOWeek(now)
 
-    const [snapResult, bankResult] = await Promise.all([
+    const [snapsResult, bankResult, companyInfoResult] = await Promise.all([
       supabase
         .from('weekly_snapshots')
-        .select('total_sales, gross_margin_pct, net_margin_pct, cash_days, overdue_receivables')
+        .select('week_number, total_sales, gross_margin_pct, net_margin_pct, cash_days, overdue_receivables, total_transactions, inventory_days')
         .eq('company_id', userData.company_id)
         .eq('year', year)
-        .eq('week_number', weekNumber)
-        .maybeSingle(),
+        .in('week_number', [weekNumber, weekNumber - 1])
+        .order('week_number', { ascending: false }),
       supabase
         .from('bank_accounts')
         .select('current_balance')
         .eq('company_id', userData.company_id)
         .is('deleted_at', null),
+      supabase
+        .from('companies')
+        .select('name, sector')
+        .eq('id', userData.company_id)
+        .single(),
     ])
 
-    const snap = snapResult.data
+    const snaps = snapsResult.data ?? []
+    const snapActual = snaps.find(s => s.week_number === weekNumber)
+    const snapAnterior = snaps.find(s => s.week_number === weekNumber - 1)
     const totalCash = (bankResult.data ?? []).reduce((s, b) => s + (b.current_balance ?? 0), 0)
+    const companyInfo = companyInfoResult.data
+
+    const ventasSemana = snapActual?.total_sales ?? 0
+    const ventasAnterior = snapAnterior?.total_sales ?? 0
+    const tendenciaVentas = ventasAnterior > 0
+      ? ((ventasSemana - ventasAnterior) / ventasAnterior * 100).toFixed(1)
+      : null
+
+    const diasCaja = snapActual?.cash_days ?? 0
+    const alertaCaja = diasCaja < 15 ? '⚠️ CRÍTICO: menos de 15 días de caja'
+      : diasCaja < 30 ? '⚠️ ATENCIÓN: menos de 30 días de caja'
+      : '✅ Caja saludable'
+
+    const margenBruto = snapActual?.gross_margin_pct ?? 0
+    const alertaMargen = margenBruto < 20 ? '⚠️ Margen bruto muy bajo (menor al 20%)'
+      : margenBruto < 35 ? '⚠️ Margen bruto ajustado (20-35%)'
+      : '✅ Margen bruto saludable'
 
     const globalContext = `
-CONTEXTO GLOBAL DEL NEGOCIO (semana ${weekNumber}/${year}):
-- Ventas semana: $${(snap?.total_sales ?? 0).toFixed(2)}
-- Margen bruto: ${(snap?.gross_margin_pct ?? 0).toFixed(1)}% | Margen neto: ${(snap?.net_margin_pct ?? 0).toFixed(1)}%
-- Saldo en caja: $${totalCash.toFixed(2)} (${snap?.cash_days ?? 0} días de cobertura)
-- CxC vencida: $${(snap?.overdue_receivables ?? 0).toFixed(2)}
-`.trim()
+CONTEXTO ACTUAL DEL NEGOCIO${companyInfo?.name ? ` — ${companyInfo.name}` : ''}${companyInfo?.sector ? ` (sector: ${companyInfo.sector})` : ''}:
 
-    // ── 4. Construir prompt por módulo ────────────────────────────────────────
+Semana ${weekNumber}/${year}:
+- Ventas esta semana: $${ventasSemana.toFixed(2)}${tendenciaVentas ? ` (${Number(tendenciaVentas) >= 0 ? '+' : ''}${tendenciaVentas}% vs semana pasada)` : ''}
+- Ventas semana pasada: $${ventasAnterior > 0 ? ventasAnterior.toFixed(2) : 'sin datos'}
+- Margen bruto: ${margenBruto.toFixed(1)}% — ${alertaMargen}
+- Margen neto: ${(snapActual?.net_margin_pct ?? 0).toFixed(1)}%
+- Dinero en caja/bancos: $${totalCash.toFixed(2)} — ${alertaCaja} (cubre ${diasCaja} días de operación)
+- Facturas por cobrar vencidas: $${(snapActual?.overdue_receivables ?? 0).toFixed(2)}
+- Transacciones esta semana: ${snapActual?.total_transactions ?? 0}
+- Días de inventario disponible: ${snapActual?.inventory_days ?? 0} días`.trim()
+
+    // ── 4. Benchmarks y señales de alerta por módulo ──────────────────────────
+    const MODULE_BENCHMARKS: Record<string, string> = {
+      sales: `
+BENCHMARKS DE VENTAS (PyMEs saludables):
+- Ticket promedio debe subir o mantenerse — si baja con más transacciones, hay presión en precios
+- Descuentos > 15% del total de ventas es una señal de alerta (se está regalando margen)
+- LPP (productos por pedido) > 2 es buena señal de venta cruzada
+- Variación semana a semana > -20% merece atención inmediata`,
+      purchases: `
+BENCHMARKS DE COMPRAS (PyMEs saludables):
+- Las compras no deberían superar el 60-70% de las ventas del período
+- Si CxP pendiente > 30 días de ventas, hay presión de liquidez con proveedores
+- Concentración en un solo proveedor (>50% del gasto) es riesgo operativo
+- Compras a crédito > 70% del total puede ser señal de problema de flujo de caja`,
+      receivables: `
+BENCHMARKS DE CxC (PyMEs saludables):
+- CxC vencida no debería superar el 20% del total pendiente
+- Si hay facturas vencidas > 90 días, la probabilidad de cobro cae al 50%
+- Días promedio de cobro > 45 días es señal de alerta
+- Clientes que concentran > 30% de la CxC total son riesgo de cartera`,
+      payables: `
+BENCHMARKS DE CxP (PyMEs saludables):
+- CxP vencida no debería existir — indica problemas de flujo de caja
+- Los plazos de pago a proveedores deben ser mayores que los plazos de cobro a clientes
+- Si CxP total > saldo en caja, el negocio no puede pagar lo que debe ahora mismo
+- Proveedores con CxP vencida pueden cortar suministro`,
+      inventory: `
+BENCHMARKS DE INVENTARIO (PyMEs saludables):
+- Días de cobertura óptimo: 20-45 días. Menos = riesgo de quiebre. Más = capital paralizado
+- Productos sin movimiento en 60+ días son inventario muerto (costo sin retorno)
+- El capital en stock no debería superar el 40% del total de activos
+- Stock bajo en productos de alta rotación es pérdida de ventas directa`,
+    }
+
+    // ── 5. Construir prompt ───────────────────────────────────────────────────
     const moduleLabel = MODULE_LABELS[module] ?? module
     const moduleJson = JSON.stringify(moduleData, null, 2)
+    const benchmarks = MODULE_BENCHMARKS[module] ?? ''
 
-    const prompt = `Eres el asesor financiero de Lumio, plataforma BI para PyMEs latinoamericanas. \
-El dueño del negocio quiere un análisis específico del módulo de ${moduleLabel}.
+    const prompt = `Eres el asesor de negocios de Lumio. Tu trabajo es ayudar a dueños de pequeñas y medianas empresas latinoamericanas a entender la salud real de su negocio y tomar mejores decisiones. La mayoría de estos dueños NO tienen formación financiera — son emprendedores que aprendieron en la práctica. Tu análisis debe ser claro, directo y útil para alguien así.
+
+REGLAS DE LENGUAJE (CRÍTICAS):
+1. Nunca uses jerga financiera sin explicarla. Si dices "margen bruto", explica que es "lo que te queda de cada venta antes de pagar gastos fijos"
+2. Habla en primera persona plural cuando sea positivo ("estamos bien en..."), segunda persona cuando sea una alerta ("tienes un problema en...")
+3. Usa ejemplos con números reales del negocio, no porcentajes abstractos
+4. Si algo está bien, dilo. No todo puede ser una alerta
+5. Las acciones deben ser tan concretas que el dueño pueda ejecutarlas hoy sin necesitar a nadie más
+6. Máximo 3 oraciones por párrafo — este texto se lee en un celular
 
 ${globalContext}
+
+${benchmarks}
 
 DATOS DEL MÓDULO — ${moduleLabel.toUpperCase()}:
 ${moduleJson}
 
-TAREA: Analiza los datos del módulo de ${moduleLabel} tomando en cuenta el contexto global del negocio. \
-Sé directo, específico con los números, y accionable. Tono: consultor senior hablando directamente al dueño.
-
-Responde ÚNICAMENTE con JSON válido, sin markdown:
+Responde ÚNICAMENTE con JSON válido, sin markdown ni texto extra:
 
 {
-  "summary": "2-3 oraciones. Estado actual del módulo con los números más relevantes y su impacto en el negocio.",
-  "details": "Análisis detallado de 3-4 párrafos: qué está bien, qué preocupa, qué oportunidad hay. Menciona cómo este módulo afecta el flujo de caja o la rentabilidad global.",
+  "headline": "Una sola frase impactante que resume el estado del módulo. Usa un número real. Ej: 'Tienes $3,200 en facturas vencidas que podrías cobrar esta semana'",
+  "alert": null,
+  "summary": "2-3 oraciones en lenguaje simple. Qué está pasando en este módulo y cómo afecta al negocio hoy. Usa los números reales.",
+  "highlights": [
+    { "tipo": "bueno|malo|neutral", "texto": "Un hallazgo específico con número. Ej: 'Tu margen del 42% está por encima del promedio del sector (35%)'" }
+  ],
+  "details": "3 párrafos separados por doble salto de línea. Párrafo 1: qué está funcionando bien con números. Párrafo 2: qué preocupa o requiere atención con números y consecuencia concreta si no se actúa. Párrafo 3: oportunidad clara que el dueño puede aprovechar.",
   "playbook": [
     {
-      "action": "Acción concreta y específica",
-      "reason": "Por qué basado en los números reales",
+      "action": "Verbo + quién + qué + número concreto. Ej: 'Llama hoy a los 3 clientes con facturas vencidas más de 30 días (total $1,800) y ofréceles pagar en cuotas'",
+      "reason": "Si no lo haces, [consecuencia concreta con número]. Si lo haces, [beneficio concreto con número].",
       "priority": "urgent|soon|later",
       "timeframe": "hoy|esta semana|este mes|próximos 90 días"
     }
   ]
 }
 
-Playbook: 2-3 acciones. Máximo 1 urgent. Basadas en datos reales, no genéricas.`
+INSTRUCCIONES DEL JSON:
+- "alert": null si todo está bien. Si hay algo urgente, una frase corta en mayúsculas. Ej: "TIENES $2,400 EN CxP VENCIDA QUE PUEDE CORTAR TU SUMINISTRO"
+- "highlights": 2-4 hallazgos, mezcla de buenos y malos, siempre con número
+- "playbook": 2-3 acciones. Solo 1 puede ser "urgent". Si no hay urgencias reales, no pongas ninguna urgent.
+- NUNCA inventes números. Si un dato no está en los datos enviados, no lo menciones.`
 
     // ── 5. Llamar a Claude ────────────────────────────────────────────────────
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -167,7 +246,16 @@ Playbook: 2-3 acciones. Máximo 1 urgent. Basadas en datos reales, no genéricas
     const responseText = message.content[0].type === 'text' ? message.content[0].text : ''
     const tokensUsed = (message.usage?.input_tokens ?? 0) + (message.usage?.output_tokens ?? 0)
 
-    let analysis: { summary: string; details: string; playbook: unknown[] }
+    type Analysis = {
+      headline: string
+      alert: string | null
+      summary: string
+      highlights: Array<{ tipo: string; texto: string }>
+      details: string
+      playbook: Array<{ action: string; reason: string; priority: string; timeframe: string }>
+    }
+
+    let analysis: Analysis
     try {
       const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
       analysis = JSON.parse(cleaned)
@@ -184,7 +272,7 @@ Playbook: 2-3 acciones. Máximo 1 urgent. Basadas en datos reales, no genéricas
       .insert({
         company_id: userData.company_id,
         module,
-        summary: analysis.summary,
+        summary: analysis.headline + '\n\n' + analysis.summary,
         details: analysis.details,
         playbook: analysis.playbook,
         tokens_used: tokensUsed,
@@ -206,7 +294,10 @@ Playbook: 2-3 acciones. Máximo 1 urgent. Basadas en datos reales, no genéricas
     return NextResponse.json({
       success: true,
       insightId: saved?.id,
+      headline: analysis.headline,
+      alert: analysis.alert,
       summary: analysis.summary,
+      highlights: analysis.highlights,
       details: analysis.details,
       playbook: analysis.playbook,
       usage: { used: currentUsed + 1, quota },

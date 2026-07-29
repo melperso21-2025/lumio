@@ -9,8 +9,16 @@ interface PlaybookAction {
   timeframe: string
 }
 
+interface Highlight {
+  tipo: 'bueno' | 'malo' | 'neutral'
+  texto: string
+}
+
 interface ModuleInsight {
+  headline: string
+  alert: string | null
   summary: string
+  highlights: Highlight[]
   details: string
   playbook: PlaybookAction[]
   usage: { used: number; quota: number }
@@ -193,35 +201,75 @@ export default function ModuleAiButton({ module, getModuleData, usageQuota }: Mo
 
               {insight && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                  {/* Resumen ejecutivo */}
+
+                  {/* Alerta urgente */}
+                  {insight.alert && (
+                    <div style={{
+                      padding: '12px 14px', borderRadius: 10,
+                      background: 'rgba(239,68,68,0.1)',
+                      border: '1px solid rgba(239,68,68,0.3)',
+                      display: 'flex', gap: 10, alignItems: 'flex-start',
+                    }}>
+                      <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>🚨</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#F87171', lineHeight: 1.4 }}>
+                        {insight.alert}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Headline */}
                   <div style={{
                     padding: '14px 16px', borderRadius: 10,
                     background: 'rgba(245,200,66,0.07)',
                     border: '1px solid rgba(245,200,66,0.2)',
                   }}>
                     <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--gold, #F5C842)', marginBottom: 8 }}>
-                      Resumen
+                      En resumen
                     </div>
-                    <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text, #F0F0F5)', margin: 0 }}>
+                    <p style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.5, color: 'var(--text, #F0F0F5)', margin: '0 0 8px' }}>
+                      {insight.headline}
+                    </p>
+                    <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text2, #C0C4D6)', margin: 0 }}>
                       {insight.summary}
                     </p>
                   </div>
 
+                  {/* Highlights */}
+                  {insight.highlights?.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted, #8890A6)' }}>
+                        Hallazgos clave
+                      </div>
+                      {insight.highlights.map((h, i) => {
+                        const icon = h.tipo === 'bueno' ? '✅' : h.tipo === 'malo' ? '⚠️' : 'ℹ️'
+                        const color = h.tipo === 'bueno' ? '#4ADE80' : h.tipo === 'malo' ? '#FBBF24' : 'var(--text2, #C0C4D6)'
+                        return (
+                          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                            <span style={{ flexShrink: 0, fontSize: 13 }}>{icon}</span>
+                            <span style={{ fontSize: 13, color, lineHeight: 1.5 }}>{h.texto}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
                   {/* Análisis detallado */}
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted, #8890A6)', marginBottom: 10 }}>
-                      Análisis
+                      Análisis completo
                     </div>
-                    <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text2, #C0C4D6)', margin: 0, whiteSpace: 'pre-wrap' }}>
-                      {insight.details}
-                    </p>
+                    {insight.details.split('\n\n').map((para, i) => (
+                      <p key={i} style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text2, #C0C4D6)', margin: '0 0 12px' }}>
+                        {para}
+                      </p>
+                    ))}
                   </div>
 
                   {/* Playbook */}
                   {insight.playbook?.length > 0 && (
                     <div>
                       <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted, #8890A6)', marginBottom: 10 }}>
-                        Acciones recomendadas
+                        Qué hacer ahora
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         {insight.playbook.map((item, i) => {
@@ -232,7 +280,7 @@ export default function ModuleAiButton({ module, getModuleData, usageQuota }: Mo
                               style={{
                                 padding: '12px 14px', borderRadius: 10,
                                 background: 'var(--hover, rgba(255,255,255,0.03))',
-                                border: '1px solid var(--border2, rgba(255,255,255,0.07))',
+                                border: `1px solid ${item.priority === 'urgent' ? 'rgba(239,68,68,0.25)' : 'var(--border2, rgba(255,255,255,0.07))'}`,
                               }}
                             >
                               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
