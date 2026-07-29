@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import ModuleAiButton from '@/components/ai/ModuleAiButton'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -125,8 +126,28 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
   const agingOrder  = ['Al día', '1-30 días', '31-60 días', '61-90 días', '+90 días']
   const agingColors = ['var(--green)', 'var(--gold)', '#F97316', '#EF4444', '#DC2626']
 
+  const getModuleData = useCallback(() => ({
+    totalPendiente: kpis.totalPendiente,
+    totalVencido: kpis.totalVencido,
+    totalPagado: kpis.totalPagado,
+    countActivas: kpis.countPendiente,
+    agingResumen: agingOrder.map(b => ({ bucket: b, monto: agingMap[b] ?? 0 })),
+    registros: records.slice(0, 20).map(r => ({
+      proveedor: r.suppliers?.name ?? 'Sin nombre',
+      monto: r.amount,
+      saldo: r.balance,
+      vencimiento: r.due_date,
+      estado: r.status,
+    })),
+  }), [kpis, agingMap, agingOrder, records])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
+
+      {/* Botón IA */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <ModuleAiButton module="payables" getModuleData={getModuleData} />
+      </div>
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>

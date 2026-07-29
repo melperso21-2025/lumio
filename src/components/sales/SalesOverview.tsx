@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import KpiCard from '@/components/ui/KpiCard'
 import ExportButton from '@/components/ui/ExportButton'
@@ -8,6 +8,7 @@ import QuickSaleForm from '@/components/sales/QuickSaleForm'
 import SalesHistoryTable from '@/components/sales/SalesHistoryTable'
 import EditSaleModal, { type SaleWithItems } from '@/components/sales/EditSaleModal'
 import SalesTrendChart from '@/components/charts/SalesTrendChart'
+import ModuleAiButton from '@/components/ai/ModuleAiButton'
 
 type SaleRow = {
   id: string
@@ -188,8 +189,29 @@ export default function SalesOverview({
   const pageStart = currentPage * pageSize + 1
   const pageEnd   = Math.min((currentPage + 1) * pageSize, totalCount)
 
+  const getModuleData = useCallback(() => ({
+    periodo: `${from} → ${to}`,
+    totalVentas: total_sales,
+    totalTransacciones: total_transactions,
+    lppPromedio: parseFloat(avg_lpp.toFixed(2)),
+    totalDescuentos: total_discounts,
+    variacionVsAnterior: hasPrevData
+      ? `${(((total_sales - prev_total_sales) / prev_total_sales) * 100).toFixed(1)}%`
+      : 'sin datos anteriores',
+    topVentas: kpiSales.slice(0, 10).map(s => ({
+      fecha: s.sale_date,
+      total: s.gross_total,
+      descuento: s.discount_amount,
+    })),
+  }), [from, to, total_sales, total_transactions, avg_lpp, total_discounts, hasPrevData, prev_total_sales, kpiSales])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1, minHeight: 0 }}>
+
+      {/* Botón IA */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+        <ModuleAiButton module="sales" getModuleData={getModuleData} />
+      </div>
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, flexShrink: 0 }}>

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import ModuleAiButton from '@/components/ai/ModuleAiButton'
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -197,8 +198,26 @@ export default function PurchasesOverview({
     { label: 'Compras',        value: kpis.countPurchases.toString(), color: 'var(--gold)' },
   ]
 
+  const getModuleData = useCallback(() => ({
+    totalComprado: kpis.totalComprado,
+    totalPendienteCxP: kpis.totalPendienteCxP,
+    countCompras: kpis.countPurchases,
+    compras: purchases.slice(0, 15).map(p => ({
+      proveedor: p.suppliers?.name ?? 'Sin proveedor',
+      total: p.total,
+      estado: p.status,
+      metodoPago: p.payment_method,
+      fecha: p.purchase_date,
+    })),
+  }), [kpis, purchases])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
+
+      {/* Botón IA */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <ModuleAiButton module="purchases" getModuleData={getModuleData} />
+      </div>
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
