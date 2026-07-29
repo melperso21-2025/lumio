@@ -139,14 +139,7 @@ export default async function FinancePage({
         showExportButton
       />
 
-      <div
-        style={{
-          height: 'calc(100vh - 52px)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <div style={{ padding: '14px 16px' }}>
         <FinanceOverview
           accounts={accounts}
           transactions={transactions}

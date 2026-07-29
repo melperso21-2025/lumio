@@ -236,10 +236,10 @@ export default function FinanceOverview({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-      {/* ── KPIs fijos ── */}
-      <div style={{ flexShrink: 0, padding: '12px 16px 10px' }}>
+      {/* ── KPIs ── */}
+      <div>
         <div
           style={{
             display: 'grid',
@@ -327,14 +327,14 @@ export default function FinanceOverview({
           }
         />
         </div>
-      </div>{/* /KPIs fijos */}
+      </div>
 
-      {/* ── Contenido scrolleable ── */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 16px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* ── Contenido ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
       {/* Alerta días de caja */}
       {cash_days < 30 && cash_days >= 0 && (
-        <div style={{ flexShrink: 0 }}>
+        <div>
           <AiInsightBox
             variant={cash_days < 10 ? 'red' : 'gold'}
             title={
@@ -358,7 +358,7 @@ export default function FinanceOverview({
       />
 
       {/* Punto de equilibrio */}
-      <div style={{ flexShrink: 0 }}>
+      <div>
         <BreakEvenCard
           totalIncome={total_income}
           fixedExpenses={fixed_expenses}
@@ -376,7 +376,6 @@ export default function FinanceOverview({
           alignItems: 'center',
           padding: '12px 0',
           borderBottom: '1px solid var(--border)',
-          flexShrink: 0,
         }}
       >
         <span
@@ -430,8 +429,6 @@ export default function FinanceOverview({
           display: 'grid',
           gridTemplateColumns: '1fr 1.5fr',
           gap: 14,
-          flex: 1,
-          minHeight: 0,
         }}
       >
         {/* Columna izquierda — Cuentas bancarias */}
@@ -443,7 +440,6 @@ export default function FinanceOverview({
             padding: '14px 16px',
             display: 'flex',
             flexDirection: 'column',
-            minHeight: 0,
           }}
         >
           <div
@@ -476,9 +472,8 @@ export default function FinanceOverview({
           ) : (
             <div
               style={{
-                flex: 1,
-                minHeight: 0,
-                overflow: 'auto',
+                maxHeight: 400,
+                overflowY: 'auto',
               }}
             >
               {filteredAccounts.map((a) => {
@@ -558,7 +553,6 @@ export default function FinanceOverview({
             padding: '14px 16px',
             display: 'flex',
             flexDirection: 'column',
-            minHeight: 0,
           }}
         >
           <div
@@ -594,14 +588,7 @@ export default function FinanceOverview({
               tip="Empieza registrando el último gasto fijo que pagaste (arriendo, nómina, servicios). Clasifícalo como 'fijo' para que Lumio calcule tu punto de equilibrio."
             />
           ) : (
-            <div
-              style={{
-                flex: 1,
-                minHeight: 0,
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
+            <div>
               <TransactionsTable
                 transactions={transactions}
                 accountsMap={accountsMap}
@@ -618,7 +605,7 @@ export default function FinanceOverview({
 
       {children}
 
-      </div>{/* /scrolleable */}
+      </div>{/* /contenido */}
     </div>
   )
 }
