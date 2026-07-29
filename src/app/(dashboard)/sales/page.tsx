@@ -147,7 +147,8 @@ export default async function SalesPage({
   ) as string[]
 
   const channelIdsInPeriod = new Set(rows.map((r) => r.channel_id).filter(Boolean))
-  const channels = (channelsList ?? []).filter((c) => channelIdsInPeriod.has(c.id))
+  // Todos los canales activos — para el formulario de nueva venta y el filtro del historial
+  const channels = channelsList ?? []
 
   const totalCount = filteredCount ?? 0
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)

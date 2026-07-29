@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Topbar from '@/components/layout/Topbar'
 import FinanceOverview from '@/components/finance/FinanceOverview'
-import ReceivablesTable from '@/components/finance/ReceivablesTable'
 import {
   getDefaultDateRange,
   getPreviousPeriodRolling,
@@ -33,8 +32,6 @@ export default async function FinancePage({
     .single()
 
   const companyId = userData?.company_id
-  const userRole = userData?.role ?? 'operator'
-  const canEditReceivables = ['admin', 'manager', 'pulse_admin'].includes(userRole)
   const defaults = getDefaultDateRange()
   const from = params.from ?? defaults.from
   const to = params.to ?? defaults.to
@@ -86,6 +83,7 @@ export default async function FinancePage({
     { data: txList },
     { data: prevTxList },
     { data: receivablesList },
+    { data: payablesList },
   ] = await Promise.all([
     supabase
       .from('bank_accounts')
@@ -114,21 +112,33 @@ export default async function FinancePage({
       .limit(200),
     supabase
       .from('accounts_receivable')
-      .select('id, amount, due_date, issue_date, invoice_ref, status, notes, customer_id, customers(full_name)')
+      .select('id, amount, status')
       .eq('company_id', companyId)
       .is('deleted_at', null)
-      .neq('status', 'paid')
-      .order('due_date', { ascending: true })
-      .limit(500),
+      .neq('status', 'paid'),
+    supabase
+      .from('accounts_payable')
+      .select('id, balance, status, due_date')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .neq('status', 'paid'),
   ])
 
   const accounts = accountsList ?? []
   const transactions = txList ?? []
   const prevTransactions = prevTxList ?? []
 
+  const today = new Date().toISOString().slice(0, 10)
+
   const receivables = receivablesList ?? []
-  const totalPending  = receivables.filter(r => r.status !== 'overdue').reduce((s, r) => s + (r.amount ?? 0), 0)
-  const totalOverdue  = receivables.filter(r => r.status === 'overdue').reduce((s, r) => s + (r.amount ?? 0), 0)
+  const cxcPending  = receivables.filter(r => r.status !== 'overdue').reduce((s, r) => s + (r.amount ?? 0), 0)
+  const cxcOverdue  = receivables.filter(r => r.status === 'overdue').reduce((s, r) => s + (r.amount ?? 0), 0)
+  const cxcCount    = receivables.length
+
+  const payables   = payablesList ?? []
+  const cxpPending = payables.filter(r => (r.due_date ?? '') >= today).reduce((s, r) => s + ((r.balance as number) ?? 0), 0)
+  const cxpOverdue = payables.filter(r => (r.due_date ?? '') < today).reduce((s, r) => s + ((r.balance as number) ?? 0), 0)
+  const cxpCount   = payables.length
 
   return (
     <>
@@ -149,31 +159,78 @@ export default async function FinancePage({
           prevFrom={prevFrom}
           prevTo={prevTo}
         >
-          {/* ── Cuentas por cobrar ─────────────────────────────────── */}
-          <div
-            style={{
-              background: 'var(--card)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              padding: '14px 16px',
-              flexShrink: 0,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--red)', display: 'inline-block' }} />
-                <span className="font-syne font-bold" style={{ fontSize: 13, color: 'var(--text)' }}>
-                  Cuentas por cobrar
-                </span>
+          {/* ── Resumen CxC y CxP ─────────────────────────────────── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            {/* CxC */}
+            <a href="/receivables" style={{ textDecoration: 'none' }}>
+              <div
+                style={{
+                  background: 'var(--card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 12,
+                  padding: '16px 18px',
+                  cursor: 'pointer',
+                  transition: 'border-color 0.15s',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', flexShrink: 0 }} />
+                  <span className="font-syne font-bold" style={{ fontSize: 14, color: 'var(--text)' }}>
+                    Cuentas por cobrar (CxC)
+                  </span>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)' }}>{cxcCount} pendiente{cxcCount !== 1 ? 's' : ''} →</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Por cobrar</div>
+                    <div className="font-syne font-bold" style={{ fontSize: 22, color: 'var(--text)' }}>
+                      ${Math.round(cxcPending).toLocaleString('es-EC')}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Vencido</div>
+                    <div className="font-syne font-bold" style={{ fontSize: 22, color: cxcOverdue > 0 ? 'var(--red)' : 'var(--muted)' }}>
+                      ${Math.round(cxcOverdue).toLocaleString('es-EC')}
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-            <ReceivablesTable
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              receivables={receivables as any}
-              totalPending={totalPending}
-              totalOverdue={totalOverdue}
-              canEdit={canEditReceivables}
-            />
+            </a>
+            {/* CxP */}
+            <a href="/payables" style={{ textDecoration: 'none' }}>
+              <div
+                style={{
+                  background: 'var(--card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 12,
+                  padding: '16px 18px',
+                  cursor: 'pointer',
+                  transition: 'border-color 0.15s',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--red)', display: 'inline-block', flexShrink: 0 }} />
+                  <span className="font-syne font-bold" style={{ fontSize: 14, color: 'var(--text)' }}>
+                    Cuentas por pagar (CxP)
+                  </span>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)' }}>{cxpCount} pendiente{cxpCount !== 1 ? 's' : ''} →</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Por pagar</div>
+                    <div className="font-syne font-bold" style={{ fontSize: 22, color: 'var(--text)' }}>
+                      ${Math.round(cxpPending).toLocaleString('es-EC')}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Vencido</div>
+                    <div className="font-syne font-bold" style={{ fontSize: 22, color: cxpOverdue > 0 ? 'var(--red)' : 'var(--muted)' }}>
+                      ${Math.round(cxpOverdue).toLocaleString('es-EC')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </a>
           </div>
         </FinanceOverview>
       </div>

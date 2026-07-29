@@ -30,13 +30,12 @@ export interface QuickSaleFormProps {
   userRole:  string
 }
 
-// ── Constants ──────────────────────────────────────────────
-
-const STATUS_OPTIONS = [
-  { value: 'closed',  label: 'Cerrada'  },
-  { value: 'review',  label: 'Revisión' },
-  { value: 'contact', label: 'Contacto' },
-] as const
+// ── Fallback statuses (cuando la empresa no tiene configurados) ──
+const DEFAULT_STATUS_OPTIONS = [
+  { value: 'closed',  label: 'Cerrada',   color: '#10B981' },
+  { value: 'review',  label: 'Revisión',  color: '#F59E0B' },
+  { value: 'contact', label: 'Contacto',  color: '#3B82F6' },
+]
 
 // ── Styles ─────────────────────────────────────────────────
 
@@ -121,11 +120,29 @@ export default function QuickSaleForm({
   const [showDropdown,    setShowDropdown]    = useState(false)
   const [lines,           setLines]           = useState<SaleLine[]>([])
 
-  // ── Load products when modal opens ────────────────────────
+  // ── Dynamic sale statuses ─────────────────────────────────
+  const [statusOptions, setStatusOptions] = useState(DEFAULT_STATUS_OPTIONS)
+
+  // ── Load products + statuses when modal opens ─────────────
   useEffect(() => {
     if (!open) return
     setProductsLoading(true)
     const supabase = createClient()
+
+    supabase
+      .from('sale_statuses')
+      .select('name, color')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .eq('is_active', true)
+      .order('sort_order')
+      .order('name')
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setStatusOptions(data.map(s => ({ value: s.name, label: s.name, color: s.color })))
+          setStatus(data[0].name)
+        }
+      })
     supabase
       .from('products')
       .select('id, name, sku, current_stock, unit_cost, sale_price')
@@ -584,7 +601,7 @@ export default function QuickSaleForm({
                       onFocus={onFocus}
                       onBlur={onBlur}
                     >
-                      {STATUS_OPTIONS.map(o => (
+                      {statusOptions.map(o => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}
                     </select>
