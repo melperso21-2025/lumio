@@ -209,13 +209,8 @@ export default function SalesOverview({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1, minHeight: 0 }}>
 
-      {/* Botón IA */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
-        <ModuleAiButton module="sales" getModuleData={getModuleData} />
-      </div>
-
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, flexShrink: 0 }}>
+      {/* KPIs + botón IA */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: 8, flexShrink: 0 }}>
         <KpiCard label="Ventas" prefix="$" value={Math.round(total_sales)} isGold
           delta={calcDelta(total_sales, prev_total_sales, hasPrevData)}
           compare={prev_total_sales > 0 ? `Ant: $${Math.round(prev_total_sales)}` : undefined}
@@ -232,6 +227,9 @@ export default function SalesOverview({
           delta={calcDelta(total_discounts, prev_total_discounts, hasPrevData)}
           compare={prev_total_discounts > 0 ? `Ant: $${Math.round(prev_total_discounts)}` : undefined}
         />
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <ModuleAiButton module="sales" getModuleData={getModuleData} />
+        </div>
       </div>
 
       {/* Gráfico de tendencia (usa kpiSales — todos los datos del período) */}
