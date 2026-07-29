@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ModuleAiButton from '@/components/ai/ModuleAiButton'
+import EmptyState from '@/components/ui/EmptyState'
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -248,9 +249,14 @@ export default function PurchasesOverview({
       {/* Table */}
       <div style={{ flex: 1, overflowY: 'auto', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10 }}>
         {purchases.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
-            No hay compras en este período
-          </div>
+          <EmptyState
+            icon="🛒"
+            title="Aún no hay compras registradas"
+            description="Aquí verás todo lo que le compras a tus proveedores — materias primas, productos para reventa, insumos. Al registrar tus compras, Lumio calcula automáticamente tu costo real y genera las cuentas por pagar."
+            tip="Empieza registrando la última factura que recibiste de un proveedor. Necesitas tener proveedores creados primero en el módulo de Proveedores."
+            action={{ label: '+ Registrar primera compra', onClick: () => setOpen(true) }}
+            secondaryAction={{ label: 'Ir a Proveedores →', href: '/suppliers' }}
+          />
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>

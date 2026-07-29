@@ -6,6 +6,7 @@ import ExportButton from '@/components/ui/ExportButton'
 import NewCampaignForm from '@/components/ad-campaigns/NewCampaignForm'
 import CampaignsTable from '@/components/ad-campaigns/CampaignsTable'
 import RoasTrendChart from '@/components/charts/RoasTrendChart'
+import EmptyState from '@/components/ui/EmptyState'
 import PlatformBreakdown from '@/components/ad-campaigns/PlatformBreakdown'
 
 type CampaignRow = {
@@ -406,16 +407,13 @@ export default function AdCampaignsOverview({
         </div>
 
         {campaigns.length === 0 ? (
-          <p
-            style={{
-              textAlign: 'center',
-              color: 'var(--muted)',
-              fontSize: 14,
-              padding: 32,
-            }}
-          >
-            Aún no hay campañas registradas
-          </p>
+          <EmptyState
+            icon="📣"
+            title="Aún no hay pautas publicitarias"
+            description="Aquí registras lo que inviertes en publicidad — Meta, Google, TikTok, lo que uses. Lumio calcula tu ROAS (cuánto ganas por cada dólar invertido) y te dice qué campañas vale la pena seguir y cuáles pausar."
+            tip="ROAS = dinero generado ÷ dinero invertido. Si inviertes $100 y generas $400 en ventas, tu ROAS es 4x. Registra tu próxima campaña para empezar a medirlo."
+            action={{ label: '+ Registrar primera pauta', href: '/ad-campaigns' }}
+          />
         ) : (
           <div
             style={{

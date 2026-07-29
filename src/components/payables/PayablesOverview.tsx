@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import ModuleAiButton from '@/components/ai/ModuleAiButton'
+import EmptyState from '@/components/ui/EmptyState'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -189,8 +190,18 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
 
       {/* Tabla */}
       <div style={{ flex: 1, overflowY: 'auto', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10 }}>
-        {visible.length === 0
-          ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Sin registros</div>
+        {records.length === 0
+          ? (
+            <EmptyState
+              icon="📤"
+              title="No hay facturas por pagar"
+              description="Las cuentas por pagar (CxP) se crean automáticamente cuando registras una compra a crédito. Aquí verás cuánto le debes a cada proveedor y cuándo vence el plazo de pago."
+              tip="Registra una compra en el módulo de Compras y elige 'Crédito' como método de pago. La CxP se generará sola."
+              action={{ label: 'Ir a Compras →', href: '/purchases' }}
+            />
+          )
+          : visible.length === 0
+          ? <EmptyState isFilterEmpty onClearFilter={() => setFilter('all')} />
           : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>

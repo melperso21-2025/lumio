@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import KpiCard from '@/components/ui/KpiCard'
 import AiInsightBox from '@/components/ui/AiInsightBox'
+import EmptyState from '@/components/ui/EmptyState'
 import NewBankAccountForm from '@/components/finance/NewBankAccountForm'
 import NewTransactionForm from '@/components/finance/NewTransactionForm'
 import TransactionsTable from '@/components/finance/TransactionsTable'
@@ -454,22 +455,14 @@ export default function FinanceOverview({
           </div>
 
           {accounts.length === 0 ? (
-            <AiInsightBox
-              variant="blue"
-              title="Sin cuentas registradas"
-              text="Agrega tu primera cuenta bancaria o caja para comenzar a registrar movimientos."
+            <EmptyState
+              icon="🏦"
+              title="Agrega tu primera cuenta o caja"
+              description="Conecta tu cuenta bancaria o caja de efectivo para registrar todos los movimientos de dinero del negocio. Lumio calcula cuántos días de operación puedes cubrir con lo que tienes en caja."
+              tip="Agrega todas las cuentas donde entra y sale dinero: cuenta corriente, cuenta de ahorros, caja chica. Así tendrás la foto completa de tu liquidez."
             />
           ) : filteredAccounts.length === 0 ? (
-            <p
-              style={{
-                textAlign: 'center',
-                color: 'var(--muted)',
-                fontSize: 14,
-                padding: 32,
-              }}
-            >
-              No hay cuentas que coincidan con los filtros.
-            </p>
+            <EmptyState isFilterEmpty />
           ) : (
             <div
               style={{
@@ -584,10 +577,11 @@ export default function FinanceOverview({
           </div>
 
           {transactions.length === 0 ? (
-            <AiInsightBox
-              variant="blue"
-              title="Sin movimientos"
-              text="Registra tu primer ingreso o egreso usando el botón '+ Movimiento'."
+            <EmptyState
+              icon="💳"
+              title="Sin movimientos en este período"
+              description="Los movimientos son los ingresos y egresos de tu negocio — pagos a proveedores, servicios, sueldos, cobros. Registrarlos te permite saber exactamente a dónde va el dinero."
+              tip="Empieza registrando el último gasto fijo que pagaste (arriendo, nómina, servicios). Clasifícalo como 'fijo' para que Lumio calcule tu punto de equilibrio."
             />
           ) : (
             <div

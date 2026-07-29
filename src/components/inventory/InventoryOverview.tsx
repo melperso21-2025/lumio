@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import KpiCard from '@/components/ui/KpiCard'
 import ModuleAiButton from '@/components/ai/ModuleAiButton'
+import EmptyState from '@/components/ui/EmptyState'
 import ExportButton from '@/components/ui/ExportButton'
 import NewProductForm from '@/components/inventory/NewProductForm'
 import InventoryTable, { type ProductRow } from '@/components/inventory/InventoryTable'
@@ -272,10 +273,12 @@ export default function InventoryOverview({
         </div>
 
         {products.length === 0 ? (
-          <AiInsightBox
-            variant="blue"
-            title="Sin productos registrados"
-            text="Agrega tu primer producto usando el botón '+ Nuevo producto'."
+          <EmptyState
+            icon="📦"
+            title="Aún no tienes productos registrados"
+            description="El inventario es el corazón del negocio — aquí controlas qué tienes, cuánto cuesta y cuándo se está agotando. Lumio te avisa cuando el stock baja del mínimo que tú defines."
+            tip="Agrega tus productos con el costo y el precio de venta. Con esos datos, Lumio puede calcular tu margen real y detectar qué productos te generan más ganancia."
+            action={{ label: '+ Agregar primer producto', href: '/settings/products' }}
           />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>

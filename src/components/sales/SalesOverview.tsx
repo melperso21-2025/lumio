@@ -9,6 +9,7 @@ import SalesHistoryTable from '@/components/sales/SalesHistoryTable'
 import EditSaleModal, { type SaleWithItems } from '@/components/sales/EditSaleModal'
 import SalesTrendChart from '@/components/charts/SalesTrendChart'
 import ModuleAiButton from '@/components/ai/ModuleAiButton'
+import EmptyState from '@/components/ui/EmptyState'
 
 type SaleRow = {
   id: string
@@ -316,12 +317,24 @@ export default function SalesOverview({
 
         {/* Tabla */}
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          <SalesHistoryTable
-            sales={sales}
-            userRole={userRole}
-            onEdit={handleEdit}
-            onCancel={handleCancel}
-          />
+          {kpiSales.length === 0 ? (
+            <EmptyState
+              icon="💰"
+              title="Aún no hay ventas en este período"
+              description="Registra tus ventas para que Lumio calcule tu ticket promedio, margen de ganancia y tendencias semana a semana. Entre más datos tengas, más precisos serán los análisis."
+              tip="Puedes registrar ventas rápidamente desde el formulario de la derecha. Si tienes ventas anteriores, cambia el período de fechas para verlas."
+              action={{ label: '+ Registrar primera venta', href: '/sales' }}
+              isFilterEmpty={!!(hasActiveFilters && sales.length === 0)}
+              onClearFilter={() => { setFilter('filterWeek', ''); setFilter('filterChannelId', ''); setFilter('filterStatus', '') }}
+            />
+          ) : (
+            <SalesHistoryTable
+              sales={sales}
+              userRole={userRole}
+              onEdit={handleEdit}
+              onCancel={handleCancel}
+            />
+          )}
         </div>
 
         {/* Paginación */}

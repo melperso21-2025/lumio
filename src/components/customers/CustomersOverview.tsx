@@ -7,6 +7,7 @@ import ExportButton from '@/components/ui/ExportButton'
 import NewCustomerForm from '@/components/customers/NewCustomerForm'
 import CustomersTable, { type CustomerRow, type CatalogItem } from '@/components/customers/CustomersTable'
 import AiInsightBox from '@/components/ui/AiInsightBox'
+import EmptyState from '@/components/ui/EmptyState'
 import RFMSegmentation, { type RFMCustomer } from '@/components/customers/RFMSegmentation'
 
 function calcDelta(
@@ -203,10 +204,11 @@ export default function CustomersOverview({
         </div>
 
         {tableTotal === 0 && !tableQ && !tableCtype && !tableClabel && !tableCiscompany ? (
-          <AiInsightBox
-            variant="blue"
-            title="Sin clientes registrados"
-            text="Aún no hay clientes en el directorio. Usa el botón '+ Nuevo cliente' para agregar el primero."
+          <EmptyState
+            icon="👥"
+            title="Aún no tienes clientes registrados"
+            description="Tu directorio de clientes te permite saber quién te compra más, con qué frecuencia y cuánto ha gastado en total (LTV). Con esa información puedes enfocarte en los clientes que más aportan al negocio."
+            tip="No tienes que cargar todos de una vez. Empieza añadiendo a tus 5 mejores clientes. Lumio los clasifica automáticamente en VIP, frecuentes y en riesgo de perderse."
           />
         ) : (
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
