@@ -172,13 +172,9 @@ export default function InventoryOverview({
   }), [physicalProducts, serviceCount, low_stock_count, frozen_capital, movementsIn, movementsOut, restockProducts])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Botón IA */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <ModuleAiButton module="inventory" getModuleData={getModuleData} />
-      </div>
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, flexShrink: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* KPIs + botón IA en la misma fila */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: 8, alignItems: 'stretch', flexShrink: 0 }}>
         <KpiCard label="Productos activos" value={physicalProducts.length} />
         <KpiCard
           label="Entradas (período)"
@@ -193,11 +189,14 @@ export default function InventoryOverview({
           compare={prevMovementsOut > 0 ? `Ant: ${prevMovementsOut}` : undefined}
         />
         <KpiCard label="Capital en stock" prefix="$" value={Math.round(frozen_capital)} isGold />
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <ModuleAiButton module="inventory" getModuleData={getModuleData} />
+        </div>
       </div>
 
       {/* Alertas colapsables */}
       {(low_stock_count > 0 || restockProducts.length > 0) && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
           {/* Low-stock alert (colapsable) */}
           {low_stock_count > 0 && (
             <CollapsibleAlert
@@ -254,10 +253,10 @@ export default function InventoryOverview({
       )}
 
       {/* Catalog card */}
-      <div style={{ borderRadius: 12, background: 'var(--card)', border: '1px solid var(--border)', padding: '14px 16px', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexShrink: 0 }}>
+      <div style={{ borderRadius: 12, background: 'var(--card)', border: '1px solid var(--border)', padding: '12px 16px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexShrink: 0 }}>
           <div>
-            <h2 className="font-syne font-bold" style={{ fontSize: 16, color: 'var(--text)', margin: 0 }}>
+            <h2 className="font-syne font-bold" style={{ fontSize: 14, color: 'var(--text)', margin: 0 }}>
               Catálogo de productos
             </h2>
             {serviceCount > 0 && (
