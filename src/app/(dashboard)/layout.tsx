@@ -18,6 +18,11 @@ export default async function DashboardLayout({
   }
 
   const supabase = await createClient()
+  const { data: { user: authUser } } = await supabase.auth.getUser()
+  if (authUser) {
+    supabase.from('users').update({ last_seen_at: new Date().toISOString() }).eq('id', authUser.id).then(() => {})
+  }
+
   const { data: companyData } = await supabase
     .from('companies')
     .select('name')
