@@ -160,14 +160,7 @@ export default async function InventoryPage({
         showExportButton
       />
 
-      <div
-        style={{
-          height: 'calc(100vh - 52px)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <div style={{ padding: '14px 16px' }}>
         <InventoryOverview
           products={products}
           categories={categories}

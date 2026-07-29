@@ -61,7 +61,7 @@ export default async function PurchasesPage({
   return (
     <>
       <Topbar pageTitle="Compras" pageSubtitle={`${from} → ${to}`} showPeriodSelector />
-      <div style={{ padding: '14px 16px', height: 'calc(100vh - 52px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '14px 16px' }}>
         <PurchasesOverview
           companyId={companyId}
           userRole={userData?.role ?? 'viewer'}

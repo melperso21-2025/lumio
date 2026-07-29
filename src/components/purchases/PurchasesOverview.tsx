@@ -213,7 +213,7 @@ export default function PurchasesOverview({
   }), [kpis, purchases])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%', minHeight: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
       {/* KPIs + IA */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr) auto', gap: 12, alignItems: 'stretch' }}>
@@ -245,7 +245,7 @@ export default function PurchasesOverview({
       </div>
 
       {/* Table */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10 }}>
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, overflowX: 'auto' }}>
         {purchases.length === 0 ? (
           <EmptyState
             icon="🛒"

@@ -144,7 +144,7 @@ export default function ReceivablesOverview({ records, kpis, userRole }: Props) 
   }), [kpis, agingMap, agingOrder, records])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%', minHeight: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
       {/* KPIs + IA */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr) auto', gap: 12, alignItems: 'stretch' }}>
@@ -188,7 +188,7 @@ export default function ReceivablesOverview({ records, kpis, userRole }: Props) 
       </div>
 
       {/* Tabla */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10 }}>
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, overflowX: 'auto' }}>
         {records.length === 0
           ? (
             <EmptyState

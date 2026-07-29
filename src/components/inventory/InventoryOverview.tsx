@@ -250,9 +250,9 @@ export default function InventoryOverview({
         )}
       </div>
 
-      {/* ── Sección scrolleable: catálogo ── */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 16px 14px' }}>
-        <div style={{ borderRadius: 12, background: 'var(--card)', border: '1px solid var(--border)', padding: '12px 16px', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
+      {/* ── Catálogo ── */}
+      <div style={{ padding: '0 0 14px' }}>
+        <div style={{ borderRadius: 12, background: 'var(--card)', border: '1px solid var(--border)', padding: '12px 16px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexShrink: 0 }}>
             <div>
               <h2 className="font-syne font-bold" style={{ fontSize: 14, color: 'var(--text)', margin: 0 }}>

@@ -132,7 +132,7 @@ export default function CustomersOverview({
     tableCiscompany === 'true' ? true : tableCiscompany === 'false' ? false : null
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1, minHeight: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* KPIs — período */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, flexShrink: 0 }}>
         <KpiCard
@@ -170,8 +170,6 @@ export default function CustomersOverview({
           background: 'var(--card)',
           border: '1px solid var(--border)',
           padding: '14px 16px',
-          flex: 1,
-          minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -211,7 +209,7 @@ export default function CustomersOverview({
             tip="No tienes que cargar todos de una vez. Empieza añadiendo a tus 5 mejores clientes. Lumio los clasifica automáticamente en VIP, frecuentes y en riesgo de perderse."
           />
         ) : (
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ overflowX: 'auto' }}>
             <CustomersTable
               customers={tableCustomers}
               customerTypes={customerTypes}

@@ -237,8 +237,6 @@ export default function AdCampaignsOverview({
         display: 'flex',
         flexDirection: 'column',
         gap: 14,
-        flex: 1,
-        minHeight: 0,
       }}
     >
       {/* KPIs con deltas */}
@@ -375,8 +373,6 @@ export default function AdCampaignsOverview({
           background: 'var(--card)',
           border: '1px solid var(--border)',
           padding: '14px 16px',
-          flex: 1,
-          minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -415,14 +411,7 @@ export default function AdCampaignsOverview({
             action={{ label: '+ Registrar primera pauta', href: '/ad-campaigns' }}
           />
         ) : (
-          <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
+          <div style={{ overflowX: 'auto' }}>
             <CampaignsTable
               campaigns={campaigns}
               filterWeek={filterWeek}

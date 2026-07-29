@@ -175,15 +175,7 @@ export default async function CustomersPage({
         showExportButton
       />
 
-      <div
-        style={{
-          padding: '14px 16px',
-          height: 'calc(100vh - 52px)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <div style={{ padding: '14px 16px' }}>
         <CustomersOverview
           tableCustomers={tableCustomers}
           tableTotal={tableTotal ?? 0}

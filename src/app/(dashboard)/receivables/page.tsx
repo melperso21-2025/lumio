@@ -48,7 +48,7 @@ export default async function ReceivablesPage({
   return (
     <>
       <Topbar pageTitle="CxC — Cuentas por Cobrar" pageSubtitle={`${from} → ${to}`} showPeriodSelector />
-      <div style={{ padding: '14px 16px', height: 'calc(100vh - 52px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '14px 16px' }}>
         <ReceivablesOverview
           records={records as unknown as Parameters<typeof ReceivablesOverview>[0]['records']}
           userRole={userData?.role ?? 'viewer'}
