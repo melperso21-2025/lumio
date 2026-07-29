@@ -207,7 +207,7 @@ export default function SalesOverview({
   }), [from, to, total_sales, total_transactions, avg_lpp, total_discounts, hasPrevData, prev_total_sales, kpiSales])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1, minHeight: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
       {/* KPIs + botón IA */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: 8, flexShrink: 0 }}>
@@ -236,7 +236,7 @@ export default function SalesOverview({
       <SalesTrendChart sales={kpiSales} from={from} to={to} />
 
       {/* Historial + filtros + paginación */}
-      <div style={{ borderRadius: 12, background: 'var(--card)', border: '1px solid var(--border)', padding: '14px 16px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ borderRadius: 12, background: 'var(--card)', border: '1px solid var(--border)', padding: '14px 16px', display: 'flex', flexDirection: 'column' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexShrink: 0 }}>
@@ -314,7 +314,7 @@ export default function SalesOverview({
         </div>
 
         {/* Tabla */}
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div>
           {kpiSales.length === 0 ? (
             <EmptyState
               icon="💰"

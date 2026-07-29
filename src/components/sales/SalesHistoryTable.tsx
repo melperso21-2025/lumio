@@ -136,8 +136,8 @@ export default function SalesHistoryTable({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+    <div>
+      <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--card)', boxShadow: '0 1px 0 var(--border)' }}>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
