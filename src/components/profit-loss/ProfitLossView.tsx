@@ -572,9 +572,35 @@ export default function ProfitLossView({ cur, prev, monthlyData, campaigns }: Pr
       }}>
 
         {/* ════════════════════════════
-            COLUMNA IZQUIERDA — Cascada
+            COLUMNA IZQUIERDA — Gráfico neto + Cascada
         ════════════════════════════ */}
-        <div style={{ ...card, minWidth: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+
+          {/* Gráfico resultado neto */}
+          <div style={{ ...card, minWidth: 0 }}>
+            <div style={cardHeader}>
+              <div>
+                <div style={cardTitle}>Resultado neto — últimos 6 meses</div>
+                <div style={cardSub}>¿ganando o perdiendo mes a mes?</div>
+              </div>
+              <div style={{ display: 'flex', gap: 10, fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--green)', display: 'inline-block' }} />
+                  Ganancia
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--red)', display: 'inline-block' }} />
+                  Pérdida
+                </span>
+              </div>
+            </div>
+            <div style={{ padding: '14px 16px 10px', overflow: 'hidden' }}>
+              <canvas ref={netRef} style={{ display: 'block', maxWidth: '100%' }} />
+            </div>
+          </div>
+
+          {/* Cascada P&G */}
+          <div style={{ ...card, minWidth: 0, overflow: 'hidden' }}>
           <div style={cardHeader}>
             <div>
               <div style={cardTitle}>¿Qué pasó con tu dinero?</div>
@@ -674,37 +700,15 @@ export default function ProfitLossView({ cur, prev, monthlyData, campaigns }: Pr
             amountColor={cur.ebitda >= 0 ? 'var(--green)' : 'var(--red)'}
             isFinal
           />
-        </div>
+        </div>{/* /cascada */}
+        </div>{/* /col izq */}
 
         {/* ════════════════════════════
-            COLUMNA DERECHA
+            COLUMNA DERECHA — ROAS + Publicidad
         ════════════════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
 
-          {/* Gráfico 1 — Resultado neto mensual */}
-          <div style={{ ...card, minWidth: 0 }}>
-            <div style={cardHeader}>
-              <div>
-                <div style={cardTitle}>Resultado neto — últimos 6 meses</div>
-                <div style={cardSub}>¿ganando o perdiendo mes a mes?</div>
-              </div>
-              <div style={{ display: 'flex', gap: 10, fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--green)', display: 'inline-block' }} />
-                  Ganancia
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--red)', display: 'inline-block' }} />
-                  Pérdida
-                </span>
-              </div>
-            </div>
-            <div style={{ padding: '14px 16px 10px', overflow: 'hidden' }}>
-              <canvas ref={netRef} style={{ display: 'block', maxWidth: '100%' }} />
-            </div>
-          </div>
-
-          {/* Gráfico 2 — ROAS histórico */}
+          {/* Gráfico ROAS histórico */}
           <div style={{ ...card, minWidth: 0 }}>
             <div style={cardHeader}>
               <div>
@@ -901,9 +905,6 @@ export default function ProfitLossView({ cur, prev, monthlyData, campaigns }: Pr
 
       </div>
       {/* /two-col */}
-
-      {/* Espacio inferior */}
-      <div style={{ flexShrink: 0, height: 16 }} />
 
     </div>
   )
