@@ -141,12 +141,10 @@ export default async function FinancePage({
 
       <div
         style={{
-          padding: '14px 16px',
           height: 'calc(100vh - 52px)',
-          overflow: 'auto',
+          overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          gap: 16,
         }}
       >
         <FinanceOverview
@@ -157,36 +155,34 @@ export default async function FinancePage({
           to={to}
           prevFrom={prevFrom}
           prevTo={prevTo}
-        />
-
-        {/* ── Cuentas por cobrar ─────────────────────────────────── */}
-        <div
-          style={{
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: 10,
-            padding: '14px 16px',
-            flexShrink: 0,
-          }}
         >
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--red)', display: 'inline-block' }} />
-              <span className="font-syne font-bold" style={{ fontSize: 13, color: 'var(--text)' }}>
-                Cuentas por cobrar
-              </span>
+          {/* ── Cuentas por cobrar ─────────────────────────────────── */}
+          <div
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              padding: '14px 16px',
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--red)', display: 'inline-block' }} />
+                <span className="font-syne font-bold" style={{ fontSize: 13, color: 'var(--text)' }}>
+                  Cuentas por cobrar
+                </span>
+              </div>
             </div>
+            <ReceivablesTable
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              receivables={receivables as any}
+              totalPending={totalPending}
+              totalOverdue={totalOverdue}
+              canEdit={canEditReceivables}
+            />
           </div>
-
-          <ReceivablesTable
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            receivables={receivables as any}
-            totalPending={totalPending}
-            totalOverdue={totalOverdue}
-            canEdit={canEditReceivables}
-          />
-        </div>
+        </FinanceOverview>
       </div>
     </>
   )

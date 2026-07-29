@@ -69,7 +69,7 @@ export default function SuppliersOverview({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%', minHeight: 0 }}>
       {/* KPIs — período */}
       {(from && to) && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
@@ -136,7 +136,7 @@ export default function SuppliersOverview({
       )}
 
       {/* Table */}
-      <div style={{ flex: 1, overflow: 'hidden' }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <SuppliersTable
           suppliers={suppliers}
           onEdit={(s) => setEditing(s)}

@@ -143,15 +143,10 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
   }), [kpis, agingMap, agingOrder, records])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%', minHeight: 0 }}>
 
-      {/* Botón IA */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <ModuleAiButton module="payables" getModuleData={getModuleData} />
-      </div>
-
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+      {/* KPIs + IA */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr) auto', gap: 12, alignItems: 'stretch' }}>
         {[
           { label: 'Pendiente de pago', value: `$${fmt(kpis.totalPendiente)}`, color: '#F97316'      },
           { label: 'Vencido',           value: `$${fmt(kpis.totalVencido)}`,   color: 'var(--red)'   },
@@ -163,6 +158,9 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
             <div style={{ fontSize: 20, fontWeight: 700, color: k.color, fontFamily: 'var(--font-syne)' }}>{k.value}</div>
           </div>
         ))}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <ModuleAiButton module="payables" getModuleData={getModuleData} />
+        </div>
       </div>
 
       {/* Aging */}
@@ -189,7 +187,7 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
       </div>
 
       {/* Tabla */}
-      <div style={{ flex: 1, overflowY: 'auto', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10 }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10 }}>
         {records.length === 0
           ? (
             <EmptyState

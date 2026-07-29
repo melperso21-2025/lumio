@@ -172,115 +172,113 @@ export default function InventoryOverview({
   }), [physicalProducts, serviceCount, low_stock_count, frozen_capital, movementsIn, movementsOut, restockProducts])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {/* KPIs + botón IA en la misma fila */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: 8, alignItems: 'stretch', flexShrink: 0 }}>
-        <KpiCard label="Productos activos" value={physicalProducts.length} />
-        <KpiCard
-          label="Entradas (período)"
-          value={movementsIn}
-          delta={calcDelta(movementsIn, prevMovementsIn, hasPrevMovements)}
-          compare={prevMovementsIn > 0 ? `Ant: ${prevMovementsIn}` : undefined}
-        />
-        <KpiCard
-          label="Salidas (período)"
-          value={movementsOut}
-          delta={calcDelta(movementsOut, prevMovementsOut, hasPrevMovements)}
-          compare={prevMovementsOut > 0 ? `Ant: ${prevMovementsOut}` : undefined}
-        />
-        <KpiCard label="Capital en stock" prefix="$" value={Math.round(frozen_capital)} isGold />
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <ModuleAiButton module="inventory" getModuleData={getModuleData} />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+
+      {/* ── Sección fija: KPIs + alertas ── */}
+      <div style={{ flexShrink: 0, padding: '12px 16px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+        {/* KPIs + botón IA */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: 8, alignItems: 'stretch' }}>
+          <KpiCard label="Productos activos" value={physicalProducts.length} />
+          <KpiCard
+            label="Entradas (período)"
+            value={movementsIn}
+            delta={calcDelta(movementsIn, prevMovementsIn, hasPrevMovements)}
+            compare={prevMovementsIn > 0 ? `Ant: ${prevMovementsIn}` : undefined}
+          />
+          <KpiCard
+            label="Salidas (período)"
+            value={movementsOut}
+            delta={calcDelta(movementsOut, prevMovementsOut, hasPrevMovements)}
+            compare={prevMovementsOut > 0 ? `Ant: ${prevMovementsOut}` : undefined}
+          />
+          <KpiCard label="Capital en stock" prefix="$" value={Math.round(frozen_capital)} isGold />
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <ModuleAiButton module="inventory" getModuleData={getModuleData} />
+          </div>
         </div>
-      </div>
 
-      {/* Alertas colapsables */}
-      {(low_stock_count > 0 || restockProducts.length > 0) && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-          {/* Low-stock alert (colapsable) */}
-          {low_stock_count > 0 && (
-            <CollapsibleAlert
-              open={lowStockOpen}
-              onToggle={() => setLowStockOpen((v) => !v)}
-              variant="orange"
-              icon="⚠"
-              title={`${low_stock_count} producto${low_stock_count > 1 ? 's' : ''} con stock bajo`}
-            >
-              <p style={{ fontSize: 12, color: 'var(--text2)', margin: 0, lineHeight: 1.5 }}>
-                Tienes productos por debajo del mínimo. Los marcados en rojo requieren reposición pronto.
-              </p>
-            </CollapsibleAlert>
-          )}
-
-          {/* Restock urgency panel (colapsable) */}
-          {restockProducts.length > 0 && (
-            <CollapsibleAlert
-              open={restockOpen}
-              onToggle={() => setRestockOpen((v) => !v)}
-              variant="red"
-              icon="🚨"
-              title={`${restockProducts.length} producto${restockProducts.length !== 1 ? 's' : ''} necesita${restockProducts.length !== 1 ? 'n' : ''} reposición urgente`}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {restockProducts.slice(0, 8).map((p) => {
-                  const stock    = p.current_stock ?? 0
-                  const minStock = p.min_stock_alert ?? 0
-                  const unitLbl  = p.unit_label ?? 'uds.'
-                  return (
-                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--text2)', flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--text)', minWidth: 0, flex: '0 0 auto', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {p.name}
-                      </span>
-                      <span style={{ color: 'var(--red)' }}>
-                        Stock: {stock.toLocaleString('es-EC', { maximumFractionDigits: 2 })} {unitLbl}
-                      </span>
-                      <span style={{ color: 'var(--muted)' }}>·</span>
-                      <span>Mín: {minStock.toLocaleString('es-EC', { maximumFractionDigits: 2 })} {unitLbl}</span>
-                      <span style={{ color: 'var(--muted)' }}>·</span>
-                      <span>Reposición: {p.lead_time_days}d</span>
-                    </div>
-                  )
-                })}
-                {restockProducts.length > 8 && (
-                  <p style={{ fontSize: 10, color: 'var(--muted)', margin: '4px 0 0' }}>
-                    +{restockProducts.length - 8} más
-                  </p>
-                )}
-              </div>
-            </CollapsibleAlert>
-          )}
-        </div>
-      )}
-
-      {/* Catalog card */}
-      <div style={{ borderRadius: 12, background: 'var(--card)', border: '1px solid var(--border)', padding: '12px 16px', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexShrink: 0 }}>
-          <div>
-            <h2 className="font-syne font-bold" style={{ fontSize: 14, color: 'var(--text)', margin: 0 }}>
-              Catálogo de productos
-            </h2>
-            {serviceCount > 0 && (
-              <p style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 0' }}>
-                {serviceCount} servicio{serviceCount !== 1 ? 's' : ''} incluido{serviceCount !== 1 ? 's' : ''}
-              </p>
+        {/* Alertas colapsables */}
+        {(low_stock_count > 0 || restockProducts.length > 0) && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {low_stock_count > 0 && (
+              <CollapsibleAlert
+                open={lowStockOpen}
+                onToggle={() => setLowStockOpen((v) => !v)}
+                variant="orange"
+                icon="⚠"
+                title={`${low_stock_count} producto${low_stock_count > 1 ? 's' : ''} con stock bajo`}
+              >
+                <p style={{ fontSize: 12, color: 'var(--text2)', margin: 0, lineHeight: 1.5 }}>
+                  Tienes productos por debajo del mínimo. Los marcados en rojo requieren reposición pronto.
+                </p>
+              </CollapsibleAlert>
+            )}
+            {restockProducts.length > 0 && (
+              <CollapsibleAlert
+                open={restockOpen}
+                onToggle={() => setRestockOpen((v) => !v)}
+                variant="red"
+                icon="🚨"
+                title={`${restockProducts.length} producto${restockProducts.length !== 1 ? 's' : ''} necesita${restockProducts.length !== 1 ? 'n' : ''} reposición urgente`}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {restockProducts.slice(0, 8).map((p) => {
+                    const stock    = p.current_stock ?? 0
+                    const minStock = p.min_stock_alert ?? 0
+                    const unitLbl  = p.unit_label ?? 'uds.'
+                    return (
+                      <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--text2)', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text)', minWidth: 0, flex: '0 0 auto', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.name}
+                        </span>
+                        <span style={{ color: 'var(--red)' }}>Stock: {stock.toLocaleString('es-EC', { maximumFractionDigits: 2 })} {unitLbl}</span>
+                        <span style={{ color: 'var(--muted)' }}>·</span>
+                        <span>Mín: {minStock.toLocaleString('es-EC', { maximumFractionDigits: 2 })} {unitLbl}</span>
+                        <span style={{ color: 'var(--muted)' }}>·</span>
+                        <span>Reposición: {p.lead_time_days}d</span>
+                      </div>
+                    )
+                  })}
+                  {restockProducts.length > 8 && (
+                    <p style={{ fontSize: 10, color: 'var(--muted)', margin: '4px 0 0' }}>+{restockProducts.length - 8} más</p>
+                  )}
+                </div>
+              </CollapsibleAlert>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <ExportButton data={exportData} filename={`inventario_${from}_${to}`} sheetName="Productos" />
-            <NewProductForm categories={categories} suppliers={suppliers} />
-          </div>
-        </div>
+        )}
+      </div>
 
-        {products.length === 0 ? (
-          <EmptyState
-            icon="📦"
-            title="Aún no tienes productos registrados"
-            description="El inventario es el corazón del negocio — aquí controlas qué tienes, cuánto cuesta y cuándo se está agotando. Lumio te avisa cuando el stock baja del mínimo que tú defines."
-            tip="Agrega tus productos con el costo y el precio de venta. Con esos datos, Lumio puede calcular tu margen real y detectar qué productos te generan más ganancia."
-            action={{ label: '+ Agregar primer producto', href: '/settings/products' }}
-          />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {/* ── Sección scrolleable: catálogo ── */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 16px 14px' }}>
+        <div style={{ borderRadius: 12, background: 'var(--card)', border: '1px solid var(--border)', padding: '12px 16px', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexShrink: 0 }}>
+            <div>
+              <h2 className="font-syne font-bold" style={{ fontSize: 14, color: 'var(--text)', margin: 0 }}>
+                Catálogo de productos
+              </h2>
+              {serviceCount > 0 && (
+                <p style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 0' }}>
+                  {serviceCount} servicio{serviceCount !== 1 ? 's' : ''} incluido{serviceCount !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <ExportButton data={exportData} filename={`inventario_${from}_${to}`} sheetName="Productos" />
+              <NewProductForm categories={categories} suppliers={suppliers} />
+            </div>
+          </div>
+
+          {products.length === 0 ? (
+            <EmptyState
+              icon="📦"
+              title="Aún no tienes productos registrados"
+              description="El inventario es el corazón del negocio — aquí controlas qué tienes, cuánto cuesta y cuándo se está agotando. Lumio te avisa cuando el stock baja del mínimo que tú defines."
+              tip="Agrega tus productos con el costo y el precio de venta. Con esos datos, Lumio puede calcular tu margen real y detectar qué productos te generan más ganancia."
+              action={{ label: '+ Agregar primer producto', href: '/settings/products' }}
+            />
+          ) : (
             <InventoryTable
               products={products}
               categories={productCategories}
@@ -294,9 +292,10 @@ export default function InventoryOverview({
               filterPerishable={filterPerishable}
               onFilterChange={handleFilterChange}
             />
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
     </div>
   )
 }

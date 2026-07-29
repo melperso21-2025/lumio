@@ -56,6 +56,7 @@ interface FinanceOverviewProps {
   to: string
   prevFrom: string
   prevTo: string
+  children?: React.ReactNode
 }
 
 export default function FinanceOverview({
@@ -66,6 +67,7 @@ export default function FinanceOverview({
   to,
   prevFrom,
   prevTo,
+  children,
 }: FinanceOverviewProps) {
   const [filterBanco, setFilterBanco] = useState<string>('')
   const [filterCuenta, setFilterCuenta] = useState<string>('')
@@ -234,24 +236,17 @@ export default function FinanceOverview({
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 14,
-        flex: 1,
-        minHeight: 0,
-      }}
-    >
-      {/* KPIs con deltas */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(8, 1fr)',
-          gap: 8,
-          flexShrink: 0,
-        }}
-      >
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
+
+      {/* ── KPIs fijos ── */}
+      <div style={{ flexShrink: 0, padding: '12px 16px 10px' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(8, 1fr)',
+            gap: 8,
+          }}
+        >
         <KpiCard
           label="Saldo total"
           prefix="$"
@@ -331,7 +326,11 @@ export default function FinanceOverview({
               : 'Benchmark: <55%'
           }
         />
-      </div>
+        </div>
+      </div>{/* /KPIs fijos */}
+
+      {/* ── Contenido scrolleable ── */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 16px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
       {/* Alerta días de caja */}
       {cash_days < 30 && cash_days >= 0 && (
@@ -616,6 +615,10 @@ export default function FinanceOverview({
           )}
         </div>
       </div>
+
+      {children}
+
+      </div>{/* /scrolleable */}
     </div>
   )
 }

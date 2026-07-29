@@ -213,21 +213,19 @@ export default function PurchasesOverview({
   }), [kpis, purchases])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%', minHeight: 0 }}>
 
-      {/* Botón IA */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <ModuleAiButton module="purchases" getModuleData={getModuleData} />
-      </div>
-
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+      {/* KPIs + IA */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr) auto', gap: 12, alignItems: 'stretch' }}>
         {kpiCards.map(k => (
           <div key={k.label} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
             <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{k.label}</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: k.color, fontFamily: 'var(--font-syne)' }}>{k.value}</div>
           </div>
         ))}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <ModuleAiButton module="purchases" getModuleData={getModuleData} />
+        </div>
       </div>
 
       {/* Header */}
@@ -247,7 +245,7 @@ export default function PurchasesOverview({
       </div>
 
       {/* Table */}
-      <div style={{ flex: 1, overflowY: 'auto', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10 }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10 }}>
         {purchases.length === 0 ? (
           <EmptyState
             icon="🛒"
