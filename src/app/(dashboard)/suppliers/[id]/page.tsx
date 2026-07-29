@@ -36,16 +36,38 @@ export default async function SupplierDetailPage({
 
   if (!supplier) notFound()
 
-  // Products associated with this supplier
+  // Products + purchases + payables in parallel
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: products } = await (supabaseAdmin as any)
-    .from('products')
-    .select('id, name, sku, sale_price, unit_cost, current_stock, unit_label, product_type, is_active')
-    .eq('supplier_id', id)
-    .eq('company_id', companyId)
-    .is('deleted_at', null)
-    .order('name', { ascending: true })
-    .limit(100)
+  const [{ data: products }, { data: purchasesData }, { data: payablesData }] = await Promise.all([
+    (supabaseAdmin as any)
+      .from('products')
+      .select('id, name, sku, sale_price, unit_cost, current_stock, unit_label, product_type, is_active')
+      .eq('supplier_id', id)
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .order('name', { ascending: true })
+      .limit(100),
+    (supabaseAdmin as any)
+      .from('purchases')
+      .select('id, purchase_date, total, status, payment_method, notes')
+      .eq('supplier_id', id)
+      .eq('company_id', companyId)
+      .order('purchase_date', { ascending: false })
+      .limit(50),
+    (supabaseAdmin as any)
+      .from('accounts_payable')
+      .select('id, amount_due, amount_paid, due_date, status')
+      .eq('supplier_id', id)
+      .eq('company_id', companyId)
+      .in('status', ['pending', 'partial']),
+  ])
+
+  const purchases = purchasesData ?? []
+  const payables = payablesData ?? []
+
+  const totalPurchased = purchases.reduce((s: number, p: { total: number | null }) => s + (p.total ?? 0), 0)
+  const pendingPayable = payables.reduce((s: number, p: { amount_due: number | null; amount_paid: number | null }) => s + ((p.amount_due ?? 0) - (p.amount_paid ?? 0)), 0)
+  const lastPurchaseDate = purchases[0]?.purchase_date ?? null
 
   return (
     <>
@@ -57,6 +79,10 @@ export default async function SupplierDetailPage({
         <SupplierDetailView
           supplier={supplier}
           products={products ?? []}
+          purchases={purchases}
+          totalPurchased={totalPurchased}
+          pendingPayable={pendingPayable}
+          lastPurchaseDate={lastPurchaseDate}
           userRole={userData?.role ?? 'operator'}
         />
       </div>

@@ -25,9 +25,22 @@ interface Product {
   is_active: boolean | null
 }
 
+interface PurchaseRow {
+  id: string
+  purchase_date: string | null
+  total: number | null
+  status: string | null
+  payment_method: string | null
+  notes: string | null
+}
+
 interface SupplierDetailViewProps {
   supplier: FullSupplier
   products: Product[]
+  purchases?: PurchaseRow[]
+  totalPurchased?: number
+  pendingPayable?: number
+  lastPurchaseDate?: string | null
   userRole: string
 }
 
@@ -82,7 +95,23 @@ function Row({ label, value }: { label: string; value?: string | number | null }
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function SupplierDetailView({ supplier, products, userRole }: SupplierDetailViewProps) {
+function statusLabel(s: string | null) {
+  if (s === 'paid') return { text: 'Pagado', color: 'var(--green)' }
+  if (s === 'pending') return { text: 'Pendiente', color: 'var(--gold)' }
+  if (s === 'partial') return { text: 'Parcial', color: '#f97316' }
+  if (s === 'cancelled') return { text: 'Anulado', color: 'var(--red)' }
+  return { text: s ?? '—', color: 'var(--muted)' }
+}
+
+function paymentLabel(m: string | null) {
+  if (m === 'cash') return 'Efectivo'
+  if (m === 'transfer') return 'Transferencia'
+  if (m === 'card') return 'Tarjeta'
+  if (m === 'credit') return 'Crédito'
+  return m ?? '—'
+}
+
+export default function SupplierDetailView({ supplier, products, purchases = [], totalPurchased = 0, pendingPayable = 0, lastPurchaseDate, userRole }: SupplierDetailViewProps) {
   const [editing, setEditing] = useState(false)
 
   const canEdit = userRole === 'admin' || userRole === 'manager'
@@ -126,15 +155,16 @@ export default function SupplierDetailView({ supplier, products, userRole }: Sup
       </div>
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
         {[
           { label: 'Productos registrados', value: activeProducts.length },
-          { label: 'Valor total inventario', value: `$${totalInventoryValue.toLocaleString('es-EC', { minimumFractionDigits: 2 })}` },
+          { label: 'Valor inventario', value: `$${totalInventoryValue.toLocaleString('es-EC', { minimumFractionDigits: 2 })}` },
+          { label: 'Total comprado', value: `$${totalPurchased.toLocaleString('es-EC', { minimumFractionDigits: 2 })}` },
           { label: 'Días de entrega', value: supplier.default_lead_time_days ? `${supplier.default_lead_time_days} días` : '—' },
         ].map((kpi) => (
           <div key={kpi.label} style={{ ...card }}>
             <p style={{ ...sectionLabel, marginBottom: 4 }}>{kpi.label}</p>
-            <p className="font-syne font-bold" style={{ fontSize: 22, color: 'var(--text)', margin: 0 }}>{kpi.value}</p>
+            <p className="font-syne font-bold" style={{ fontSize: 20, color: 'var(--text)', margin: 0 }}>{kpi.value}</p>
           </div>
         ))}
       </div>
@@ -205,6 +235,69 @@ export default function SupplierDetailView({ supplier, products, userRole }: Sup
               ))}
             </tbody>
           </table>
+        )}
+      </div>
+
+      {/* Historial de compras */}
+      <div style={card}>
+        <p style={sectionLabel}>Historial de compras ({purchases.length})</p>
+
+        {/* Mini KPIs */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+          {[
+            { label: 'Total comprado', value: `$${totalPurchased.toLocaleString('es-EC', { minimumFractionDigits: 2 })}` },
+            { label: 'CxP pendiente', value: `$${pendingPayable.toLocaleString('es-EC', { minimumFractionDigits: 2 })}`, highlight: pendingPayable > 0 },
+            { label: 'Última compra', value: lastPurchaseDate ? new Date(lastPurchaseDate + 'T12:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }) : '—' },
+          ].map((kpi) => (
+            <div key={kpi.label} style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--surface)', border: `1px solid ${kpi.highlight ? 'rgba(245,200,66,0.3)' : 'var(--border)'}` }}>
+              <p style={{ ...sectionLabel, marginBottom: 4 }}>{kpi.label}</p>
+              <p className="font-syne font-bold" style={{ fontSize: 16, color: kpi.highlight ? 'var(--gold)' : 'var(--text)', margin: 0 }}>{kpi.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {purchases.length === 0 ? (
+          <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '20px 0', margin: 0 }}>
+            Sin compras registradas a este proveedor.
+          </p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  {['Fecha', 'Total', 'Estado', 'Forma de pago', 'Notas'].map((h) => (
+                    <th key={h} style={{ padding: '6px 8px', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700, color: 'var(--muted)', textAlign: 'left', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {purchases.map((p) => {
+                  const st = statusLabel(p.status)
+                  return (
+                    <tr key={p.id}>
+                      <td style={{ padding: '7px 8px', fontSize: 12, color: 'var(--text2)', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
+                        {p.purchase_date ? new Date(p.purchase_date + 'T12:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      </td>
+                      <td style={{ padding: '7px 8px', fontSize: 12, color: 'var(--text)', fontWeight: 600, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                        ${(p.total ?? 0).toLocaleString('es-EC', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td style={{ padding: '7px 8px', borderBottom: '1px solid var(--border)' }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em', background: `${st.color}18`, color: st.color }}>
+                          {st.text}
+                        </span>
+                      </td>
+                      <td style={{ padding: '7px 8px', fontSize: 12, color: 'var(--text2)', borderBottom: '1px solid var(--border)' }}>
+                        {paymentLabel(p.payment_method)}
+                      </td>
+                      <td style={{ padding: '7px 8px', fontSize: 11, color: 'var(--muted)', borderBottom: '1px solid var(--border)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.notes ?? '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

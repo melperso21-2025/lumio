@@ -9,6 +9,7 @@ import NewTransactionForm from '@/components/finance/NewTransactionForm'
 import TransactionsTable from '@/components/finance/TransactionsTable'
 import ExportButton from '@/components/ui/ExportButton'
 import BalanceTrendChart from '@/components/charts/BalanceTrendChart'
+import BreakEvenCard from '@/components/finance/BreakEvenCard'
 
 const accountTypeConfig: Record<string, { bg: string; color: string; label: string }> = {
   checking: { bg: 'rgba(37,99,235,0.1)', color: 'var(--blue)', label: 'Corriente' },
@@ -356,6 +357,16 @@ export default function FinanceOverview({
         from={from}
         to={to}
       />
+
+      {/* Punto de equilibrio */}
+      <div style={{ flexShrink: 0 }}>
+        <BreakEvenCard
+          totalIncome={total_income}
+          fixedExpenses={fixed_expenses}
+          variableExpenses={total_expenses - fixed_expenses}
+          periodDays={periodDays}
+        />
+      </div>
 
       {/* Filtros Banco y Cuenta (afectan ambas secciones) */}
       <div
