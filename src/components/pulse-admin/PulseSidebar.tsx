@@ -141,12 +141,6 @@ export default function PulseSidebar({ userName }: PulseSidebarProps) {
           active={pathname === '/pulse-admin/companies'}
         />
         <NavItem
-          href="/pulse-admin/new-company"
-          icon="➕"
-          label="Nueva empresa"
-          active={pathname === '/pulse-admin/new-company'}
-        />
-        <NavItem
           href="/pulse-admin/metrics"
           icon="📊"
           label="Métricas MVP"

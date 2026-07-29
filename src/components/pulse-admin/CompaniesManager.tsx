@@ -93,6 +93,22 @@ export default function CompaniesManager({
   const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'operator'>('operator')
   const [adminLoading, setAdminLoading] = useState(false)
   const [adminErr, setAdminErr] = useState<string | null>(null)
+  const [togglingStatusId, setTogglingStatusId] = useState<string | null>(null)
+
+  async function toggleCompanyStatus(c: CompanyListRow) {
+    const nextStatus = c.status === 'suspended' ? 'active' : 'suspended'
+    setTogglingStatusId(c.id)
+    try {
+      await fetch(`/api/pulse-admin/companies/${c.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      })
+      router.refresh()
+    } finally {
+      setTogglingStatusId(null)
+    }
+  }
 
   useEffect(() => {
     if (searchParams.get('new') === '1') {
@@ -373,6 +389,24 @@ export default function CompaniesManager({
                         }}
                       >
                         Invitar usuario
+                      </button>
+                      <button
+                        type="button"
+                        disabled={togglingStatusId === c.id}
+                        onClick={() => toggleCompanyStatus(c)}
+                        style={{
+                          fontSize: 11,
+                          padding: '3px 8px',
+                          borderRadius: 5,
+                          border: c.status === 'suspended' ? '1px solid rgba(5,150,105,0.3)' : '1px solid rgba(220,38,38,0.3)',
+                          background: c.status === 'suspended' ? 'rgba(5,150,105,0.08)' : 'rgba(220,38,38,0.06)',
+                          color: c.status === 'suspended' ? 'var(--green)' : 'var(--red)',
+                          cursor: togglingStatusId === c.id ? 'not-allowed' : 'pointer',
+                          opacity: togglingStatusId === c.id ? 0.5 : 1,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {togglingStatusId === c.id ? '…' : c.status === 'suspended' ? 'Activar' : 'Suspender'}
                       </button>
                     </div>
                   </td>

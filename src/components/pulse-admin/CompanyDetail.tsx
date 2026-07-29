@@ -37,6 +37,7 @@ type UserRow = {
   email: string
   role: string
   last_seen_at: string | null
+  deleted_at: string | null
 }
 
 const inputStyle: React.CSSProperties = {
@@ -124,6 +125,7 @@ export default function CompanyDetail({
   const [aLoading, setALoading] = useState(false)
   const [aErr, setAErr] = useState<string | null>(null)
   const [reinviteToast, setReinviteToast] = useState<string | null>(null)
+  const [suspendingUserId, setSuspendingUserId] = useState<string | null>(null)
 
   const maxU = initial.max_users ?? 3
   const atLimit = maxU > 0 && activeUserCount >= maxU
@@ -134,6 +136,20 @@ export default function CompanyDetail({
     const t = setTimeout(() => setReinviteToast(null), 3500)
     return () => clearTimeout(t)
   }, [reinviteToast])
+
+  async function toggleSuspendUser(userId: string, suspend: boolean) {
+    setSuspendingUserId(userId)
+    try {
+      await fetch(`/api/pulse-admin/users/${userId}/suspend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suspend }),
+      })
+      router.refresh()
+    } finally {
+      setSuspendingUserId(null)
+    }
+  }
 
   async function patchBody(body: Record<string, unknown>) {
     setErr(null)
@@ -534,10 +550,18 @@ export default function CompanyDetail({
                   </tr>
                 ) : (
                   users.map((u) => {
-                    const pending = !u.last_seen_at
+                    const isSuspended = !!u.deleted_at
+                    const pending = !u.last_seen_at && !isSuspended
                     return (
-                    <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '8px 10px' }}>{u.full_name}</td>
+                    <tr key={u.id} style={{ borderBottom: '1px solid var(--border)', opacity: isSuspended ? 0.6 : 1 }}>
+                      <td style={{ padding: '8px 10px' }}>
+                        {u.full_name}
+                        {isSuspended && (
+                          <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 4, background: 'rgba(220,38,38,0.1)', color: 'var(--red)', border: '1px solid rgba(220,38,38,0.2)' }}>
+                            Suspendido
+                          </span>
+                        )}
+                      </td>
                       <td style={{ padding: '8px 10px' }}>{u.email}</td>
                       <td style={{ padding: '8px 10px' }}>
                         <span style={roleBadge(u.role)}>{u.role}</span>
@@ -565,15 +589,33 @@ export default function CompanyDetail({
                         )}
                       </td>
                       <td style={{ padding: '8px 10px', verticalAlign: 'middle' }}>
-                        {pending ? (
-                          <ReinviteUserButton
-                            userId={u.id}
-                            email={u.email}
-                            onReinvited={() => setReinviteToast('Invitación reenviada correctamente')}
-                          />
-                        ) : (
-                          '—'
-                        )}
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          {pending && (
+                            <ReinviteUserButton
+                              userId={u.id}
+                              email={u.email}
+                              onReinvited={() => setReinviteToast('Invitación reenviada correctamente')}
+                            />
+                          )}
+                          <button
+                            type="button"
+                            disabled={suspendingUserId === u.id}
+                            onClick={() => toggleSuspendUser(u.id, !isSuspended)}
+                            style={{
+                              fontSize: 10,
+                              padding: '2px 8px',
+                              borderRadius: 5,
+                              border: isSuspended ? '1px solid rgba(5,150,105,0.3)' : '1px solid rgba(220,38,38,0.3)',
+                              background: isSuspended ? 'rgba(5,150,105,0.08)' : 'rgba(220,38,38,0.06)',
+                              color: isSuspended ? 'var(--green)' : 'var(--red)',
+                              cursor: suspendingUserId === u.id ? 'not-allowed' : 'pointer',
+                              opacity: suspendingUserId === u.id ? 0.5 : 1,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {suspendingUserId === u.id ? '…' : isSuspended ? 'Reactivar' : 'Suspender'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     )
