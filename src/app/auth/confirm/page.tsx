@@ -14,20 +14,31 @@ export default function ConfirmPage() {
   useEffect(() => {
     async function processAuth() {
       try {
-        // Caso PKCE: code en query params
-        const urlCode = new URLSearchParams(window.location.search).get('code')
         let session = null
 
+        // Caso 1: PKCE — code en query params
+        const urlCode = new URLSearchParams(window.location.search).get('code')
         if (urlCode) {
           const { data, error } = await supabase.auth.exchangeCodeForSession(urlCode)
           if (error) { setIsError(true); return }
           session = data.session
-        } else {
-          // Implicit flow: supabase-js lee el hash (#access_token=...) automáticamente
-          // Pequeño delay para dejar que el cliente procese el hash
-          await new Promise<void>((r) => setTimeout(r, 80))
-          const { data } = await supabase.auth.getSession()
-          session = data.session
+        }
+
+        // Caso 2: Implicit flow — tokens en el hash (#access_token=...&refresh_token=...)
+        // createBrowserClient de @supabase/ssr NO procesa el hash automáticamente
+        if (!session) {
+          const hash = new URLSearchParams(window.location.hash.substring(1))
+          const accessToken = hash.get('access_token')
+          const refreshToken = hash.get('refresh_token')
+
+          if (accessToken && refreshToken) {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            })
+            if (error) { setIsError(true); return }
+            session = data.session
+          }
         }
 
         if (!session) { setIsError(true); return }
