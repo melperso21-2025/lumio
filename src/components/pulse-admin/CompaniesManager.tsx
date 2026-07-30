@@ -345,32 +345,34 @@ export default function CompaniesManager({
                       ? c.trial_expires_at.slice(0, 10)
                       : '—'}
                   </td>
-                  <td style={{ padding: '10px 12px' }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  <td style={{ padding: '8px 12px' }}>
+                    <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
                       <Link
                         href={`/pulse-admin/companies/${c.id}`}
                         style={{
-                          fontSize: 11,
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                          padding: '4px 9px', borderRadius: 6, textDecoration: 'none',
+                          border: '1px solid rgba(245,200,66,0.35)',
+                          background: 'rgba(245,200,66,0.07)',
                           color: 'var(--gold)',
-                          fontWeight: 600,
-                          textDecoration: 'none',
                         }}
                       >
-                        Ver detalle
+                        <span style={{ fontSize: 10 }}>↗</span> Ver
                       </Link>
                       <button
                         type="button"
                         onClick={() => setEditRow(c)}
                         style={{
-                          fontSize: 11,
-                          background: 'none',
-                          border: 'none',
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap',
+                          padding: '4px 9px', borderRadius: 6, cursor: 'pointer',
+                          border: '1px solid var(--border)',
+                          background: 'var(--hover)',
                           color: 'var(--text2)',
-                          cursor: 'pointer',
-                          fontWeight: 500,
                         }}
                       >
-                        Editar
+                        <span style={{ fontSize: 10 }}>✎</span> Editar
                       </button>
                       <button
                         type="button"
@@ -380,33 +382,40 @@ export default function CompaniesManager({
                           setInviteRole('operator')
                         }}
                         style={{
-                          fontSize: 11,
-                          background: 'none',
-                          border: 'none',
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                          padding: '4px 9px', borderRadius: 6, cursor: 'pointer',
+                          border: '1px solid rgba(124,58,237,0.3)',
+                          background: 'rgba(124,58,237,0.07)',
                           color: '#7C3AED',
-                          cursor: 'pointer',
-                          fontWeight: 600,
                         }}
                       >
-                        Invitar usuario
+                        <span style={{ fontSize: 11 }}>+</span> Invitar
                       </button>
                       <button
                         type="button"
                         disabled={togglingStatusId === c.id}
                         onClick={() => toggleCompanyStatus(c)}
                         style={{
-                          fontSize: 11,
-                          padding: '3px 8px',
-                          borderRadius: 5,
-                          border: c.status === 'suspended' ? '1px solid rgba(5,150,105,0.3)' : '1px solid rgba(220,38,38,0.3)',
-                          background: c.status === 'suspended' ? 'rgba(5,150,105,0.08)' : 'rgba(220,38,38,0.06)',
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                          padding: '4px 9px', borderRadius: 6,
+                          border: c.status === 'suspended'
+                            ? '1px solid rgba(5,150,105,0.3)'
+                            : '1px solid rgba(220,38,38,0.25)',
+                          background: c.status === 'suspended'
+                            ? 'rgba(5,150,105,0.07)'
+                            : 'rgba(220,38,38,0.05)',
                           color: c.status === 'suspended' ? 'var(--green)' : 'var(--red)',
                           cursor: togglingStatusId === c.id ? 'not-allowed' : 'pointer',
                           opacity: togglingStatusId === c.id ? 0.5 : 1,
-                          whiteSpace: 'nowrap',
                         }}
                       >
-                        {togglingStatusId === c.id ? '…' : c.status === 'suspended' ? 'Activar' : 'Suspender'}
+                        {togglingStatusId === c.id
+                          ? '…'
+                          : c.status === 'suspended'
+                            ? '✓ Activar'
+                            : '⊘ Suspender'}
                       </button>
                     </div>
                   </td>
