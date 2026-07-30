@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { resend, FROM } from '@/lib/email/resend'
+import { inviteUserHtml, inviteUserText } from '@/lib/email/templates/inviteUser'
 
 const VALID_ROLES = new Set(['admin', 'manager', 'operator'])
 
@@ -39,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     const { data: inviterData } = await supabase
       .from('users')
-      .select('role, is_pulse_admin, company_id')
+      .select('role, is_pulse_admin, company_id, full_name')
       .eq('id', user.id)
       .single()
 
@@ -136,7 +138,7 @@ export async function POST(request: NextRequest) {
     // Marcador opcional para auditoría (creación de admin desde Pulse)
     void is_pulse_admin_creating
 
-    // 2. Crear usuario en Supabase Auth con invitación
+    // 2. Generar enlace de invitación y enviar por Resend
     const base = process.env.NEXT_PUBLIC_APP_URL
     if (!base) {
       return NextResponse.json(
@@ -144,12 +146,14 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
-    const { data: authData, error: authError } =
-      await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${base}/auth/callback`,
+    const { data: linkData, error: authError } =
+      await supabaseAdmin.auth.admin.generateLink({
+        type: 'invite',
+        email,
+        options: { redirectTo: `${base}/auth/callback` },
       })
 
-    let userId: string | undefined = authData?.user?.id
+    let userId: string | undefined = linkData?.user?.id
 
     if (authError) {
       if (authError.message.includes('already been registered')) {
@@ -165,6 +169,29 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
+    }
+
+    // Enviar email con Resend si tenemos el enlace
+    if (linkData?.properties?.action_link) {
+      await resend.emails.send({
+        from: FROM,
+        to: email,
+        subject: `Te invitaron a unirte a ${company.name} en Lumio`,
+        html: inviteUserHtml({
+          fullName: full_name,
+          companyName: company.name,
+          inviterName: inviterData?.full_name ?? 'Tu administrador',
+          role,
+          actionLink: linkData.properties.action_link,
+        }),
+        text: inviteUserText({
+          fullName: full_name,
+          companyName: company.name,
+          inviterName: inviterData?.full_name ?? 'Tu administrador',
+          role,
+          actionLink: linkData.properties.action_link,
+        }),
+      })
     }
 
     if (userId) {

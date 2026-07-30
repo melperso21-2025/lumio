@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { resend, FROM } from '@/lib/email/resend'
+import { inviteUserHtml, inviteUserText } from '@/lib/email/templates/inviteUser'
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     const { data: inviter } = await supabase
       .from('users')
-      .select('role, is_pulse_admin, company_id')
+      .select('role, is_pulse_admin, company_id, full_name')
       .eq('id', authUser.id)
       .single()
 
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     const { data: target, error: targetErr } = await supabaseAdmin
       .from('users')
-      .select('id, company_id, email')
+      .select('id, company_id, email, full_name, role')
       .eq('id', userId)
       .is('deleted_at', null)
       .maybeSingle()
@@ -82,15 +84,44 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { error: invErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      target.email!,
-      {
-        redirectTo: `${base}/auth/callback`,
-      }
-    )
+    const { data: linkData, error: invErr } =
+      await supabaseAdmin.auth.admin.generateLink({
+        type: 'invite',
+        email: target.email!,
+        options: { redirectTo: `${base}/auth/callback` },
+      })
 
     if (invErr) {
       return NextResponse.json({ error: invErr.message }, { status: 400 })
+    }
+
+    // Obtener nombre de empresa para el email
+    const { data: company } = await supabaseAdmin
+      .from('companies')
+      .select('name')
+      .eq('id', target.company_id)
+      .single()
+
+    if (linkData?.properties?.action_link) {
+      await resend.emails.send({
+        from: FROM,
+        to: target.email!,
+        subject: `Te invitaron a unirte a ${company?.name ?? 'tu empresa'} en Lumio`,
+        html: inviteUserHtml({
+          fullName: target.full_name ?? '',
+          companyName: company?.name ?? '',
+          inviterName: inviter.full_name ?? 'Tu administrador',
+          role: target.role ?? 'operator',
+          actionLink: linkData.properties.action_link,
+        }),
+        text: inviteUserText({
+          fullName: target.full_name ?? '',
+          companyName: company?.name ?? '',
+          inviterName: inviter.full_name ?? 'Tu administrador',
+          role: target.role ?? 'operator',
+          actionLink: linkData.properties.action_link,
+        }),
+      })
     }
 
     return NextResponse.json({ success: true })
