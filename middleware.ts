@@ -85,6 +85,7 @@ export async function middleware(request: NextRequest) {
   const publicRoutes = [
     '/login',
     '/auth/callback',
+    '/auth/confirm',
     '/auth/update-password',
     '/auth/setup-account',
     '/api/auth/', // login, logout, verify-session — evitar loops
