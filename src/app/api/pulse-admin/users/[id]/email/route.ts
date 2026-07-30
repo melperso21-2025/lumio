@@ -74,7 +74,7 @@ export async function PATCH(
   const invite = await supabaseAdmin.auth.admin.generateLink({
     type: 'invite',
     email: newEmail,
-    options: { redirectTo: `${base}/auth/callback?type=invite` },
+    options: { redirectTo: `${base}/auth/confirm?mode=invite` },
   })
 
   if (invite.error) {
@@ -82,7 +82,7 @@ export async function PATCH(
     const recovery = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: newEmail,
-      options: { redirectTo: `${base}/auth/callback?type=invite` },
+      options: { redirectTo: `${base}/auth/confirm?mode=invite` },
     })
     if (!recovery.error) linkData = recovery.data
   } else {

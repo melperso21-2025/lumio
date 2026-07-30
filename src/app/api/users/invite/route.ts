@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
       await supabaseAdmin.auth.admin.generateLink({
         type: 'invite',
         email,
-        options: { redirectTo: `${base}/auth/callback?type=invite` },
+        options: { redirectTo: `${base}/auth/confirm?mode=invite` },
       })
 
     let userId: string | undefined = linkData?.user?.id

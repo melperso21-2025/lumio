@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       await supabaseAdmin.auth.admin.generateLink({
         type: 'recovery',
         email,
-        options: { redirectTo: `${base}/auth/callback` },
+        options: { redirectTo: `${base}/auth/confirm?mode=recovery` },
       })
 
     // Respuesta genérica para no revelar si el email existe

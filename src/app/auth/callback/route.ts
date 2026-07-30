@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Si algo falla, redirigir al login con error
-  return NextResponse.redirect(`${origin}/login?error=auth`)
+  // Sin code: puede ser implicit flow (hash tokens) — dejar que el cliente lo procese
+  const fwd = searchParams.toString()
+  return NextResponse.redirect(`${origin}/auth/confirm${fwd ? `?${fwd}` : ''}`)
 }
