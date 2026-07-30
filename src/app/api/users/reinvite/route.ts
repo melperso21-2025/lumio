@@ -84,7 +84,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data: linkData, error: invErr } =
+    // Intentar invite; si ya está confirmado en Supabase, usar recovery
+    // con el mismo redirectTo para que el callback lo trate igual (→ setup-account)
+    let { data: linkData, error: invErr } =
       await supabaseAdmin.auth.admin.generateLink({
         type: 'invite',
         email: target.email!,
@@ -92,7 +94,15 @@ export async function POST(request: NextRequest) {
       })
 
     if (invErr) {
-      return NextResponse.json({ error: invErr.message }, { status: 400 })
+      const recovery = await supabaseAdmin.auth.admin.generateLink({
+        type: 'recovery',
+        email: target.email!,
+        options: { redirectTo: `${base}/auth/callback?type=invite` },
+      })
+      if (recovery.error) {
+        return NextResponse.json({ error: recovery.error.message }, { status: 400 })
+      }
+      linkData = recovery.data
     }
 
     // Obtener nombre de empresa para el email
