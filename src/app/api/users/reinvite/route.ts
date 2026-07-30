@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       await supabaseAdmin.auth.admin.generateLink({
         type: 'invite',
         email: target.email!,
-        options: { redirectTo: `${base}/auth/callback` },
+        options: { redirectTo: `${base}/auth/callback?type=invite` },
       })
 
     if (invErr) {

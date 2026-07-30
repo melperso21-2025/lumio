@@ -19,6 +19,12 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(`${origin}/auth/update-password`)
       }
 
+      // Invitación: type=invite viene del redirectTo que pasamos en generateLink
+      if (type === 'invite') {
+        return NextResponse.redirect(`${origin}/auth/setup-account`)
+      }
+
+      // Fallback heurístico por si el type no llega (no debería ocurrir)
       const user = sessionData?.user
       const isFirstLogin =
         user?.confirmed_at &&
