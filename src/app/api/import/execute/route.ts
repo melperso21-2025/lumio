@@ -161,6 +161,10 @@ export async function POST(request: NextRequest) {
     if (successCount > 0 && ENTITIES_THAT_AFFECT_DASHBOARD.includes(entityType)) {
       // Fire and forget — no bloqueamos la respuesta, Supabase ejecuta en DB
       void supabaseAdmin.rpc('recalculate_all_snapshots', { p_company_id: companyId })
+      // Recalcular LTV, última compra y total_orders en customers
+      if (entityType === 'sales' || entityType === 'sale_items') {
+        void supabaseAdmin.rpc('recalculate_sales_totals', { p_company_id: companyId })
+      }
     }
 
     return NextResponse.json({
