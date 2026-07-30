@@ -167,6 +167,13 @@ export default function CompanyDetail({
   const [suspendingUserId, setSuspendingUserId] = useState<string | null>(null)
   const [reinvitingId, setReinvitingId] = useState<string | null>(null)
 
+  // Corregir email
+  const [editEmailUser, setEditEmailUser] = useState<UserRow | null>(null)
+  const [newEmail, setNewEmail] = useState('')
+  const [editEmailLoading, setEditEmailLoading] = useState(false)
+  const [editEmailErr, setEditEmailErr] = useState<string | null>(null)
+  const [editEmailSuccess, setEditEmailSuccess] = useState(false)
+
   const maxU = initial.max_users ?? 3
   const activeCount = users.filter((u) => !u.deleted_at).length
   const capacityPct = maxU > 0 ? Math.min(100, Math.round((activeCount / maxU) * 100)) : 0
@@ -259,6 +266,42 @@ export default function CompanyDetail({
       trial_expires_at: gen.trial_expires_at || null,
       operational_since: gen.operational_since || null,
     })
+  }
+
+  function openEditEmail(u: UserRow) {
+    setEditEmailUser(u)
+    setNewEmail(u.email)
+    setEditEmailErr(null)
+    setEditEmailSuccess(false)
+  }
+
+  async function submitEditEmail(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editEmailUser) return
+    setEditEmailErr(null)
+    setEditEmailLoading(true)
+    try {
+      const res = await fetch(`/api/pulse-admin/users/${editEmailUser.id}/email`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newEmail.trim() }),
+      })
+      const data = (await res.json()) as { error?: string; email?: string }
+      if (!res.ok) { setEditEmailErr(data.error ?? 'Error'); return }
+      setEditEmailSuccess(true)
+      setUsers((prev) =>
+        prev.map((u) => u.id === editEmailUser.id ? { ...u, email: data.email ?? newEmail.trim() } : u)
+      )
+      setTimeout(() => {
+        setEditEmailUser(null)
+        showToast('Email actualizado y nueva invitación enviada')
+        router.refresh()
+      }, 1600)
+    } catch {
+      setEditEmailErr('Error de conexión')
+    } finally {
+      setEditEmailLoading(false)
+    }
   }
 
   function openInvite() {
@@ -555,19 +598,32 @@ export default function CompanyDetail({
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
                       {isPending && (
-                        <button
-                          type="button"
-                          disabled={reinvitingId === u.id}
-                          onClick={() => reinviteUser(u)}
-                          style={{
-                            fontSize: 11, padding: '4px 10px', borderRadius: 6,
-                            border: '1px solid rgba(217,119,6,0.3)', background: 'rgba(217,119,6,0.08)',
-                            color: '#B45309', cursor: reinvitingId === u.id ? 'not-allowed' : 'pointer',
-                            opacity: reinvitingId === u.id ? 0.5 : 1, whiteSpace: 'nowrap', fontWeight: 600,
-                          }}
-                        >
-                          {reinvitingId === u.id ? '…' : '↻ Reenviar'}
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => openEditEmail(u)}
+                            style={{
+                              fontSize: 11, padding: '4px 10px', borderRadius: 6,
+                              border: '1px solid rgba(79,70,229,0.3)', background: 'rgba(79,70,229,0.07)',
+                              color: '#4F46E5', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: 600,
+                            }}
+                          >
+                            ✎ Corregir email
+                          </button>
+                          <button
+                            type="button"
+                            disabled={reinvitingId === u.id}
+                            onClick={() => reinviteUser(u)}
+                            style={{
+                              fontSize: 11, padding: '4px 10px', borderRadius: 6,
+                              border: '1px solid rgba(217,119,6,0.3)', background: 'rgba(217,119,6,0.08)',
+                              color: '#B45309', cursor: reinvitingId === u.id ? 'not-allowed' : 'pointer',
+                              opacity: reinvitingId === u.id ? 0.5 : 1, whiteSpace: 'nowrap', fontWeight: 600,
+                            }}
+                          >
+                            {reinvitingId === u.id ? '…' : '↻ Reenviar'}
+                          </button>
+                        </>
                       )}
                       <button
                         type="button"
@@ -628,6 +684,119 @@ export default function CompanyDetail({
             style={{ marginTop: 10, padding: '8px 18px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#F5C842,#F09A1A)', color: '#1A1B2E', cursor: saving ? 'not-allowed' : 'pointer' }}>
             {saving ? 'Guardando…' : 'Guardar notas'}
           </button>
+        </div>
+      )}
+
+      {/* ── CORREGIR EMAIL MODAL ── */}
+      {editEmailUser && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.55)', padding: 16, backdropFilter: 'blur(4px)',
+          }}
+          onClick={() => !editEmailLoading && setEditEmailUser(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--card)', border: '1px solid var(--border)',
+              borderRadius: 14, width: '100%', maxWidth: 420,
+              boxShadow: '0 24px 60px rgba(0,0,0,0.35)', overflow: 'hidden',
+            }}
+          >
+            {/* Header */}
+            <div style={{ padding: '16px 20px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h3 className="font-syne font-bold" style={{ fontSize: 15, margin: 0, color: 'var(--text)' }}>
+                  Corregir email de invitación
+                </h3>
+                <p style={{ margin: '3px 0 0', fontSize: 11, color: 'var(--muted)' }}>
+                  {editEmailUser.full_name}
+                </p>
+              </div>
+              {!editEmailLoading && (
+                <button type="button" onClick={() => setEditEmailUser(null)}
+                  style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 18, cursor: 'pointer', lineHeight: 1, padding: 4 }}>
+                  ×
+                </button>
+              )}
+            </div>
+
+            {editEmailSuccess ? (
+              <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>✉️</div>
+                <p className="font-syne font-bold" style={{ fontSize: 15, color: 'var(--text)', margin: '0 0 4px' }}>
+                  Email actualizado
+                </p>
+                <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+                  Nueva invitación enviada a <strong style={{ color: 'var(--text)' }}>{newEmail}</strong>
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={submitEditEmail} style={{ padding: '18px 20px 20px' }}>
+                {/* Email anterior */}
+                <div style={{ marginBottom: 14, padding: '10px 12px', borderRadius: 8, background: 'var(--hover)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>
+                    Email actual (incorrecto)
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text2)', fontFamily: 'monospace' }}>
+                    {editEmailUser.email}
+                  </div>
+                </div>
+
+                {editEmailErr && (
+                  <div style={{ marginBottom: 12, padding: '8px 12px', borderRadius: 7, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.2)', color: 'var(--red)', fontSize: 12 }}>
+                    {editEmailErr}
+                  </div>
+                )}
+
+                <div style={{ marginBottom: 18 }}>
+                  <label style={{ display: 'block', fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, marginBottom: 5 }}>
+                    Email correcto
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    autoFocus
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    placeholder="correo@dominio.com"
+                    style={{
+                      width: '100%', padding: '9px 12px', borderRadius: 8,
+                      border: '1px solid var(--border2)', background: 'var(--surface)',
+                      color: 'var(--text)', fontSize: 14, outline: 'none',
+                      fontFamily: 'var(--font-jakarta)',
+                    }}
+                  />
+                  <p style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--muted)' }}>
+                    Se actualizará el email y se enviará una nueva invitación automáticamente.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={() => setEditEmailUser(null)}
+                    style={{ flex: 1, padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 13, cursor: 'pointer' }}>
+                    Cancelar
+                  </button>
+                  <button type="submit" disabled={editEmailLoading}
+                    className="font-syne font-bold"
+                    style={{
+                      flex: 2, padding: '9px 0', borderRadius: 8, border: 'none',
+                      background: 'linear-gradient(135deg,#4F46E5,#3730A3)',
+                      color: '#fff', fontSize: 13,
+                      cursor: editEmailLoading ? 'not-allowed' : 'pointer',
+                      opacity: editEmailLoading ? 0.7 : 1,
+                    }}
+                  >
+                    {editEmailLoading ? 'Actualizando…' : '✓ Actualizar y reenviar'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       )}
 
