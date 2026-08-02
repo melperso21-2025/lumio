@@ -84,7 +84,7 @@ function EditTransactionModal({
   tx: TxRow
   accounts: AccountRow[]
   onClose: () => void
-  onSuccess: () => void
+  onSuccess: (updated: TxRow) => void
 }) {
   const supabase = createClient()
 
@@ -125,14 +125,14 @@ function EditTransactionModal({
     if (!amount || isNaN(amt) || amt <= 0) { setError('El monto debe ser mayor a 0.'); return }
     if (!category) { setError('La categoría es obligatoria.'); return }
     setLoading(true)
+    const patch = { type, account_id, amount: amt, category, concept: concept.trim() || null, tx_date, is_fixed }
     const { error: upErr } = await supabase
       .from('bank_transactions')
-      .update({ type, account_id, amount: amt, category, concept: concept.trim() || null, tx_date, is_fixed })
+      .update(patch)
       .eq('id', tx.id)
     setLoading(false)
     if (upErr) { setError(upErr.message); return }
-    onSuccess()
-    onClose()
+    onSuccess({ ...tx, ...patch })
   }
 
   return (
@@ -246,7 +246,7 @@ interface TransactionsTableProps {
 }
 
 export default function TransactionsTable({
-  transactions,
+  transactions: initialTransactions,
   accountsMap,
   filteredAccountIds,
   filterConcept,
@@ -257,6 +257,7 @@ export default function TransactionsTable({
   const router = useRouter()
   const supabase = createClient()
 
+  const [transactions, setTransactions] = useState<TxRow[]>(initialTransactions)
   const [sortBy, setSortBy]   = useState<SortKey>('tx_date')
   const [sortAsc, setSortAsc] = useState(false)
   const [page, setPage]       = useState(0)
@@ -325,6 +326,7 @@ export default function TransactionsTable({
     const { error: delErr } = await supabase.from('bank_transactions').delete().eq('id', id)
     setDeletingId(null)
     if (delErr) { setDeleteError(delErr.message); return }
+    setTransactions((prev) => prev.filter((t) => t.id !== id))
     router.refresh()
   }
 
@@ -451,25 +453,41 @@ export default function TransactionsTable({
                   <td style={{ fontSize: 12, padding: '10px 12px', fontWeight: 600, color: isIncome ? 'var(--green)' : 'var(--red)', textAlign: 'right' }}>
                     {isIncome ? '+$' : '-$'}{' '}{amount.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
-                  <td style={{ padding: '8px 12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    <button
-                      type="button"
-                      onClick={() => setEditingTx(t)}
-                      disabled={isDeleting}
-                      title="Editar"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text2)', fontSize: 14, padding: '2px 6px', borderRadius: 4 }}
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(t.id)}
-                      disabled={isDeleting}
-                      title="Eliminar"
-                      style={{ background: 'none', border: 'none', cursor: isDeleting ? 'not-allowed' : 'pointer', color: 'var(--red)', fontSize: 14, padding: '2px 6px', borderRadius: 4, marginLeft: 2 }}
-                    >
-                      🗑️
-                    </button>
+                  <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'flex', gap: 5, alignItems: 'center', justifyContent: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => setEditingTx(t)}
+                        disabled={isDeleting}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap',
+                          padding: '4px 9px', borderRadius: 6, cursor: isDeleting ? 'not-allowed' : 'pointer',
+                          border: '1px solid var(--border)',
+                          background: 'var(--hover)',
+                          color: 'var(--text2)',
+                        }}
+                      >
+                        <span style={{ fontSize: 10 }}>✎</span> Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(t.id)}
+                        disabled={isDeleting}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                          padding: '4px 9px', borderRadius: 6,
+                          border: '1px solid rgba(220,38,38,0.25)',
+                          background: 'rgba(220,38,38,0.05)',
+                          color: 'var(--red)',
+                          cursor: isDeleting ? 'not-allowed' : 'pointer',
+                          opacity: isDeleting ? 0.5 : 1,
+                        }}
+                      >
+                        {isDeleting ? '…' : '⊘ Eliminar'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )
@@ -505,7 +523,13 @@ export default function TransactionsTable({
           tx={editingTx}
           accounts={accounts}
           onClose={() => setEditingTx(null)}
-          onSuccess={() => router.refresh()}
+          onSuccess={(updated) => {
+            setTransactions((prev) =>
+              prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t))
+            )
+            setEditingTx(null)
+            router.refresh()
+          }}
         />
       )}
     </div>
