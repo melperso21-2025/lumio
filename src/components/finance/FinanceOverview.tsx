@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import KpiCard from '@/components/ui/KpiCard'
 import AiInsightBox from '@/components/ui/AiInsightBox'
 import EmptyState from '@/components/ui/EmptyState'
@@ -49,7 +50,7 @@ function calcDelta(
 }
 
 interface FinanceOverviewProps {
-  accounts: AccountRow[]
+  accounts: AccountRow[]   // initial data from server
   transactions: TxRow[]
   prevTransactions: TxRow[]
   from: string
@@ -59,8 +60,29 @@ interface FinanceOverviewProps {
   children?: React.ReactNode
 }
 
+const inputStyle: React.CSSProperties = {
+  background: 'var(--surface)',
+  border: '1px solid var(--border2)',
+  color: 'var(--text)',
+  fontFamily: 'var(--font-jakarta)',
+  width: '100%',
+  padding: '8px 12px',
+  borderRadius: 8,
+  fontSize: 14,
+  outline: 'none',
+}
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: 9,
+  color: 'var(--muted)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.08em',
+  fontWeight: 600,
+  marginBottom: 4,
+}
+
 export default function FinanceOverview({
-  accounts,
+  accounts: initialAccounts,
   transactions,
   prevTransactions,
   from,
@@ -69,11 +91,85 @@ export default function FinanceOverview({
   prevTo,
   children,
 }: FinanceOverviewProps) {
+  const router = useRouter()
+  const [accounts, setAccounts] = useState<AccountRow[]>(initialAccounts)
   const [filterBanco, setFilterBanco] = useState<string>('')
   const [filterCuenta, setFilterCuenta] = useState<string>('')
   const [filterConcept, setFilterConcept] = useState<string>('')
   const [filterCategory, setFilterCategory] = useState<string>('')
   const [filterType, setFilterType] = useState<string>('')
+
+  // Edit modal state
+  const [editAccount, setEditAccount] = useState<AccountRow | null>(null)
+  const [editBankName, setEditBankName] = useState('')
+  const [editAccountType, setEditAccountType] = useState('checking')
+  const [editAccountNumber, setEditAccountNumber] = useState('')
+  const [editLoading, setEditLoading] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+
+  // Delete state
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  function openEdit(a: AccountRow) {
+    setEditAccount(a)
+    setEditBankName(a.bank_name ?? '')
+    setEditAccountType(a.account_type ?? 'checking')
+    setEditAccountNumber(a.account_number ?? '')
+    setEditError(null)
+  }
+
+  function closeEdit() {
+    if (editLoading) return
+    setEditAccount(null)
+    setEditError(null)
+  }
+
+  async function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editAccount) return
+    setEditLoading(true)
+    setEditError(null)
+    try {
+      const res = await fetch(`/api/bank-accounts/${editAccount.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bank_name: editBankName,
+          account_type: editAccountType,
+          account_number: editAccountNumber,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setEditError(json.error ?? 'Error al actualizar'); return }
+      setAccounts((prev) =>
+        prev.map((a) =>
+          a.id === editAccount.id
+            ? { ...a, bank_name: editBankName, account_type: editAccountType, account_number: editAccountNumber || null }
+            : a
+        )
+      )
+      setEditAccount(null)
+      router.refresh()
+    } catch {
+      setEditError('Error de red. Intenta de nuevo.')
+    } finally {
+      setEditLoading(false)
+    }
+  }
+
+  async function handleDelete(a: AccountRow) {
+    if (!confirm(`¿Eliminar la cuenta "${a.bank_name}"? Esta acción no se puede deshacer.`)) return
+    setDeletingId(a.id)
+    try {
+      const res = await fetch(`/api/bank-accounts/${a.id}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) { alert(json.error ?? 'Error al eliminar'); return }
+      setAccounts((prev) => prev.filter((acc) => acc.id !== a.id))
+      router.refresh()
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const filteredAccounts = useMemo(() => {
     return accounts.filter((a) => {
@@ -487,14 +583,15 @@ export default function FinanceOverview({
                   <div
                     key={a.id}
                     style={{
-                      padding: 12,
+                      padding: '10px 12px',
                       borderBottom: '1px solid var(--border)',
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
+                      gap: 8,
                     }}
                   >
-                    <div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         className="font-syne font-bold"
                         style={{ fontSize: 13, color: 'var(--text)' }}
@@ -520,22 +617,57 @@ export default function FinanceOverview({
                       style={{
                         fontSize: 11,
                         color: 'var(--muted)',
-                        marginRight: 12,
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      ****{lastFour}
+                      {a.account_number ? `****${lastFour}` : '—'}
                     </div>
                     <div
                       className="font-syne font-bold"
                       style={{
-                        fontSize: 16,
+                        fontSize: 15,
                         color: balance < 0 ? 'var(--red)' : 'var(--gold)',
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       $ {balance.toLocaleString('es-EC', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
+                    </div>
+                    {/* Botones de acción */}
+                    <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        onClick={() => openEdit(a)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap',
+                          padding: '4px 9px', borderRadius: 6, cursor: 'pointer',
+                          border: '1px solid var(--border)',
+                          background: 'var(--hover)',
+                          color: 'var(--text2)',
+                        }}
+                      >
+                        <span style={{ fontSize: 10 }}>✎</span> Editar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deletingId === a.id}
+                        onClick={() => handleDelete(a)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                          padding: '4px 9px', borderRadius: 6,
+                          border: '1px solid rgba(220,38,38,0.25)',
+                          background: 'rgba(220,38,38,0.05)',
+                          color: 'var(--red)',
+                          cursor: deletingId === a.id ? 'not-allowed' : 'pointer',
+                          opacity: deletingId === a.id ? 0.5 : 1,
+                        }}
+                      >
+                        {deletingId === a.id ? '…' : '⊘ Eliminar'}
+                      </button>
                     </div>
                   </div>
                 )
@@ -606,6 +738,102 @@ export default function FinanceOverview({
       {children}
 
       </div>{/* /contenido */}
+
+      {/* ── Modal editar cuenta bancaria ── */}
+      {editAccount && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Editar cuenta bancaria"
+          style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.45)',
+          }}
+          onClick={closeEdit}
+        >
+          <div
+            style={{
+              background: 'var(--card)', border: '1px solid var(--border)',
+              borderRadius: 12, padding: 24, width: '100%', maxWidth: 420,
+              boxShadow: '0 20px 40px rgba(0,0,0,0.14)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 className="font-syne font-bold" style={{ fontSize: 16, color: 'var(--text)' }}>
+                Editar cuenta
+              </h3>
+              <button type="button" onClick={closeEdit}
+                style={{ color: 'var(--muted)', fontSize: 18, background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1 }}>
+                ×
+              </button>
+            </div>
+
+            {editError && (
+              <div style={{
+                background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)',
+                borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: 'var(--red)',
+              }}>
+                {editError}
+              </div>
+            )}
+
+            <form onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={labelStyle}>Nombre del banco</label>
+                <input
+                  type="text" required value={editBankName}
+                  onChange={(e) => setEditBankName(e.target.value)}
+                  placeholder="Banco Pichincha"
+                  style={inputStyle}
+                  onFocus={(e) => { e.target.style.borderColor = 'var(--gold)'; e.target.style.boxShadow = '0 0 0 3px var(--gold-bg)' }}
+                  onBlur={(e) => { e.target.style.borderColor = 'var(--border2)'; e.target.style.boxShadow = 'none' }}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Tipo de cuenta</label>
+                <select value={editAccountType} onChange={(e) => setEditAccountType(e.target.value)} style={inputStyle}
+                  onFocus={(e) => { e.target.style.borderColor = 'var(--gold)'; e.target.style.boxShadow = '0 0 0 3px var(--gold-bg)' }}
+                  onBlur={(e) => { e.target.style.borderColor = 'var(--border2)'; e.target.style.boxShadow = 'none' }}>
+                  <option value="checking">Cuenta corriente</option>
+                  <option value="savings">Cuenta de ahorros</option>
+                  <option value="cash">Caja chica</option>
+                  <option value="other">Otra</option>
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Número de cuenta (opcional)</label>
+                <input
+                  type="text" inputMode="numeric" value={editAccountNumber}
+                  onChange={(e) => setEditAccountNumber(e.target.value)}
+                  placeholder="Solo dígitos, ej: 2204821"
+                  style={inputStyle}
+                  onFocus={(e) => { e.target.style.borderColor = 'var(--gold)'; e.target.style.boxShadow = '0 0 0 3px var(--gold-bg)' }}
+                  onBlur={(e) => { e.target.style.borderColor = 'var(--border2)'; e.target.style.boxShadow = 'none' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button type="button" onClick={closeEdit}
+                  style={{
+                    flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 14, fontWeight: 500,
+                    background: 'var(--hover)', color: 'var(--text2)', border: '1px solid var(--border)', cursor: 'pointer',
+                  }}>
+                  Cancelar
+                </button>
+                <button type="submit" disabled={editLoading} className="font-syne font-bold"
+                  style={{
+                    flex: 1, padding: '10px 16px', borderRadius: 8, fontSize: 14,
+                    background: editLoading ? 'rgba(232,165,0,0.5)' : 'linear-gradient(135deg, #F5C842, #F09A1A)',
+                    color: '#1A1B2E', border: 'none', cursor: editLoading ? 'not-allowed' : 'pointer',
+                  }}>
+                  {editLoading ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
