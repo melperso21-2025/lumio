@@ -252,6 +252,7 @@ interface TransactionsTableProps {
   filterCategory: string
   filterType: string
   onFilterChange: (concept: string, category: string, type: string) => void
+  onAccountBalanceUpdate?: (accountId: string, delta: number) => void
 }
 
 export default function TransactionsTable({
@@ -262,6 +263,7 @@ export default function TransactionsTable({
   filterCategory,
   filterType,
   onFilterChange,
+  onAccountBalanceUpdate,
 }: TransactionsTableProps) {
   const router = useRouter()
 
@@ -327,15 +329,20 @@ export default function TransactionsTable({
     setPage(0)
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(txId: string) {
+    const tx = transactions.find((t) => t.id === txId)
     if (!confirm('¿Eliminar este movimiento? El saldo de la cuenta se actualizará automáticamente.')) return
-    setDeletingId(id)
+    setDeletingId(txId)
     setDeleteError(null)
     try {
-      const res = await fetch(`/api/bank-transactions/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/bank-transactions/${txId}`, { method: 'DELETE' })
       const json = await res.json()
       if (!res.ok) { setDeleteError(json.error ?? 'Error al eliminar'); return }
-      setTransactions((prev) => prev.filter((t) => t.id !== id))
+      setTransactions((prev) => prev.filter((t) => t.id !== txId))
+      if (tx) {
+        const delta = tx.type === 'income' ? -(tx.amount ?? 0) : (tx.amount ?? 0)
+        onAccountBalanceUpdate?.(tx.account_id, delta)
+      }
       router.refresh()
     } catch {
       setDeleteError('Error de red. Intenta de nuevo.')
@@ -541,6 +548,16 @@ export default function TransactionsTable({
             setTransactions((prev) =>
               prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t))
             )
+            // Recalculate balance delta from old → new transaction
+            const old = editingTx
+            const oldEffect = old.type === 'income' ? (old.amount ?? 0) : -(old.amount ?? 0)
+            const newEffect = updated.type === 'income' ? (updated.amount ?? 0) : -(updated.amount ?? 0)
+            if (old.account_id === updated.account_id) {
+              onAccountBalanceUpdate?.(updated.account_id, newEffect - oldEffect)
+            } else {
+              onAccountBalanceUpdate?.(old.account_id, -oldEffect)
+              onAccountBalanceUpdate?.(updated.account_id, newEffect)
+            }
             setEditingTx(null)
             router.refresh()
           }}

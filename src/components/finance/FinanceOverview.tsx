@@ -331,6 +331,16 @@ export default function FinanceOverview({
     setFilterType(type)
   }
 
+  function handleAccountBalanceUpdate(accountId: string, delta: number) {
+    setAccounts((prev) =>
+      prev.map((a) =>
+        a.id === accountId
+          ? { ...a, current_balance: (a.current_balance ?? 0) + delta }
+          : a
+      )
+    )
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
@@ -729,6 +739,7 @@ export default function FinanceOverview({
                 filterCategory={filterCategory}
                 filterType={filterType}
                 onFilterChange={handleTxFilterChange}
+                onAccountBalanceUpdate={handleAccountBalanceUpdate}
               />
             </div>
           )}
