@@ -39,17 +39,28 @@ export async function PATCH(
       return NextResponse.json({ error: 'La categoría es obligatoria' }, { status: 400 })
     }
 
-    // Verify transaction belongs to this company
+    // Verify transaction belongs to this company via its account
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: tx } = await (supabaseAdmin as any)
       .from('bank_transactions')
-      .select('id, bank_accounts!inner(company_id)')
+      .select('id, account_id')
       .eq('id', id)
       .is('deleted_at', null)
       .single()
 
-    if (!tx || tx.bank_accounts?.company_id !== userData.company_id) {
+    if (!tx) {
       return NextResponse.json({ error: 'Movimiento no encontrado' }, { status: 404 })
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: account } = await (supabaseAdmin as any)
+      .from('bank_accounts')
+      .select('company_id')
+      .eq('id', tx.account_id)
+      .single()
+
+    if (!account || account.company_id !== userData.company_id) {
+      return NextResponse.json({ error: 'Sin permisos para editar este movimiento' }, { status: 403 })
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -92,17 +103,27 @@ export async function DELETE(
     const userData = await getUser(supabase)
     if (!userData) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
-    // Verify ownership via join
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: tx } = await (supabaseAdmin as any)
       .from('bank_transactions')
-      .select('id, bank_accounts!inner(company_id)')
+      .select('id, account_id')
       .eq('id', id)
       .is('deleted_at', null)
       .single()
 
-    if (!tx || tx.bank_accounts?.company_id !== userData.company_id) {
+    if (!tx) {
       return NextResponse.json({ error: 'Movimiento no encontrado' }, { status: 404 })
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: account } = await (supabaseAdmin as any)
+      .from('bank_accounts')
+      .select('company_id')
+      .eq('id', tx.account_id)
+      .single()
+
+    if (!account || account.company_id !== userData.company_id) {
+      return NextResponse.json({ error: 'Sin permisos para eliminar este movimiento' }, { status: 403 })
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
