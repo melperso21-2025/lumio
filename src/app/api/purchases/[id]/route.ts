@@ -151,12 +151,23 @@ export async function DELETE(
     )
   }
 
+  const now = new Date().toISOString()
+
   const { error } = await supabaseAdmin
     .from('purchases')
-    .update({ deleted_at: new Date().toISOString() })
+    .update({ deleted_at: now })
     .eq('id', id)
     .eq('company_id', userData.company_id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  // Cascade: soft-delete orphaned AP records linked to this purchase
+  await supabaseAdmin
+    .from('accounts_payable')
+    .update({ deleted_at: now })
+    .eq('purchase_id', id)
+    .eq('company_id', userData.company_id)
+    .is('deleted_at', null)
+
   return NextResponse.json({ ok: true })
 }

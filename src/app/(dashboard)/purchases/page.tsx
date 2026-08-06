@@ -63,6 +63,7 @@ export default async function PurchasesPage({
       <Topbar pageTitle="Compras" pageSubtitle={`${from} → ${to}`} showPeriodSelector />
       <div style={{ padding: '14px 16px' }}>
         <PurchasesOverview
+          key={`${from}-${to}`}
           companyId={companyId}
           userRole={userData?.role ?? 'viewer'}
           from={from}
