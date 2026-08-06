@@ -4,6 +4,8 @@ import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { formatBusinessDate } from '@/lib/dateUtils'
+// Note: edit and delete go through /api/bank-transactions/[id] (supabaseAdmin)
+// to bypass RLS, which only grants SELECT to the authenticated role.
 
 const PAGE_SIZE = 20
 
@@ -125,14 +127,21 @@ function EditTransactionModal({
     if (!amount || isNaN(amt) || amt <= 0) { setError('El monto debe ser mayor a 0.'); return }
     if (!category) { setError('La categoría es obligatoria.'); return }
     setLoading(true)
-    const patch = { type, account_id, amount: amt, category, concept: concept.trim() || null, tx_date, is_fixed }
-    const { error: upErr } = await supabase
-      .from('bank_transactions')
-      .update(patch)
-      .eq('id', tx.id)
-    setLoading(false)
-    if (upErr) { setError(upErr.message); return }
-    onSuccess({ ...tx, ...patch })
+    try {
+      const patch = { type, account_id, amount: amt, category, concept: concept.trim() || null, tx_date, is_fixed }
+      const res = await fetch(`/api/bank-transactions/${tx.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Error al actualizar'); return }
+      onSuccess({ ...tx, ...patch })
+    } catch {
+      setError('Error de red. Intenta de nuevo.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -255,7 +264,6 @@ export default function TransactionsTable({
   onFilterChange,
 }: TransactionsTableProps) {
   const router = useRouter()
-  const supabase = createClient()
 
   const [transactions, setTransactions] = useState<TxRow[]>(initialTransactions)
   const [sortBy, setSortBy]   = useState<SortKey>('tx_date')
@@ -323,11 +331,17 @@ export default function TransactionsTable({
     if (!confirm('¿Eliminar este movimiento? El saldo de la cuenta se actualizará automáticamente.')) return
     setDeletingId(id)
     setDeleteError(null)
-    const { error: delErr } = await supabase.from('bank_transactions').delete().eq('id', id)
-    setDeletingId(null)
-    if (delErr) { setDeleteError(delErr.message); return }
-    setTransactions((prev) => prev.filter((t) => t.id !== id))
-    router.refresh()
+    try {
+      const res = await fetch(`/api/bank-transactions/${id}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) { setDeleteError(json.error ?? 'Error al eliminar'); return }
+      setTransactions((prev) => prev.filter((t) => t.id !== id))
+      router.refresh()
+    } catch {
+      setDeleteError('Error de red. Intenta de nuevo.')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   const filterInputStyle: React.CSSProperties = {
