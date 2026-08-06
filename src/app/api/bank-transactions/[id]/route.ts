@@ -39,30 +39,6 @@ export async function PATCH(
       return NextResponse.json({ error: 'La categoría es obligatoria' }, { status: 400 })
     }
 
-    // Verify transaction belongs to this company via its account
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: tx } = await (supabaseAdmin as any)
-      .from('bank_transactions')
-      .select('id, account_id')
-      .eq('id', id)
-      .is('deleted_at', null)
-      .single()
-
-    if (!tx) {
-      return NextResponse.json({ error: 'Movimiento no encontrado' }, { status: 404 })
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: account } = await (supabaseAdmin as any)
-      .from('bank_accounts')
-      .select('company_id')
-      .eq('id', tx.account_id)
-      .single()
-
-    if (!account || account.company_id !== userData.company_id) {
-      return NextResponse.json({ error: 'Sin permisos para editar este movimiento' }, { status: 403 })
-    }
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: updated, error } = await (supabaseAdmin as any)
       .from('bank_transactions')
@@ -76,7 +52,7 @@ export async function PATCH(
         is_fixed: body.is_fixed ?? false,
       })
       .eq('id', id)
-      .is('deleted_at', null)
+      .eq('company_id', userData.company_id)
       .select()
       .single()
 
@@ -91,7 +67,7 @@ export async function PATCH(
   }
 }
 
-// ── DELETE (soft) ──────────────────────────────────────────────────────────
+// ── DELETE (hard) ──────────────────────────────────────────────────────────
 
 export async function DELETE(
   _request: NextRequest,
@@ -104,33 +80,11 @@ export async function DELETE(
     if (!userData) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: tx } = await (supabaseAdmin as any)
-      .from('bank_transactions')
-      .select('id, account_id')
-      .eq('id', id)
-      .is('deleted_at', null)
-      .single()
-
-    if (!tx) {
-      return NextResponse.json({ error: 'Movimiento no encontrado' }, { status: 404 })
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: account } = await (supabaseAdmin as any)
-      .from('bank_accounts')
-      .select('company_id')
-      .eq('id', tx.account_id)
-      .single()
-
-    if (!account || account.company_id !== userData.company_id) {
-      return NextResponse.json({ error: 'Sin permisos para eliminar este movimiento' }, { status: 403 })
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabaseAdmin as any)
       .from('bank_transactions')
-      .update({ deleted_at: new Date().toISOString() })
+      .delete()
       .eq('id', id)
+      .eq('company_id', userData.company_id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
