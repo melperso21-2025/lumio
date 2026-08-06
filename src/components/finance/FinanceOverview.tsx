@@ -424,7 +424,7 @@ export default function FinanceOverview({
         <KpiCard
           label="Fijos / egresos"
           suffix="%"
-          value={fixed_pct.toFixed(1)}
+          value={fixed_pct.toFixed(2)}
           delta={calcDelta(fixed_pct, prev_fixed_pct, hasPrevData)}
           compare={
             prev_fixed_pct > 0

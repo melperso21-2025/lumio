@@ -515,7 +515,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .reduce((s, t) => s + (t.amount ?? 0), 0)
   const balance = totalIncome - totalExpenses
   const fixedExpensesPct =
-    totalExpenses > 0 ? Math.round((fixedExpenses / totalExpenses) * 100) : 0
+    totalExpenses > 0 ? parseFloat(((fixedExpenses / totalExpenses) * 100).toFixed(2)) : 0
 
   // Insight desactualizado si es de una semana anterior
   const insightIsStale =
@@ -704,15 +704,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <KpiCard
             label="Margen neto"
             suffix="%"
-            value={avgNetMargin.toFixed(1)}
+            value={avgNetMargin.toFixed(2)}
             delta={calcDelta(avgNetMargin, prevAvgNetMargin)}
             compare="desde egresos bancarios"
           />
           <KpiCard
             label="Gastos fijos / Egr"
             suffix="%"
-            value={fixedExpensesPct}
-            delta={calcDelta(fixedExpensesPct, Math.round(prevFixedVsTotal))}
+            value={fixedExpensesPct.toFixed(2)}
+            delta={calcDelta(fixedExpensesPct, prevFixedVsTotal)}
             compare="Benchmark: <55%"
           />
         </div>
@@ -755,14 +755,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           />
           <KpiCard
             label="LPP"
-            value={avgLpp.toFixed(1)}
+            value={avgLpp.toFixed(2)}
             delta={calcDelta(avgLpp, prevAvgLpp)}
             compare="líneas por pedido"
           />
           <KpiCard
             label="Margen bruto"
             suffix="%"
-            value={avgGrossMargin.toFixed(1)}
+            value={avgGrossMargin.toFixed(2)}
             delta={calcDelta(avgGrossMargin, prevAvgGrossMargin)}
             compare="del período"
           />
@@ -778,7 +778,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <KpiCard
             label="Descuentos"
             prefix="$"
-            value={totalDiscounts.toFixed(2)}
+            value={Math.round(totalDiscounts)}
             delta={calcDelta(totalDiscounts, prevTotalDiscounts)}
             compare={
               totalSales > 0
@@ -1246,11 +1246,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <KpiCard
             label="Efectividad"
             suffix="%"
-            value={avgEffectiveness.toFixed(1)}
+            value={avgEffectiveness.toFixed(2)}
             delta={calcDelta(avgEffectiveness, prevAvgEffectiveness)}
             compare={
               prevAvgEffectiveness > 0
-                ? `Ant: ${prevAvgEffectiveness.toFixed(1)}%`
+                ? `Ant: ${prevAvgEffectiveness.toFixed(2)}%`
                 : undefined
             }
           />

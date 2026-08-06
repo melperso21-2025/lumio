@@ -281,7 +281,7 @@ export default function AdCampaignsOverview({
         <KpiCard
           label="Calidad contactos"
           suffix="%"
-          value={quality_ratio_pct.toFixed(1)}
+          value={quality_ratio_pct.toFixed(2)}
           delta={
             prev_quality_ratio_pct > 0
               ? calcDelta(quality_ratio_pct, prev_quality_ratio_pct, hasPrevData)
@@ -289,14 +289,14 @@ export default function AdCampaignsOverview({
           }
           compare={
             prev_quality_ratio_pct > 0
-              ? `Ant: ${prev_quality_ratio_pct.toFixed(1)}%`
+              ? `Ant: ${prev_quality_ratio_pct.toFixed(2)}%`
               : undefined
           }
         />
         <KpiCard
           label="Efectividad"
           suffix="%"
-          value={effectiveness_pct.toFixed(1)}
+          value={effectiveness_pct.toFixed(2)}
           delta={
             prev_effectiveness_pct > 0
               ? calcDelta(
@@ -308,7 +308,7 @@ export default function AdCampaignsOverview({
           }
           compare={
             prev_effectiveness_pct > 0
-              ? `Ant: ${prev_effectiveness_pct.toFixed(1)}%`
+              ? `Ant: ${prev_effectiveness_pct.toFixed(2)}%`
               : undefined
           }
         />

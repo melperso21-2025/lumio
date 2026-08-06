@@ -219,7 +219,7 @@ export default function SalesOverview({
           delta={calcDelta(total_transactions, prev_total_transactions, hasPrevData)}
           compare={prev_total_transactions > 0 ? `Ant: ${prev_total_transactions}` : undefined}
         />
-        <KpiCard label="LPP prom." value={avg_lpp.toFixed(1)}
+        <KpiCard label="LPP prom." value={avg_lpp.toFixed(2)}
           delta={calcDelta(avg_lpp, prev_avg_lpp, hasPrevData)}
           compare="líneas por pedido"
         />
