@@ -91,6 +91,12 @@ export async function POST(request: NextRequest) {
     const preview: Record<string, unknown>[] = []
     let validCount = 0
 
+    // DEBUG TEMPORAL — mostrar qué recibió el servidor en fila 1
+    warnings.push({
+      row: 1,
+      message: `[DEBUG] mapping recibido: ${JSON.stringify(Object.entries(mapping).slice(0, 3))} | fila1: ${JSON.stringify(rows[0])}`,
+    })
+
     for (let i = 0; i < rows.length; i++) {
       const rowNum = i + 2  // +2 because row 1 = headers
       try {
