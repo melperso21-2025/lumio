@@ -57,23 +57,50 @@ function parseBool(v: string | undefined): boolean {
 function parseDate(v: string | undefined): string | null {
   if (!v) return null
   const s = v.toString().trim()
-  // YYYY-MM-DD (ISO)
+  // YYYY-MM-DD (ISO) — formato estándar de la plantilla
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
-  // M/D/YYYY or MM/DD/YYYY — SheetJS con raw:false y año 4 dígitos
+  // DD/MM/YYYY o D/M/YYYY — formato Ecuador/LatAm
+  const dmy4 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (dmy4) {
+    const d = parseInt(dmy4[1], 10)
+    const m = parseInt(dmy4[2], 10)
+    // Si el primer número > 12, solo puede ser día (DD/MM/YYYY)
+    // Si el segundo número > 12, solo puede ser mes en posición 2 (MM/DD/YYYY es imposible)
+    // Ecuador usa DD/MM/YYYY, lo tomamos como DD/MM/YYYY si d > 12 o m <= 12
+    if (d > 12 || (d <= 12 && m <= 12)) {
+      // Asumir DD/MM/YYYY si d > 12, sino ambiguo → asumir DD/MM/YYYY (convención Ecuador)
+      const dd = String(d).padStart(2, '0')
+      const mm = String(m).padStart(2, '0')
+      return `${dmy4[3]}-${mm}-${dd}`
+    }
+  }
+  // MM/DD/YYYY — formato US (solo si mes ≤ 12 y no aplica DD/MM)
   const mdy4 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
   if (mdy4) {
     const mm = mdy4[1].padStart(2, '0')
     const dd = mdy4[2].padStart(2, '0')
     return `${mdy4[3]}-${mm}-${dd}`
   }
-  // M/D/YY o MM/DD/YY — SheetJS con raw:false y año 2 dígitos (ej: 12/31/19 → 2019-12-31)
-  const mdy2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/)
-  if (mdy2) {
-    const mm   = mdy2[1].padStart(2, '0')
-    const dd   = mdy2[2].padStart(2, '0')
-    const yy   = parseInt(mdy2[3], 10)
+  // DD/MM/YY o MM/DD/YY — año 2 dígitos
+  const short2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/)
+  if (short2) {
+    const yy   = parseInt(short2[3], 10)
     const yyyy = yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy
+    const p1   = parseInt(short2[1], 10)
+    const p2   = parseInt(short2[2], 10)
+    // Si p1 > 12 → DD/MM, sino asumir DD/MM (Ecuador)
+    const dd = p1 > 12 ? String(p1).padStart(2, '0') : String(p1).padStart(2, '0')
+    const mm = p1 > 12 ? String(p2).padStart(2, '0') : String(p2).padStart(2, '0')
     return `${yyyy}-${mm}-${dd}`
+  }
+  // DD-MM-YYYY con guiones
+  const dmyDash = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/)
+  if (dmyDash) {
+    const d = parseInt(dmyDash[1], 10)
+    const m = parseInt(dmyDash[2], 10)
+    if (d > 12 || m <= 12) {
+      return `${dmyDash[3]}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    }
   }
   // Excel serial number
   const n = Number(s)
@@ -507,7 +534,9 @@ export async function validateAndTransform(
     // ── sales ────────────────────────────────────────────────────────────
     case 'sales': {
       const sale_date = parseDate(row['fecha_venta'])
-      if (!sale_date) throw new Error('"fecha_venta" inválida, usa YYYY-MM-DD')
+      if (!sale_date) throw new Error(
+        `"fecha_venta" inválida (valor: "${row['fecha_venta'] ?? ''}") — usa YYYY-MM-DD, ej: 2026-03-15`
+      )
 
       const customerEmail = row['email_cliente']?.trim().toLowerCase()
       if (!customerEmail) throw new Error('"email_cliente" es obligatorio')

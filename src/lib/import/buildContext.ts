@@ -182,6 +182,12 @@ export async function buildContext(
   }
 }
 
+// ── Excel date helper ─────────────────────────────────────────────────────
+// ExcelJS stores dates as UTC midnight. toISOString() is safe here.
+function excelDateToISO(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+
 // ── Parse base64 file to rows ─────────────────────────────────────────────
 
 export function parseFileToRows(
@@ -246,14 +252,22 @@ export async function parseFileToRowsAsync(
     const wb = new ExcelJS.Workbook()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (wb.xlsx as any).load(buf)
-    const ws = wb.worksheets[0]
+    // Prefer the 'Datos' sheet (the template's data sheet) to avoid reading a reference/legend sheet
+    // if the user reordered tabs. Fall back to the first sheet for custom files.
+    const ws = wb.getWorksheet('Datos') ?? wb.getWorksheet('datos') ?? wb.worksheets[0]
     raw = []
     ws.eachRow((row) => {
       const cells = (row.values as unknown[]).slice(1) // index 0 is empty
       raw.push(cells.map((c) => {
         if (c === null || c === undefined) return ''
+        if (typeof c === 'object' && c !== null && 'result' in c) {
+          // Formula cell — use the cached result
+          const r = (c as { result: unknown }).result
+          if (r instanceof Date) return excelDateToISO(r)
+          return r != null ? String(r) : ''
+        }
         if (typeof c === 'object' && c !== null && 'text' in c) return String((c as { text: string }).text ?? '')
-        if (c instanceof Date) return c.toISOString().slice(0, 10)
+        if (c instanceof Date) return excelDateToISO(c)
         return String(c)
       }))
     })
