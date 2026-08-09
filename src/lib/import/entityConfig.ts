@@ -58,7 +58,7 @@ export const ENTITY_DEFS: Record<EntityType, EntityDef> = {
       { key: 'name',                  label: 'nombre_empresa',    required: false, type: 'text',    example: 'Distribuidora ABC', hint: 'Obligatorio si es_empresa=true' },
       { key: 'first_name',            label: 'nombre',            required: false, type: 'text',    example: 'Carlos',            hint: 'Obligatorio si es_empresa=false' },
       { key: 'last_name',             label: 'apellido',          required: false, type: 'text',    example: 'López',             hint: 'Obligatorio si es_empresa=false' },
-      { key: 'id_type',               label: 'documento_tipo',    required: true,  type: 'text',    example: 'ruc',               hint: 'Valores: cedula, ruc, pasaporte' },
+      { key: 'id_type',               label: 'documento_tipo',    required: true,  type: 'text',    example: 'ruc',               hint: 'Valores: cedula, ruc, pasaporte, ruc_extranjero' },
       { key: 'tax_id',                label: 'documento_numero',  required: true,  type: 'text',    example: '1712345678001',     hint: 'Cédula: 10 dígitos | RUC: 13 dígitos | Pasaporte: 6-20 alfanuméricos' },
       { key: 'celular',               label: 'celular',           required: false, type: 'text',    example: '0999123456',        hint: 'Celular Ecuador: 10 dígitos, empieza con 09' },
       { key: 'telefono',             label: 'telefono',          required: false, type: 'text',    example: '022341234',          hint: 'Convencional: 6-9 dígitos (con o sin código de área)' },
@@ -174,7 +174,7 @@ export const ENTITY_DEFS: Record<EntityType, EntityDef> = {
       { key: 'full_name',          label: 'nombre_completo',    required: true,  type: 'text',    example: 'María García' },
       { key: 'email',              label: 'email',              required: true,  type: 'email',   example: 'maria@email.com' },
       { key: 'phone',              label: 'telefono',           required: true,  type: 'text',    example: '+593991234567', hint: 'Formato: +593XXXXXXXXX (9 dígitos sin 0 inicial)' },
-      { key: 'id_type',            label: 'tipo_id',            required: true,  type: 'text',    example: 'cedula', hint: 'Valores: cedula, ruc, pasaporte' },
+      { key: 'id_type',            label: 'tipo_id',            required: true,  type: 'text',    example: 'cedula', hint: 'Valores: cedula, ruc, pasaporte, ruc_extranjero' },
       { key: 'tax_id',             label: 'numero_id',          required: true,  type: 'text',    example: '1712345678', hint: 'Cédula: 10 dígitos | RUC: 13 dígitos | Pasaporte: 6-20 chars alfanuméricos' },
       { key: 'customer_type_name', label: 'tipo_cliente',       required: false, type: 'text',    example: 'Mayorista', hint: 'Debe existir en tu catálogo de tipos (ver hoja IDs de referencia)' },
       { key: 'label_name',         label: 'etiqueta',           required: false, type: 'text',    example: 'VIP', hint: 'Debe existir en tu catálogo de etiquetas (ver hoja IDs de referencia)' },
@@ -323,7 +323,7 @@ export const ENTITY_ORDER: EntityType[] = [
 export const ALLOWED_VALUES: Record<string, { label: string; values: string[] }[]> = {
   suppliers: [
     { label: 'es_empresa',      values: ['true', 'false'] },
-    { label: 'documento_tipo',  values: ['cedula', 'ruc', 'pasaporte'] },
+    { label: 'documento_tipo',  values: ['cedula', 'ruc', 'pasaporte', 'ruc_extranjero'] },
     { label: 'tipo_cuenta',     values: ['checking', 'savings'] },
     { label: 'terminos_pago',   values: ['cash (Contado)', '15d (15 días)', '30d (30 días)', '60d (60 días)', '90d (90 días)', 'other (Otro)'] },
     { label: 'documento_numero', values: ['Formato texto — no dejar que Excel lo convierta a número'] },
@@ -336,7 +336,7 @@ export const ALLOWED_VALUES: Record<string, { label: string; values: string[] }[
     { label: 'es_perecedero', values: ['true', 'false'] },
   ],
   customers: [
-    { label: 'tipo_id',    values: ['cedula', 'ruc', 'pasaporte'] },
+    { label: 'tipo_id',    values: ['cedula', 'ruc', 'pasaporte', 'ruc_extranjero'] },
     { label: 'es_empresa', values: ['true', 'false'] },
     { label: 'telefono',   values: ['+593 seguido de 9 dígitos empezando en 9 (ej: +593991234567)'] },
     { label: 'numero_id',  values: ['Cédula: 10 dígitos con módulo 10', 'RUC: 13 dígitos', 'Pasaporte: 6-20 alfanuméricos'] },

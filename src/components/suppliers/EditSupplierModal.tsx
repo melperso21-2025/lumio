@@ -232,19 +232,20 @@ export default function EditSupplierModal({ supplier, onClose, onSuccess }: Edit
                 <option value="ruc">RUC</option>
                 <option value="cedula">Cédula</option>
                 <option value="pasaporte">Pasaporte</option>
+                <option value="ruc_extranjero">RUC extranjero</option>
               </select>
               <FieldError msg={fieldErrors.id_type} />
             </div>
 
             <div>
-              <label style={labelStyle}>{id_type === 'cedula' ? 'Cédula' : id_type === 'ruc' ? 'RUC' : 'Pasaporte'} *</label>
+              <label style={labelStyle}>{id_type === 'cedula' ? 'Cédula' : id_type === 'ruc' ? 'RUC' : id_type === 'ruc_extranjero' ? 'RUC extranjero' : 'Pasaporte'} *</label>
               <input type="text" value={tax_id} onChange={(e) => setTaxId(e.target.value)}
                 style={{ ...inputStyle, borderColor: fieldErrors.tax_id ? 'rgba(220,38,38,0.5)' : undefined }}
                 onFocus={onFocusStyle}
                 onBlur={(e) => {
                   onBlurStyle(e)
                   if (tax_id) {
-                    const r = validateTaxId(tax_id, id_type as 'cedula' | 'ruc' | 'pasaporte')
+                    const r = validateTaxId(tax_id, id_type as 'cedula' | 'ruc' | 'pasaporte' | 'ruc_extranjero')
                     if (!r.valid) setFieldErrors((prev) => ({ ...prev, tax_id: r.error! }))
                     else setFieldErrors((prev) => { const n = { ...prev }; delete n.tax_id; return n })
                   }

@@ -160,15 +160,24 @@ export function validatePassport(passport: string): {
 
 // ── Tax ID — dispatcher según tipo ────────────────────────────────────────
 
+export function validateRucExtranjero(v: string): { valid: boolean; error?: string } {
+  const s = v.trim()
+  if (!s) return { valid: false, error: 'El número de identificación es requerido' }
+  if (s.length < 5 || s.length > 30) return { valid: false, error: 'RUC extranjero: entre 5 y 30 caracteres' }
+  if (!/^[a-zA-Z0-9\-]+$/.test(s)) return { valid: false, error: 'RUC extranjero: solo letras, números y guiones' }
+  return { valid: true }
+}
+
 export function validateTaxId(
   taxId: string,
-  idType: 'cedula' | 'ruc' | 'pasaporte'
+  idType: 'cedula' | 'ruc' | 'pasaporte' | 'ruc_extranjero'
 ): { valid: boolean; error?: string } {
   if (!taxId) return { valid: false, error: 'El número de identificación es requerido' }
   switch (idType) {
-    case 'cedula':    return validateCedula(taxId)
-    case 'ruc':       return validateRUC(taxId)
-    case 'pasaporte': return validatePassport(taxId)
+    case 'cedula':         return validateCedula(taxId)
+    case 'ruc':            return validateRUC(taxId)
+    case 'pasaporte':      return validatePassport(taxId)
+    case 'ruc_extranjero': return validateRucExtranjero(taxId)
   }
 }
 
@@ -299,11 +308,11 @@ export async function validateCustomer(
 
   // id_type
   const id_type = String(row.id_type ?? '').trim().toLowerCase()
-  const validIdTypes = ['cedula', 'ruc', 'pasaporte']
+  const validIdTypes = ['cedula', 'ruc', 'pasaporte', 'ruc_extranjero']
   if (!id_type) {
     errors.id_type = 'El tipo de identificación es obligatorio'
   } else if (!validIdTypes.includes(id_type)) {
-    errors.id_type = 'Tipo de ID inválido. Valores: cedula, ruc, pasaporte'
+    errors.id_type = 'Tipo de ID inválido. Valores: cedula, ruc, pasaporte, ruc_extranjero'
   }
 
   // tax_id
@@ -313,7 +322,7 @@ export async function validateCustomer(
   } else if (tax_id === '9999999999') {
     // Placeholder: válido sin algoritmo de cédula
   } else if (validIdTypes.includes(id_type)) {
-    const taxResult = validateTaxId(tax_id, id_type as 'cedula' | 'ruc' | 'pasaporte')
+    const taxResult = validateTaxId(tax_id, id_type as 'cedula' | 'ruc' | 'pasaporte' | 'ruc_extranjero')
     if (!taxResult.valid) errors.tax_id = taxResult.error!
   }
 
@@ -674,11 +683,11 @@ export function validateSupplier(
 
   // ── id_type ──────────────────────────────────────────────────────────────
   const id_type = String(row.id_type ?? '').trim().toLowerCase()
-  const validIdTypes = ['cedula', 'ruc', 'pasaporte']
+  const validIdTypes = ['cedula', 'ruc', 'pasaporte', 'ruc_extranjero']
   if (!id_type) {
     errors.id_type = 'El tipo de documento es obligatorio'
   } else if (!validIdTypes.includes(id_type)) {
-    errors.id_type = `Tipo de documento inválido. Valores: cedula, ruc, pasaporte`
+    errors.id_type = `Tipo de documento inválido. Valores: cedula, ruc, pasaporte, ruc_extranjero`
   }
 
   // ── tax_id ───────────────────────────────────────────────────────────────
@@ -686,7 +695,7 @@ export function validateSupplier(
   if (!tax_id) {
     errors.tax_id = 'El número de identificación es obligatorio'
   } else if (validIdTypes.includes(id_type)) {
-    const taxResult = validateTaxId(tax_id, id_type as 'cedula' | 'ruc' | 'pasaporte')
+    const taxResult = validateTaxId(tax_id, id_type as 'cedula' | 'ruc' | 'pasaporte' | 'ruc_extranjero')
     if (!taxResult.valid) errors.tax_id = taxResult.error!
   }
 

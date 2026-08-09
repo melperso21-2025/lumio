@@ -67,7 +67,7 @@ export default function NewCustomerForm() {
 
   // Required fields
   const [full_name, setFullName] = useState('')
-  const [id_type, setIdType] = useState<'cedula' | 'ruc' | 'pasaporte'>('cedula')
+  const [id_type, setIdType] = useState<'cedula' | 'ruc' | 'pasaporte' | 'ruc_extranjero'>('cedula')
   const [tax_id, setTaxId] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -422,7 +422,7 @@ export default function NewCustomerForm() {
                       <select
                         id="nc-id_type"
                         value={id_type}
-                        onChange={(e) => { setIdType(e.target.value as 'cedula' | 'ruc' | 'pasaporte'); setTaxId(''); setFieldError('tax_id', null) }}
+                        onChange={(e) => { setIdType(e.target.value as 'cedula' | 'ruc' | 'pasaporte' | 'ruc_extranjero'); setTaxId(''); setFieldError('tax_id', null) }}
                         style={inputStyle}
                         onFocus={onFocus}
                         onBlur={onBlur}
@@ -430,6 +430,7 @@ export default function NewCustomerForm() {
                         <option value="cedula">Cédula (10 dígitos)</option>
                         <option value="ruc">RUC (13 dígitos)</option>
                         <option value="pasaporte">Pasaporte (6-20 chars)</option>
+                        <option value="ruc_extranjero">RUC extranjero (5-30 chars)</option>
                       </select>
                     </div>
                     <div>

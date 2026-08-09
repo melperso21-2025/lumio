@@ -89,8 +89,8 @@ export default function EditCustomerModal({
 
   // Required
   const [full_name, setFullName] = useState(customer.full_name ?? '')
-  const [id_type, setIdType] = useState<'cedula' | 'ruc' | 'pasaporte'>(
-    (customer.id_type as 'cedula' | 'ruc' | 'pasaporte') ?? 'cedula'
+  const [id_type, setIdType] = useState<'cedula' | 'ruc' | 'pasaporte' | 'ruc_extranjero'>(
+    (customer.id_type as 'cedula' | 'ruc' | 'pasaporte' | 'ruc_extranjero') ?? 'cedula'
   )
   const [tax_id, setTaxId] = useState(customer.tax_id ?? '')
   const [phone, setPhone] = useState(customer.phone ?? '')
@@ -312,7 +312,7 @@ export default function EditCustomerModal({
                   <label style={labelStyle}>Tipo de ID *</label>
                   <select
                     value={id_type}
-                    onChange={(e) => { setIdType(e.target.value as 'cedula' | 'ruc' | 'pasaporte'); setTaxId(''); setFieldError('tax_id', null) }}
+                    onChange={(e) => { setIdType(e.target.value as 'cedula' | 'ruc' | 'pasaporte' | 'ruc_extranjero'); setTaxId(''); setFieldError('tax_id', null) }}
                     style={inputStyle}
                     onFocus={onFocus}
                     onBlur={onBlur}
@@ -320,6 +320,7 @@ export default function EditCustomerModal({
                     <option value="cedula">Cédula (10 dígitos)</option>
                     <option value="ruc">RUC (13 dígitos)</option>
                     <option value="pasaporte">Pasaporte (6-20 chars)</option>
+                    <option value="ruc_extranjero">RUC extranjero (5-30 chars)</option>
                   </select>
                 </div>
                 <div>

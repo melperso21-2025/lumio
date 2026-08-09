@@ -274,6 +274,7 @@ export default function NewSupplierForm({ onSuccess }: { onSuccess?: () => void 
                     <option value="ruc">RUC</option>
                     <option value="cedula">Cédula</option>
                     <option value="pasaporte">Pasaporte</option>
+                    <option value="ruc_extranjero">RUC extranjero</option>
                   </select>
                   <FieldError msg={fieldErrors.id_type} />
                 </div>
@@ -281,16 +282,16 @@ export default function NewSupplierForm({ onSuccess }: { onSuccess?: () => void 
                 {/* tax_id */}
                 <div>
                   <label style={labelStyle}>
-                    {id_type === 'cedula' ? 'Cédula (10 dígitos)' : id_type === 'ruc' ? 'RUC (13 dígitos)' : 'Pasaporte (6-20 chars)'} *
+                    {id_type === 'cedula' ? 'Cédula (10 dígitos)' : id_type === 'ruc' ? 'RUC (13 dígitos)' : id_type === 'ruc_extranjero' ? 'RUC extranjero (5-30 chars)' : 'Pasaporte (6-20 chars)'} *
                   </label>
                   <input type="text" value={tax_id} onChange={(e) => setTaxId(e.target.value)}
-                    placeholder={id_type === 'cedula' ? '1712345678' : id_type === 'ruc' ? '1712345678001' : 'AB123456'}
+                    placeholder={id_type === 'cedula' ? '1712345678' : id_type === 'ruc' ? '1712345678001' : id_type === 'ruc_extranjero' ? 'NIT-900123456-1' : 'AB123456'}
                     style={{ ...inputStyle, borderColor: fieldErrors.tax_id ? 'rgba(220,38,38,0.5)' : undefined }}
                     onFocus={onFocusStyle}
                     onBlur={(e) => {
                       onBlurStyle(e)
                       if (tax_id) {
-                        const r = validateTaxId(tax_id, id_type as 'cedula' | 'ruc' | 'pasaporte')
+                        const r = validateTaxId(tax_id, id_type as 'cedula' | 'ruc' | 'pasaporte' | 'ruc_extranjero')
                         if (!r.valid) setFieldErrors((prev) => ({ ...prev, tax_id: r.error! }))
                         else setFieldErrors((prev) => { const n = { ...prev }; delete n.tax_id; return n })
                       }
