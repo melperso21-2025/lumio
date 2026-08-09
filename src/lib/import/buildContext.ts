@@ -252,9 +252,7 @@ export async function parseFileToRowsAsync(
     const wb = new ExcelJS.Workbook()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (wb.xlsx as any).load(buf)
-    // Prefer the 'Datos' sheet (the template's data sheet) to avoid reading a reference/legend sheet
-    // if the user reordered tabs. Fall back to the first sheet for custom files.
-    const ws = wb.getWorksheet('Datos') ?? wb.getWorksheet('datos') ?? wb.worksheets[0]
+    const ws = wb.worksheets[0]
     raw = []
     ws.eachRow((row) => {
       const cells = (row.values as unknown[]).slice(1) // index 0 is empty
