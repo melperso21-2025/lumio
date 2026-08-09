@@ -275,6 +275,8 @@ export async function parseFileToRowsAsync(
 
   if (raw.length < 2) return []
   const fileHeaders = raw[0].map((h) => String(h ?? '').trim())
+  console.log('parseFileToRowsAsync fileHeaders:', JSON.stringify(fileHeaders))
+  console.log('parseFileToRowsAsync raw[1]:', JSON.stringify(raw[1]))
 
   // If the client sent an empty mapping (race condition or auto-map failure),
   // fall back to a direct 1:1 mapping so Lumio-template files still work
