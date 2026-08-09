@@ -251,26 +251,40 @@ export async function parseFileToRowsAsync(
   } else {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const ExcelJS = require('exceljs') as typeof import('exceljs')
-    const wb = new ExcelJS.Workbook()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (wb.xlsx as any).load(buf)
-    const ws = wb.worksheets[0]
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Readable } = require('stream') as typeof import('stream')
+
     raw = []
-    ws.eachRow((row) => {
-      const cells = (row.values as unknown[]).slice(1) // index 0 is empty
-      raw.push(cells.map((c) => {
-        if (c === null || c === undefined) return ''
-        if (typeof c === 'object' && c !== null && 'result' in c) {
-          // Formula cell — use the cached result
-          const r = (c as { result: unknown }).result
-          if (r instanceof Date) return excelDateToISO(r)
-          return r != null ? String(r) : ''
-        }
-        if (typeof c === 'object' && c !== null && 'text' in c) return String((c as { text: string }).text ?? '')
-        if (c instanceof Date) return excelDateToISO(c)
-        return String(c)
-      }))
+
+    // Use the streaming WorkbookReader to avoid the ExcelJS "comments" bug
+    // that crashes when loading certain XLSX files with wb.xlsx.load().
+    const stream = Readable.from(buf)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const workbookReader = new (ExcelJS.stream.xlsx.WorkbookReader as any)(stream, {
+      sheets: [0],         // first sheet only
+      sharedStrings: 'cache',
     })
+
+    let firstSheet = true
+    for await (const worksheetReader of workbookReader) {
+      if (!firstSheet) break
+      firstSheet = false
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for await (const row of worksheetReader as any) {
+        const cells = (row.values as unknown[]).slice(1) // index 0 is always empty in ExcelJS
+        raw.push(cells.map((c) => {
+          if (c === null || c === undefined) return ''
+          if (typeof c === 'object' && c !== null && 'result' in c) {
+            const r = (c as { result: unknown }).result
+            if (r instanceof Date) return excelDateToISO(r)
+            return r != null ? String(r) : ''
+          }
+          if (typeof c === 'object' && c !== null && 'text' in c) return String((c as { text: string }).text ?? '')
+          if (c instanceof Date) return excelDateToISO(c)
+          return String(c)
+        }))
+      }
+    }
   }
 
   if (raw.length < 2) return { rows: [], fileHeaders: [], raw1: [] }
