@@ -276,9 +276,16 @@ export async function parseFileToRowsAsync(
   if (raw.length < 2) return []
   const fileHeaders = raw[0].map((h) => String(h ?? '').trim())
 
+  // If the client sent an empty mapping (race condition or auto-map failure),
+  // fall back to a direct 1:1 mapping so Lumio-template files still work
+  // (the template uses system-label names as column headers).
+  const effectiveMapping = Object.keys(mapping).length > 0
+    ? mapping
+    : Object.fromEntries(fileHeaders.filter(Boolean).map((h) => [h, h]))
+
   return raw.slice(1).filter((r) => r.some((c) => c !== '')).map((row) => {
     const mapped: Record<string, string> = {}
-    Object.entries(mapping).forEach(([systemLabel, fileHeader]) => {
+    Object.entries(effectiveMapping).forEach(([systemLabel, fileHeader]) => {
       const colIdx = fileHeaders.indexOf(fileHeader)
       if (colIdx !== -1) mapped[systemLabel] = String(row[colIdx] ?? '').trim()
     })
