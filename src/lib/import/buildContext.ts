@@ -196,8 +196,9 @@ export function parseFileToRows(
 ): Record<string, string>[] {
   const buf = Buffer.from(fileDataBase64, 'base64')
 
-  // Detect CSV by magic bytes (text or UTF-8 BOM)
-  const isCsv = buf[0] === 0xef || buf[0] < 0x80
+  // Detect CSV by magic bytes (text or UTF-8 BOM). Check XLSX/ZIP first since 0x50 ('P') < 0x80.
+  const isXlsxOrZip = buf[0] === 0x50 && buf[1] === 0x4b
+  const isCsv = !isXlsxOrZip && (buf[0] === 0xef || buf[0] < 0x80)
 
   let raw: string[][]
 
@@ -236,7 +237,8 @@ export async function parseFileToRowsAsync(
   mapping: Record<string, string>
 ): Promise<{ rows: Record<string, string>[]; fileHeaders: string[]; raw1: string[] }> {
   const buf = Buffer.from(fileDataBase64, 'base64')
-  const isCsv = buf[0] === 0xef || buf[0] < 0x80
+  const isXlsxOrZip = buf[0] === 0x50 && buf[1] === 0x4b
+  const isCsv = !isXlsxOrZip && (buf[0] === 0xef || buf[0] < 0x80)
 
   let raw: string[][]
 
