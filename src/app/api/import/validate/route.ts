@@ -74,14 +74,6 @@ export async function POST(request: NextRequest) {
       return errorJson(`Error leyendo archivo: ${(e as Error).message}`, 400)
     }
 
-    console.log('validate request:', {
-      entityType,
-      rowCount: rows.length,
-      mappingKeys: Object.keys(mapping),
-      mappingValues: Object.values(mapping),
-      row0: rows[0],
-    })
-
     if (rows.length === 0) {
       return errorJson('El archivo no contiene datos (solo encabezados o está vacío)', 400)
     }
@@ -123,6 +115,11 @@ export async function POST(request: NextRequest) {
       errors,
       warnings,
       preview,
+      _debug: {
+        mappingKeys:   Object.keys(mapping),
+        mappingValues: Object.values(mapping),
+        row0:          rows[0] ?? null,
+      },
     })
 
   } catch (err) {
