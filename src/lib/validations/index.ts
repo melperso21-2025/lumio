@@ -15,8 +15,8 @@ export interface SupplierValidationResult {
     is_company:            boolean
     id_type:               string
     tax_id:                string
-    phone:                 string
-    email:                 string
+    phone:                 string | null
+    email:                 string | null
     address:               string | null
     bank_name:             string | null
     bank_account:          string | null
@@ -601,10 +601,22 @@ export async function validateBankTransaction(
 // Validates a supplier row synchronously (no DB lookups needed).
 // Accumulates all errors before returning.
 
+export interface SupplierValidationOptions {
+  requirePhone?: boolean
+  requireEmail?: boolean
+}
+
+export const validateSupplierImportOptions: SupplierValidationOptions = {
+  requirePhone: false,
+  requireEmail: false,
+}
+
 export function validateSupplier(
   row: Record<string, unknown>,
-  _companyId: string = ''
+  _companyId: string = '',
+  options: SupplierValidationOptions = { requirePhone: true, requireEmail: true }
 ): SupplierValidationResult {
+  const { requirePhone = true, requireEmail = true } = options
   const errors: Record<string, string> = {}
 
   // ── is_company ───────────────────────────────────────────────────────────
@@ -651,7 +663,7 @@ export function validateSupplier(
   // ── phone ────────────────────────────────────────────────────────────────
   const phone = String(row.phone ?? '').trim()
   if (!phone) {
-    errors.phone = 'El teléfono es obligatorio'
+    if (requirePhone) errors.phone = 'El teléfono es obligatorio'
   } else {
     const phoneResult = validatePhone(phone)
     if (!phoneResult.valid) errors.phone = phoneResult.error!
@@ -660,7 +672,7 @@ export function validateSupplier(
   // ── email ────────────────────────────────────────────────────────────────
   const email = String(row.email ?? '').trim()
   if (!email) {
-    errors.email = 'El email es obligatorio'
+    if (requireEmail) errors.email = 'El email es obligatorio'
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     errors.email = `Email "${email}" no tiene formato válido`
   }
@@ -674,7 +686,7 @@ export function validateSupplier(
 
   if (Object.keys(errors).length > 0) return { valid: false, errors }
 
-  const phoneFormatted = validatePhone(phone).formatted ?? phone
+  const phoneFormatted = phone ? (validatePhone(phone).formatted ?? phone) : null
 
   return {
     valid: true,
@@ -687,7 +699,7 @@ export function validateSupplier(
       id_type,
       tax_id,
       phone:                 phoneFormatted,
-      email,
+      email:                 email || null,
       address:               String(row.address ?? '').trim()      || null,
       bank_name:             String(row.bank_name ?? '').trim()    || null,
       bank_account:          bank_account                          || null,

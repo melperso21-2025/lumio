@@ -11,6 +11,7 @@ import {
   validatePhone,
   parseBoolean as parseBooleanLib,
   validateSupplier,
+  validateSupplierImportOptions,
   validateCustomer,
   validateCustomerImportOptions,
 } from '@/lib/validations'
@@ -206,7 +207,7 @@ export async function validateAndTransform(
         payment_terms: normalizeSupplierPaymentTerms(row['terminos_pago']),
       }
 
-      const result = validateSupplier(rowData, ctx.companyId)
+      const result = validateSupplier(rowData, ctx.companyId, validateSupplierImportOptions)
       if (!result.valid) {
         throw new Error(Object.values(result.errors).join(' · '))
       }
