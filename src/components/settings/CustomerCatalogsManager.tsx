@@ -76,7 +76,7 @@ function CatalogSection({
   useEffect(() => {
     fetchItems()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId])
+  }, [companyId, table])
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
