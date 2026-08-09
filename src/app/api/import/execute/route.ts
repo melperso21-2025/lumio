@@ -62,7 +62,8 @@ export async function POST(request: NextRequest) {
     // Parse file
     let rows: Record<string, string>[]
     try {
-      rows = await parseFileToRowsAsync(fileData, mapping)
+      const parsed = await parseFileToRowsAsync(fileData, mapping)
+      rows = parsed.rows
     } catch (e) {
       return NextResponse.json({ error: `Error leyendo archivo: ${(e as Error).message}` }, { status: 400 })
     }

@@ -234,7 +234,7 @@ export function parseFileToRows(
 export async function parseFileToRowsAsync(
   fileDataBase64: string,
   mapping: Record<string, string>
-): Promise<Record<string, string>[]> {
+): Promise<{ rows: Record<string, string>[]; fileHeaders: string[]; raw1: string[] }> {
   const buf = Buffer.from(fileDataBase64, 'base64')
   const isCsv = buf[0] === 0xef || buf[0] < 0x80
 
@@ -271,10 +271,8 @@ export async function parseFileToRowsAsync(
     })
   }
 
-  if (raw.length < 2) return []
+  if (raw.length < 2) return { rows: [], fileHeaders: [], raw1: [] }
   const fileHeaders = raw[0].map((h) => String(h ?? '').trim())
-  console.log('parseFileToRowsAsync fileHeaders:', JSON.stringify(fileHeaders))
-  console.log('parseFileToRowsAsync raw[1]:', JSON.stringify(raw[1]))
 
   // If the client sent an empty mapping (race condition or auto-map failure),
   // fall back to a direct 1:1 mapping so Lumio-template files still work
@@ -283,7 +281,7 @@ export async function parseFileToRowsAsync(
     ? mapping
     : Object.fromEntries(fileHeaders.filter(Boolean).map((h) => [h, h]))
 
-  return raw.slice(1).filter((r) => r.some((c) => c !== '')).map((row) => {
+  const rows = raw.slice(1).filter((r) => r.some((c) => c !== '')).map((row) => {
     const mapped: Record<string, string> = {}
     Object.entries(effectiveMapping).forEach(([systemLabel, fileHeader]) => {
       const colIdx = fileHeaders.indexOf(fileHeader)
@@ -291,4 +289,6 @@ export async function parseFileToRowsAsync(
     })
     return mapped
   })
+
+  return { rows, fileHeaders, raw1: raw[1] ?? [] }
 }

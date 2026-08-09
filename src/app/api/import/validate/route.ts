@@ -68,8 +68,13 @@ export async function POST(request: NextRequest) {
 
     // Parse file
     let rows: Record<string, string>[]
+    let fileHeaders: string[] = []
+    let raw1: string[] = []
     try {
-      rows = await parseFileToRowsAsync(fileData, mapping)
+      const parsed = await parseFileToRowsAsync(fileData, mapping)
+      rows = parsed.rows
+      fileHeaders = parsed.fileHeaders
+      raw1 = parsed.raw1
     } catch (e) {
       return errorJson(`Error leyendo archivo: ${(e as Error).message}`, 400)
     }
@@ -91,10 +96,10 @@ export async function POST(request: NextRequest) {
     const preview: Record<string, unknown>[] = []
     let validCount = 0
 
-    // DEBUG TEMPORAL — mostrar qué recibió el servidor en fila 1
+    // DEBUG TEMPORAL
     warnings.push({
       row: 1,
-      message: `[DEBUG] mapping recibido: ${JSON.stringify(Object.entries(mapping).slice(0, 3))} | fila1: ${JSON.stringify(rows[0])}`,
+      message: `[DEBUG] fileHeaders: ${JSON.stringify(fileHeaders)} | raw1: ${JSON.stringify(raw1.slice(0, 4))} | fila1: ${JSON.stringify(rows[0])}`,
     })
 
     for (let i = 0; i < rows.length; i++) {
