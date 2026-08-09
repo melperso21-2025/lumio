@@ -15,7 +15,8 @@ export interface SupplierValidationResult {
     is_company:            boolean
     id_type:               string
     tax_id:                string
-    phone:                 string | null
+    celular:               string | null
+    telefono:              string | null
     email:                 string | null
     address:               string | null
     bank_name:             string | null
@@ -49,6 +50,35 @@ export function validatePhone(phone: string): {
     valid: false,
     error: 'Teléfono inválido. Móvil: 09XXXXXXXX · Fijo: 0XX-XXXXXXX (área 02-07)',
   }
+}
+
+// ── Celular Ecuador ────────────────────────────────────────────────────────
+// Exactamente 10 dígitos, empieza con 09
+
+export function validateCelular(v: string): {
+  valid: boolean; error?: string; formatted?: string
+} {
+  if (!v) return { valid: true }
+  const digits = v.replace(/\D/g, '')
+  const local = digits.startsWith('593') ? digits.slice(3)
+    : digits.startsWith('0')             ? digits.slice(1)
+    : digits
+  if (local.length === 9 && local.startsWith('9'))
+    return { valid: true, formatted: '+593' + local }
+  return { valid: false, error: 'Celular inválido. Formato: 09XXXXXXXXX (10 dígitos)' }
+}
+
+// ── Teléfono convencional ──────────────────────────────────────────────────
+// Solo dígitos, entre 6 y 9 caracteres (flexible: con o sin código de área)
+
+export function validateTelefono(v: string): {
+  valid: boolean; error?: string
+} {
+  if (!v) return { valid: true }
+  const digits = v.replace(/\D/g, '')
+  if (digits.length < 6 || digits.length > 9)
+    return { valid: false, error: 'Teléfono convencional: entre 6 y 9 dígitos numéricos' }
+  return { valid: true }
 }
 
 // ── Cédula Ecuador (módulo 10) ─────────────────────────────────────────────
@@ -602,21 +632,21 @@ export async function validateBankTransaction(
 // Accumulates all errors before returning.
 
 export interface SupplierValidationOptions {
-  requirePhone?: boolean
+  requireCelular?: boolean
   requireEmail?: boolean
 }
 
 export const validateSupplierImportOptions: SupplierValidationOptions = {
-  requirePhone: false,
+  requireCelular: false,
   requireEmail: false,
 }
 
 export function validateSupplier(
   row: Record<string, unknown>,
   _companyId: string = '',
-  options: SupplierValidationOptions = { requirePhone: true, requireEmail: true }
+  options: SupplierValidationOptions = { requireCelular: true, requireEmail: true }
 ): SupplierValidationResult {
-  const { requirePhone = true, requireEmail = true } = options
+  const { requireCelular = true, requireEmail = true } = options
   const errors: Record<string, string> = {}
 
   // ── is_company ───────────────────────────────────────────────────────────
@@ -660,13 +690,20 @@ export function validateSupplier(
     if (!taxResult.valid) errors.tax_id = taxResult.error!
   }
 
-  // ── phone ────────────────────────────────────────────────────────────────
-  const phone = String(row.phone ?? '').trim()
-  if (!phone) {
-    if (requirePhone) errors.phone = 'El teléfono es obligatorio'
+  // ── celular ───────────────────────────────────────────────────────────────
+  const celularRaw = String(row.celular ?? '').trim()
+  if (!celularRaw) {
+    if (requireCelular) errors.celular = 'El celular es obligatorio'
   } else {
-    const phoneResult = validatePhone(phone)
-    if (!phoneResult.valid) errors.phone = phoneResult.error!
+    const celularResult = validateCelular(celularRaw)
+    if (!celularResult.valid) errors.celular = celularResult.error!
+  }
+
+  // ── telefono (convencional, opcional) ────────────────────────────────────
+  const telefonoRaw = String(row.telefono ?? '').trim()
+  if (telefonoRaw) {
+    const telResult = validateTelefono(telefonoRaw)
+    if (!telResult.valid) errors.telefono = telResult.error!
   }
 
   // ── email ────────────────────────────────────────────────────────────────
@@ -686,7 +723,8 @@ export function validateSupplier(
 
   if (Object.keys(errors).length > 0) return { valid: false, errors }
 
-  const phoneFormatted = phone ? (validatePhone(phone).formatted ?? phone) : null
+  const celularFormatted = celularRaw ? (validateCelular(celularRaw).formatted ?? celularRaw) : null
+  const telefonoNormalized = telefonoRaw ? telefonoRaw.replace(/\D/g, '') || null : null
 
   return {
     valid: true,
@@ -698,7 +736,8 @@ export function validateSupplier(
       is_company,
       id_type,
       tax_id,
-      phone:                 phoneFormatted,
+      celular:               celularFormatted,
+      telefono:              telefonoNormalized,
       email:                 email || null,
       address:               String(row.address ?? '').trim()      || null,
       bank_name:             String(row.bank_name ?? '').trim()    || null,

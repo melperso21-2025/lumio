@@ -8,12 +8,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { EntityType } from './entityConfig'
 import {
-  validatePhone,
   parseBoolean as parseBooleanLib,
   validateSupplier,
   validateSupplierImportOptions,
   validateCustomer,
   validateCustomerImportOptions,
+  validatePhone,
 } from '@/lib/validations'
 
 // ── Context passed to each row processor ──────────────────────────────────
@@ -196,7 +196,8 @@ export async function validateAndTransform(
         last_name:  is_company ? undefined : (row['apellido']?.trim() || undefined),
         id_type:    row['documento_tipo']?.trim()?.toLowerCase(),
         tax_id:     row['documento_numero']?.trim(),
-        phone:      row['telefono']?.trim(),
+        celular:    row['celular']?.trim(),
+        telefono:   row['telefono']?.trim(),
         email:      row['email']?.trim(),
         address:    row['direccion']?.trim() || undefined,
         bank_name:  row['banco_nombre']?.trim()   || undefined,

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import PhoneInput from '@/components/ui/PhoneInput'
-import { validateTaxId, validateAccountNumber, validateSupplier } from '@/lib/validations'
+import { validateTaxId, validateAccountNumber, validateSupplier, validateTelefono } from '@/lib/validations'
 import type { SupplierRow } from './SuppliersTable'
 
 // ── Styles ─────────────────────────────────────────────────────────────────
@@ -81,7 +81,8 @@ export default function EditSupplierModal({ supplier, onClose, onSuccess }: Edit
   const [last_name, setLastName]    = useState(supplier.last_name ?? '')
   const [id_type, setIdType]        = useState(supplier.id_type ?? 'ruc')
   const [tax_id, setTaxId]          = useState(supplier.tax_id ?? '')
-  const [phone, setPhone]           = useState(supplier.phone ?? '')
+  const [celular, setCelular]       = useState(supplier.celular ?? '')
+  const [telefono, setTelefono]     = useState(supplier.telefono ?? '')
   const [email, setEmail]           = useState(supplier.email ?? '')
   const [address, setAddress]       = useState(supplier.address ?? '')
 
@@ -115,7 +116,7 @@ export default function EditSupplierModal({ supplier, onClose, onSuccess }: Edit
       name:       is_company ? name : undefined,
       first_name: is_company ? undefined : first_name,
       last_name:  is_company ? undefined : last_name,
-      id_type, tax_id, phone, email, address,
+      id_type, tax_id, celular, telefono, email, address,
       bank_name:    showBanking ? bank_name    : undefined,
       bank_account: showBanking ? bank_account : undefined,
       account_type: showBanking ? account_type : undefined,
@@ -258,8 +259,8 @@ export default function EditSupplierModal({ supplier, onClose, onSuccess }: Edit
             <p style={sectionTitle}>Contacto</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
               <div>
-                <label style={labelStyle}>Teléfono *</label>
-                <PhoneInput value={phone} onChange={setPhone} error={fieldErrors.phone} />
+                <label style={labelStyle}>Celular *</label>
+                <PhoneInput value={celular} onChange={setCelular} error={fieldErrors.celular} />
               </div>
               <div>
                 <label style={labelStyle}>Email *</label>
@@ -267,6 +268,29 @@ export default function EditSupplierModal({ supplier, onClose, onSuccess }: Edit
                   style={{ ...inputStyle, borderColor: fieldErrors.email ? 'rgba(220,38,38,0.5)' : undefined }}
                   onFocus={onFocusStyle} onBlur={onBlurStyle} />
                 <FieldError msg={fieldErrors.email} />
+              </div>
+              <div>
+                <label style={labelStyle}>Teléfono convencional</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ''))}
+                  placeholder="022341234"
+                  maxLength={9}
+                  style={{ ...inputStyle, borderColor: fieldErrors.telefono ? 'rgba(220,38,38,0.5)' : undefined }}
+                  onFocus={onFocusStyle}
+                  onBlur={(e) => {
+                    onBlurStyle(e)
+                    const v = e.target.value.trim()
+                    if (v) {
+                      const r = validateTelefono(v)
+                      if (!r.valid) setFieldErrors((prev) => ({ ...prev, telefono: r.error! }))
+                      else setFieldErrors((prev) => { const n = { ...prev }; delete n.telefono; return n })
+                    }
+                  }}
+                />
+                <FieldError msg={fieldErrors.telefono} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={labelStyle}>Dirección</label>

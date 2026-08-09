@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PhoneInput from '@/components/ui/PhoneInput'
-import { validateTaxId, validatePhone, validateAccountNumber, validateSupplier } from '@/lib/validations'
+import { validateTaxId, validateAccountNumber, validateSupplier, validateTelefono } from '@/lib/validations'
 
 // ── Styles ─────────────────────────────────────────────────────────────────
 
@@ -76,9 +76,10 @@ export default function NewSupplierForm({ onSuccess }: { onSuccess?: () => void 
   const [tax_id, setTaxId]   = useState('')
 
   // Contact
-  const [phone, setPhone]     = useState('')
-  const [email, setEmail]     = useState('')
-  const [address, setAddress] = useState('')
+  const [celular, setCelular]   = useState('')
+  const [telefono, setTelefono] = useState('')
+  const [email, setEmail]       = useState('')
+  const [address, setAddress]   = useState('')
 
   // Banking (collapsible)
   const [showBanking, setShowBanking]     = useState(false)
@@ -97,7 +98,7 @@ export default function NewSupplierForm({ onSuccess }: { onSuccess?: () => void 
     setIsCompany(true)
     setName(''); setFirstName(''); setLastName('')
     setIdType('ruc'); setTaxId('')
-    setPhone(''); setEmail(''); setAddress('')
+    setCelular(''); setTelefono(''); setEmail(''); setAddress('')
     setShowBanking(false)
     setBankName(''); setBankAccount(''); setAccountType('checking'); setBankTaxId('')
     setBankAccountError(null)
@@ -123,7 +124,8 @@ export default function NewSupplierForm({ onSuccess }: { onSuccess?: () => void 
       last_name:  is_company ? undefined : last_name,
       id_type,
       tax_id,
-      phone,
+      celular,
+      telefono,
       email,
       address,
       bank_name:    showBanking ? bank_name    : undefined,
@@ -303,11 +305,11 @@ export default function NewSupplierForm({ onSuccess }: { onSuccess?: () => void 
                 <p style={sectionTitle}>Contacto</p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
                   <div>
-                    <label style={labelStyle}>Teléfono *</label>
+                    <label style={labelStyle}>Celular *</label>
                     <PhoneInput
-                      value={phone}
-                      onChange={setPhone}
-                      error={fieldErrors.phone}
+                      value={celular}
+                      onChange={setCelular}
+                      error={fieldErrors.celular}
                     />
                   </div>
                   <div>
@@ -317,6 +319,29 @@ export default function NewSupplierForm({ onSuccess }: { onSuccess?: () => void 
                       style={{ ...inputStyle, borderColor: fieldErrors.email ? 'rgba(220,38,38,0.5)' : undefined }}
                       onFocus={onFocusStyle} onBlur={onBlurStyle} />
                     <FieldError msg={fieldErrors.email} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Teléfono convencional</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={telefono}
+                      onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ''))}
+                      placeholder="022341234"
+                      maxLength={9}
+                      style={{ ...inputStyle, borderColor: fieldErrors.telefono ? 'rgba(220,38,38,0.5)' : undefined }}
+                      onFocus={onFocusStyle}
+                      onBlur={(e) => {
+                        onBlurStyle(e)
+                        const v = e.target.value.trim()
+                        if (v) {
+                          const r = validateTelefono(v)
+                          if (!r.valid) setFieldErrors((prev) => ({ ...prev, telefono: r.error! }))
+                          else setFieldErrors((prev) => { const n = { ...prev }; delete n.telefono; return n })
+                        }
+                      }}
+                    />
+                    <FieldError msg={fieldErrors.telefono} />
                   </div>
                   <div style={{ gridColumn: '1 / -1' }}>
                     <label style={labelStyle}>Dirección</label>

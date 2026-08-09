@@ -37,7 +37,7 @@ export default function SuppliersOverview({
     const { data } = await supabase
       .from('suppliers')
       .select(
-        'id, name, first_name, last_name, is_company, id_type, tax_id, phone, email, address, bank_name, bank_account, account_type, is_active, created_at'
+        'id, name, first_name, last_name, is_company, id_type, tax_id, celular, telefono, email, address, bank_name, bank_account, account_type, is_active, created_at'
       )
       .eq('company_id', companyId)
       .is('deleted_at', null)

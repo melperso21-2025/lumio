@@ -173,7 +173,8 @@ export default function SupplierDetailView({ supplier, products, purchases = [],
         {/* Contacto */}
         <div style={card}>
           <p style={sectionLabel}>Contacto</p>
-          <Row label="Teléfono"  value={supplier.phone} />
+          <Row label="Celular"    value={supplier.celular} />
+          <Row label="Teléfono"  value={supplier.telefono} />
           <Row label="Email"     value={supplier.email} />
           <Row label="Dirección" value={supplier.address} />
           {supplier.payment_terms && <Row label="Términos de pago" value={supplier.payment_terms} />}
