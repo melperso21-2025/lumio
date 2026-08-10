@@ -67,7 +67,7 @@ export async function PATCH(
   }
 }
 
-// ── DELETE (hard) ──────────────────────────────────────────────────────────
+// ── DELETE (soft) ──────────────────────────────────────────────────────────
 
 export async function DELETE(
   _request: NextRequest,
@@ -78,13 +78,16 @@ export async function DELETE(
     const supabase = await createClient()
     const userData = await getUser(supabase)
     if (!userData) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    if (!['admin', 'manager'].includes(userData.role ?? ''))
+      return NextResponse.json({ error: 'Sin permisos para eliminar' }, { status: 403 })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabaseAdmin as any)
       .from('bank_transactions')
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq('id', id)
       .eq('company_id', userData.company_id)
+      .is('deleted_at', null)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 

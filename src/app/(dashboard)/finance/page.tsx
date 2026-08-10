@@ -112,7 +112,7 @@ export default async function FinancePage({
       .limit(200),
     supabase
       .from('accounts_receivable')
-      .select('id, amount, status')
+      .select('id, amount, amount_paid, balance, status, due_date')
       .eq('company_id', companyId)
       .is('deleted_at', null)
       .neq('status', 'paid'),
@@ -131,8 +131,9 @@ export default async function FinancePage({
   const today = new Date().toISOString().slice(0, 10)
 
   const receivables = receivablesList ?? []
-  const cxcPending  = receivables.filter(r => r.status !== 'overdue').reduce((s, r) => s + (r.amount ?? 0), 0)
-  const cxcOverdue  = receivables.filter(r => r.status === 'overdue').reduce((s, r) => s + (r.amount ?? 0), 0)
+  // 'overdue' nunca se almacena en DB; se calcula desde due_date vs hoy
+  const cxcOverdue  = receivables.filter(r => (r.due_date ?? '') < today).reduce((s, r) => s + ((r.balance as number) ?? 0), 0)
+  const cxcPending  = receivables.filter(r => (r.due_date ?? '') >= today).reduce((s, r) => s + ((r.balance as number) ?? 0), 0)
   const cxcCount    = receivables.length
 
   const payables   = payablesList ?? []
