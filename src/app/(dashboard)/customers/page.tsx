@@ -20,6 +20,7 @@ export default async function CustomersPage({
   searchParams: Promise<{
     from?: string; to?: string
     q?: string; ctype?: string; clabel?: string; ciscompany?: string; cpage?: string
+    csort?: string; cdir?: string
   }>
 }) {
   const params = await searchParams
@@ -90,13 +91,20 @@ export default async function CustomersPage({
   const rangeFrom  = cpage * TABLE_PAGE_SIZE
   const rangeTo    = rangeFrom + TABLE_PAGE_SIZE - 1
 
+  const SORTABLE_COLS = new Set([
+    'full_name', 'tax_id', 'mobile', 'email', 'customer_type', 'label',
+    'total_orders', 'lifetime_value', 'last_purchase_at', 'registered_since', 'created_at',
+  ])
+  const csort = SORTABLE_COLS.has(params.csort ?? '') ? (params.csort as string) : 'created_at'
+  const cdir  = params.cdir === 'asc'
+
   // Build paginated filtered table query
   let tableQuery = supabase
     .from('customers')
     .select(CUSTOMER_SELECT, { count: 'exact' })
     .eq('company_id', companyId)
     .is('deleted_at', null)
-    .order('created_at', { ascending: false })
+    .order(csort, { ascending: cdir, nullsFirst: false })
     .range(rangeFrom, rangeTo)
 
   if (q) {
@@ -185,6 +193,8 @@ export default async function CustomersPage({
           tableCtype={ctype}
           tableClabel={clabel}
           tableCiscompany={ciscompany}
+          tableSort={csort}
+          tableSortAsc={cdir}
           customers={customers}
           prevCustomers={prevCustomers}
           customerTypes={customerTypes}

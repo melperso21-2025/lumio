@@ -28,6 +28,8 @@ interface CustomersOverviewProps {
   tableCtype: string
   tableClabel: string
   tableCiscompany: string
+  tableSort?: string
+  tableSortAsc?: boolean
   customers?: CustomerRow[]      // nuevos en el período — para KPIs
   prevCustomers?: CustomerRow[]
   customerTypes?: CatalogItem[]
@@ -48,6 +50,8 @@ export default function CustomersOverview({
   tableCtype,
   tableClabel,
   tableCiscompany,
+  tableSort = 'created_at',
+  tableSortAsc = false,
   customers = [],
   prevCustomers = [],
   customerTypes = [],
@@ -124,6 +128,16 @@ export default function CustomersOverview({
       if (isCompany === true)  p.set('ciscompany', 'true')
       else if (isCompany === false) p.set('ciscompany', 'false')
       else p.delete('ciscompany')
+      p.delete('cpage')
+      router.replace(`${pathname}?${p.toString()}`)
+    })
+  }, [searchParams, pathname, router])
+
+  const onSortChange = useCallback((key: string, asc: boolean) => {
+    startTransition(() => {
+      const p = new URLSearchParams(searchParams.toString())
+      p.set('csort', key)
+      p.set('cdir', asc ? 'asc' : 'desc')
       p.delete('cpage')
       router.replace(`${pathname}?${p.toString()}`)
     })
@@ -220,6 +234,9 @@ export default function CustomersOverview({
               filterLabel={tableClabel}
               filterIsCompany={filterIsCompany}
               onFilterChange={onFilterChange}
+              initialSortBy={tableSort}
+              initialSortAsc={tableSortAsc}
+              onSortChange={onSortChange}
             />
 
             {/* Pagination */}

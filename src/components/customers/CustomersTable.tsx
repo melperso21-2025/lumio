@@ -219,12 +219,10 @@ interface CustomersTableProps {
   filterType: string
   filterLabel: string
   filterIsCompany: boolean | null
-  onFilterChange: (
-    text: string,
-    type: string,
-    label: string,
-    isCompany: boolean | null
-  ) => void
+  onFilterChange: (text: string, type: string, label: string, isCompany: boolean | null) => void
+  initialSortBy?: string
+  initialSortAsc?: boolean
+  onSortChange?: (key: string, asc: boolean) => void
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -238,12 +236,15 @@ export default function CustomersTable({
   filterLabel,
   filterIsCompany,
   onFilterChange,
+  initialSortBy = 'created_at',
+  initialSortAsc = false,
+  onSortChange,
 }: CustomersTableProps) {
   const { userRole } = useUser()
   const canEdit = userRole === 'admin' || userRole === 'manager'
 
-  const [sortBy, setSortBy] = useState<SortKey>('full_name')
-  const [sortAsc, setSortAsc] = useState(false)
+  const [sortBy, setSortBy] = useState<SortKey>(initialSortBy as SortKey)
+  const [sortAsc, setSortAsc] = useState(initialSortAsc)
 
   // Estado local para el input de texto — desacoplado de la URL.
   // El debounce evita un router.replace por cada keystroke.
@@ -300,22 +301,14 @@ export default function CustomersTable({
     return m
   }, [customerLabels])
 
-  // Data comes pre-filtered from server; only sort client-side within the page
-  const sortedCustomers = useMemo(() => {
-    return [...customers].sort((a, b) => {
-      const va = getSortValue(a, sortBy)
-      const vb = getSortValue(b, sortBy)
-      const cmp =
-        typeof va === 'string' && typeof vb === 'string'
-          ? va.localeCompare(vb)
-          : (va as number) - (vb as number)
-      return sortAsc ? cmp : -cmp
-    })
-  }, [customers, sortBy, sortAsc])
+  // Data is sorted server-side; render as-is
+  const sortedCustomers = customers
 
   function handleSort(key: SortKey) {
-    if (sortBy === key) setSortAsc((p) => !p)
-    else { setSortBy(key); setSortAsc(false) }
+    const newAsc = sortBy === key ? !sortAsc : false
+    setSortBy(key)
+    setSortAsc(newAsc)
+    onSortChange?.(key, newAsc)
   }
 
   const hasActiveFilters =
