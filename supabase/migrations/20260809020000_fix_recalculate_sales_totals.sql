@@ -9,7 +9,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $fn$
 BEGIN
   -- 1. Recalcula gross_total SOLO para ventas que tienen al menos 1 sale_item activo
   UPDATE public.sales s
@@ -54,4 +54,4 @@ BEGIN
   WHERE c.company_id = p_company_id
     AND c.deleted_at IS NULL;
 END;
-$$;
+$fn$;
