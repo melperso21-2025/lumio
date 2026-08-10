@@ -78,17 +78,18 @@ export default function ReceivablesOverview({ records, kpis, userRole }: Props) 
   const router  = useRouter()
   const canEdit = ['admin', 'manager'].includes(userRole)
 
-  const [selected, setSelected] = useState<ARRecord | null>(null)
-  const [amount,   setAmount]   = useState('')
-  const [date,     setDate]     = useState(today)
-  const [method,   setMethod]   = useState('transfer')
-  const [notes,    setNotes]    = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
-  const [success,  setSuccess]  = useState(false)
-  const [filter,   setFilter]   = useState<'all' | 'pending' | 'partial' | 'paid'>('all')
+  const [localRecords, setLocalRecords] = useState<ARRecord[]>(records)
+  const [selected,     setSelected]     = useState<ARRecord | null>(null)
+  const [amount,       setAmount]       = useState('')
+  const [date,         setDate]         = useState(today)
+  const [method,       setMethod]       = useState('transfer')
+  const [notes,        setNotes]        = useState('')
+  const [loading,      setLoading]      = useState(false)
+  const [error,        setError]        = useState<string | null>(null)
+  const [success,      setSuccess]      = useState(false)
+  const [filter,       setFilter]       = useState<'all' | 'pending' | 'partial' | 'paid'>('all')
 
-  const visible = records.filter(r =>
+  const visible = localRecords.filter(r =>
     filter === 'all' ? true :
     filter === 'pending' ? ['pending', 'partial'].includes(r.status) :
     r.status === filter
@@ -106,13 +107,27 @@ export default function ReceivablesOverview({ records, kpis, userRole }: Props) 
     if (!selected) return
     setError(null); setLoading(true)
 
+    const paid = parseFloat(amount)
     const res = await fetch(`/api/ar/${selected.id}/payment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: parseFloat(amount), payment_date: date, payment_method: method, notes: notes || undefined }),
+      body: JSON.stringify({ amount: paid, payment_date: date, payment_method: method, notes: notes || undefined }),
     })
     const json = await res.json()
     if (!res.ok) { setError(json.error ?? 'Error'); setLoading(false); return }
+
+    // Actualización optimista — balance es GENERATED (amount - amount_paid) en DB
+    setLocalRecords(prev => prev.map(r => {
+      if (r.id !== selected.id) return r
+      const newPaid    = r.amount_paid + paid
+      const newBalance = r.amount - newPaid
+      return {
+        ...r,
+        amount_paid: newPaid,
+        balance:     newBalance,
+        status:      newBalance <= 0.001 ? 'paid' : newPaid > 0 ? 'partial' : 'pending',
+      }
+    }))
 
     setSuccess(true); setLoading(false)
     router.refresh()
@@ -121,7 +136,7 @@ export default function ReceivablesOverview({ records, kpis, userRole }: Props) 
 
   // Aging summary
   const agingMap: Record<string, number> = {}
-  records.filter(r => !['paid', 'cancelled'].includes(r.status)).forEach(r => {
+  localRecords.filter(r => !['paid', 'cancelled'].includes(r.status)).forEach(r => {
     const b = agingBucket(r.due_date)
     agingMap[b] = (agingMap[b] ?? 0) + r.balance
   })
@@ -134,14 +149,14 @@ export default function ReceivablesOverview({ records, kpis, userRole }: Props) 
     totalCobrado: kpis.totalCobrado,
     countActivas: kpis.countPendiente,
     agingResumen: agingOrder.map(b => ({ bucket: b, monto: agingMap[b] ?? 0 })),
-    registros: records.slice(0, 20).map(r => ({
+    registros: localRecords.slice(0, 20).map(r => ({
       cliente: r.customers?.full_name ?? 'Sin nombre',
       monto: r.amount,
       saldo: r.balance,
       vencimiento: r.due_date,
       estado: r.status,
     })),
-  }), [kpis, agingMap, agingOrder, records])
+  }), [kpis, agingMap, agingOrder, localRecords])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -189,7 +204,7 @@ export default function ReceivablesOverview({ records, kpis, userRole }: Props) 
 
       {/* Tabla */}
       <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, overflowX: 'auto' }}>
-        {records.length === 0
+        {localRecords.length === 0
           ? (
             <EmptyState
               icon="📥"
