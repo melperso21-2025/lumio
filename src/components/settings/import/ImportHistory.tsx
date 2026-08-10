@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ENTITY_DEFS, type EntityType } from '@/lib/import/entityConfig'
 
@@ -52,6 +53,7 @@ const fStyle: React.CSSProperties = {
 // ── Component ─────────────────────────────────────────────────────────────
 
 export default function ImportHistory({ companyId, userRole }: ImportHistoryProps) {
+  const router = useRouter()
   const [logs,    setLogs]    = useState<ImportLog[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -96,6 +98,7 @@ export default function ImportHistory({ companyId, userRole }: ImportHistoryProp
       if (!res.ok) { setRollbackError(json.error ?? 'Error al revertir'); setRollbackLoading(false); return }
       setRollbackSuccess(true)
       await loadLogs()
+      router.refresh()
       setTimeout(() => {
         setRollbackLog(null)
         setRollbackSuccess(false)
@@ -278,7 +281,7 @@ export default function ImportHistory({ companyId, userRole }: ImportHistoryProp
                   Rollback completado
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>
-                  {rollbackLog.success_rows} registros eliminados (soft delete)
+                  {rollbackLog.success_rows} registros eliminados
                 </p>
               </div>
             ) : (
