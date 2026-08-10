@@ -482,11 +482,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     0
   )
   const slowMovers = products
-    .filter(
-      (p) =>
-        (p.current_stock ?? 0) > (p.min_stock_alert ?? 0) * 3 &&
-        (p.min_stock_alert ?? 0) > 0
-    )
+    .filter((p) => (p.current_stock ?? 0) > 0)
     .sort((a, b) => (b.current_stock ?? 0) - (a.current_stock ?? 0))
     .slice(0, 3)
   const totalStock = products.reduce(
@@ -1163,7 +1159,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 marginBottom: 4,
               }}
             >
-              {inventoryDays} días
+              {inventoryDays > 0 ? `${inventoryDays} días` : '—'}
             </div>
             <div style={{ fontSize: 9, color: 'var(--muted)' }}>
               Óptimo: 20–45 días
@@ -1226,14 +1222,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           />
           <KpiCard
             label="Trans. digitales"
-            value={snaps.reduce(
-              (s, r) => s + Number(r.total_transactions ?? 0),
-              0
-            )}
-            delta={calcDelta(
-              snaps.reduce((s, r) => s + Number(r.total_transactions ?? 0), 0),
-              prevTotalTransactions
-            )}
+            value={totalAdSpend > 0 ? snaps.reduce((s, r) => s + Number(r.total_transactions ?? 0), 0) : 0}
           />
           <KpiCard
             label="Leads generados"
