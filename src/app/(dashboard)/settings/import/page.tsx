@@ -5,6 +5,7 @@ import AiInsightBox from '@/components/ui/AiInsightBox'
 import ImportWizard from '@/components/settings/import/ImportWizard'
 import ImportHistory from '@/components/settings/import/ImportHistory'
 import RecalculateStatsButton from '@/components/settings/import/RecalculateStatsButton'
+import ImportChecklist from '@/components/settings/import/ImportChecklist'
 
 export default async function SettingsImportPage({
   searchParams,
@@ -64,7 +65,11 @@ export default async function SettingsImportPage({
             {/* ── Content ── */}
             <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 0 }}>
               {activeTab === 'import' && (
-                <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {/* Checklist de estado */}
+                  <ImportChecklist companyId={companyId} />
+
+                  <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div>
                     <h1 className="font-syne font-bold" style={{ fontSize: 17, color: 'var(--text)', margin: '0 0 4px' }}>
                       Importación de datos
@@ -84,6 +89,7 @@ export default async function SettingsImportPage({
                     </p>
                     <RecalculateStatsButton />
                   </div>
+                </div>
                 </div>
               )}
 
