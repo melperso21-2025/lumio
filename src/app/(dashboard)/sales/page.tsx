@@ -58,6 +58,7 @@ export default async function SalesPage({
     { data: filterOptions },
     { data: channelsList },
     { data: branchesList },
+    { data: saleStatusesList },
   ] = await Promise.all([
     // 1 — KPIs período actual: todos los registros filtrados, sin límite
     applyFilters(
@@ -134,6 +135,14 @@ export default async function SalesPage({
       .is('deleted_at', null)
       .eq('is_active', true)
       .order('name'),
+
+    // 8 — Estados de venta
+    supabase
+      .from('sale_statuses')
+      .select('id, name, color')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .order('name'),
   ])
 
   // Derivar opciones únicas de filtro desde los datos del período
@@ -187,6 +196,7 @@ export default async function SalesPage({
           // Opciones de filtro
           uniqueWeeks={uniqueWeeks}
           uniqueStatuses={uniqueStatuses}
+          saleStatuses={saleStatusesList ?? []}
         />
       </div>
     </>

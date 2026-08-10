@@ -63,29 +63,39 @@ export default async function SaleDetailPage({
   const movements = (movementsData ?? []) as unknown as MovementDetail[]
 
   // ── Lists needed by EditSaleModal ────────────────────────────────
-  const [{ data: customersList }, { data: branchesList }, { data: channelsList }] =
-    await Promise.all([
-      supabase
-        .from('customers')
-        .select('id, full_name')
-        .eq('company_id', companyId)
-        .is('deleted_at', null)
-        .order('full_name', { ascending: true })
-        .limit(300),
-      supabase
-        .from('branches')
-        .select('id, name')
-        .eq('company_id', companyId)
-        .is('deleted_at', null)
-        .eq('is_active', true)
-        .order('name', { ascending: true }),
-      supabase
-        .from('sales_channels')
-        .select('id, name')
-        .eq('company_id', companyId)
-        .is('deleted_at', null)
-        .order('name', { ascending: true }),
-    ])
+  const [
+    { data: customersList },
+    { data: branchesList },
+    { data: channelsList },
+    { data: saleStatusesList },
+  ] = await Promise.all([
+    supabase
+      .from('customers')
+      .select('id, full_name')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .order('full_name', { ascending: true })
+      .limit(300),
+    supabase
+      .from('branches')
+      .select('id, name')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .eq('is_active', true)
+      .order('name', { ascending: true }),
+    supabase
+      .from('sales_channels')
+      .select('id, name')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .order('name', { ascending: true }),
+    supabase
+      .from('sale_statuses')
+      .select('id, name, color')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .order('name', { ascending: true }),
+  ])
 
   return (
     <>
@@ -98,6 +108,7 @@ export default async function SaleDetailPage({
         customers={(customersList ?? []) as { id: string; full_name: string | null }[]}
         branches={(branchesList ?? []) as { id: string; name: string }[]}
         channels={(channelsList ?? []) as { id: string; name: string }[]}
+        saleStatuses={(saleStatusesList ?? []) as { id: string; name: string; color: string | null }[]}
       />
     </>
   )

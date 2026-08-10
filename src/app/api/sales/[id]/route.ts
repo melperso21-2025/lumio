@@ -313,24 +313,19 @@ export async function PATCH(
       }
     }
 
-    // Update sales header fields only
-    // gross_total, discount_amount, production_cost, lines_per_order
-    // are managed exclusively by tg_recalculate_sale_totals
+    // Update sales header fields (gross_total, production_cost, lines_per_order
+    // are updated automatically by tg_recalculate_sale_from_items trigger)
     const { error: saleUpdateError } = await supabaseAdmin
       .from('sales')
-      .update({
-        sale_date,
-        customer_id,
-        branch_id,
-        channel_id,
-        status,
-        updated_at: now,
-      })
+      .update({ sale_date, customer_id, branch_id, channel_id, status, updated_at: now })
       .eq('id', saleId)
 
     if (saleUpdateError) {
       return NextResponse.json({ error: saleUpdateError.message }, { status: 500 })
     }
+
+    // Recalculate dashboard snapshots in background (non-blocking)
+    void supabaseAdmin.rpc('recalculate_all_snapshots', { p_company_id: companyId })
 
     // Return updated sale with its current active items
     const { data: updatedSale } = await supabaseAdmin

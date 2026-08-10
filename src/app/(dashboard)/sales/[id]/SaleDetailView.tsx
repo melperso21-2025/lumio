@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import EditSaleModal, { type SaleWithItems } from '@/components/sales/EditSaleModal'
+import EditSaleModal, { type SaleWithItems, type SaleStatus } from '@/components/sales/EditSaleModal'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -53,6 +53,7 @@ interface SaleDetailViewProps {
   customers: { id: string; full_name: string | null }[]
   branches: { id: string; name: string }[]
   channels: { id: string; name: string }[]
+  saleStatuses: SaleStatus[]
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -187,14 +188,21 @@ export default function SaleDetailView({
   customers,
   branches,
   channels,
+  saleStatuses,
 }: SaleDetailViewProps) {
   const router = useRouter()
   const canEdit      = userRole === 'admin' || userRole === 'manager'
   const canSeeMargin = userRole === 'admin' || userRole === 'manager'
 
-  const [editSale, setEditSale]   = useState<SaleWithItems | null>(null)
-  const [editOpen, setEditOpen]   = useState(false)
+  const [editSale, setEditSale]         = useState<SaleWithItems | null>(null)
+  const [editOpen, setEditOpen]         = useState(false)
   const [fetchingEdit, setFetchingEdit] = useState(false)
+
+  const [cancelOpen, setCancelOpen]       = useState(false)
+  const [cancelLoading, setCancelLoading] = useState(false)
+  const [cancelError, setCancelError]     = useState<string | null>(null)
+
+  const isCancelled = sale.status === 'cancelled'
 
   async function handleEdit() {
     setFetchingEdit(true)
@@ -218,6 +226,21 @@ export default function SaleDetailView({
     setEditOpen(false)
     setEditSale(null)
     router.refresh()
+  }
+
+  async function handleCancel() {
+    setCancelLoading(true)
+    setCancelError(null)
+    try {
+      const res = await fetch(`/api/sales/${sale.id}/cancel`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) { setCancelError(json.error ?? 'Error al anular'); setCancelLoading(false); return }
+      setCancelOpen(false)
+      router.refresh()
+    } catch {
+      setCancelError('Error de conexión')
+    }
+    setCancelLoading(false)
   }
 
   // ── Derived totals ───────────────────────────────────────
@@ -261,26 +284,42 @@ export default function SaleDetailView({
         </Link>
 
         {canEdit && (
-          <button
-            type="button"
-            onClick={handleEdit}
-            disabled={fetchingEdit}
-            className="font-syne font-bold"
-            style={{
-              background: fetchingEdit
-                ? 'rgba(232,165,0,0.45)'
-                : 'linear-gradient(135deg, #F5C842, #F09A1A)',
-              color:        '#1A1B2E',
-              fontSize:     13,
-              padding:      '7px 18px',
-              borderRadius: 8,
-              border:       'none',
-              cursor:       fetchingEdit ? 'not-allowed' : 'pointer',
-              opacity:      fetchingEdit ? 0.7 : 1,
-            }}
-          >
-            {fetchingEdit ? 'Cargando…' : '✏ Editar venta'}
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {!isCancelled && (
+              <button
+                type="button"
+                onClick={() => { setCancelOpen(true); setCancelError(null) }}
+                className="font-syne font-bold"
+                style={{
+                  fontSize: 13, padding: '7px 16px', borderRadius: 8,
+                  border: '1px solid rgba(220,38,38,0.3)',
+                  background: 'rgba(220,38,38,0.06)',
+                  color: 'var(--red)', cursor: 'pointer',
+                }}
+              >
+                Anular
+              </button>
+            )}
+            {!isCancelled && (
+              <button
+                type="button"
+                onClick={handleEdit}
+                disabled={fetchingEdit}
+                className="font-syne font-bold"
+                style={{
+                  background: fetchingEdit
+                    ? 'rgba(232,165,0,0.45)'
+                    : 'linear-gradient(135deg, #F5C842, #F09A1A)',
+                  color: '#1A1B2E', fontSize: 13, padding: '7px 18px',
+                  borderRadius: 8, border: 'none',
+                  cursor: fetchingEdit ? 'not-allowed' : 'pointer',
+                  opacity: fetchingEdit ? 0.7 : 1,
+                }}
+              >
+                {fetchingEdit ? 'Cargando…' : '✏ Editar venta'}
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -521,6 +560,41 @@ export default function SaleDetailView({
         )}
       </div>
 
+      {/* ── Cancel confirmation modal ────────────────────── */}
+      {cancelOpen && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)' }}
+          onClick={() => { if (!cancelLoading) setCancelOpen(false) }}
+        >
+          <div
+            style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: 24, width: '100%', maxWidth: 400, boxShadow: '0 20px 40px rgba(0,0,0,0.14)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="font-syne font-bold" style={{ fontSize: 15, color: 'var(--text)', marginBottom: 10 }}>
+              ¿Anular esta venta?
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>
+              Se anularán todas las líneas de productos y se revertirán los movimientos de inventario. Esta acción no se puede deshacer.
+            </p>
+            {cancelError && (
+              <div style={{ background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: 'var(--red)' }}>
+                {cancelError}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={() => setCancelOpen(false)} disabled={cancelLoading}
+                style={{ flex: 1, padding: '9px', borderRadius: 8, fontSize: 13, fontWeight: 500, background: 'var(--hover)', color: 'var(--text2)', border: '1px solid var(--border)', cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button type="button" onClick={handleCancel} disabled={cancelLoading}
+                style={{ flex: 1, padding: '9px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'rgba(220,38,38,0.1)', color: 'var(--red)', border: '1px solid rgba(220,38,38,0.25)', cursor: cancelLoading ? 'not-allowed' : 'pointer', opacity: cancelLoading ? 0.7 : 1 }}>
+                {cancelLoading ? 'Anulando…' : 'Confirmar anulación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Edit modal ──────────────────────────────────── */}
       {editOpen && editSale && (
         <EditSaleModal
@@ -528,6 +602,7 @@ export default function SaleDetailView({
           customers={customers}
           branches={branches}
           channels={channels}
+          saleStatuses={saleStatuses}
           companyId={companyId}
           userRole={userRole}
           onClose={handleEditClose}

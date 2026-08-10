@@ -6,7 +6,7 @@ import KpiCard from '@/components/ui/KpiCard'
 import ExportButton from '@/components/ui/ExportButton'
 import QuickSaleForm from '@/components/sales/QuickSaleForm'
 import SalesHistoryTable from '@/components/sales/SalesHistoryTable'
-import EditSaleModal, { type SaleWithItems } from '@/components/sales/EditSaleModal'
+import EditSaleModal, { type SaleWithItems, type SaleStatus } from '@/components/sales/EditSaleModal'
 import SalesTrendChart from '@/components/charts/SalesTrendChart'
 import ModuleAiButton from '@/components/ai/ModuleAiButton'
 import EmptyState from '@/components/ui/EmptyState'
@@ -74,6 +74,7 @@ interface SalesOverviewProps {
   // Opciones de filtro
   uniqueWeeks: number[]
   uniqueStatuses: string[]
+  saleStatuses: SaleStatus[]
 }
 
 export default function SalesOverview({
@@ -95,6 +96,7 @@ export default function SalesOverview({
   filterStatus,
   uniqueWeeks,
   uniqueStatuses,
+  saleStatuses,
   prevFrom,
   prevTo,
 }: SalesOverviewProps) {
@@ -404,6 +406,7 @@ export default function SalesOverview({
           customers={[]}
           branches={branches}
           channels={channels}
+          saleStatuses={saleStatuses}
           companyId={companyId}
           userRole={userRole}
           onClose={handleEditClose}
