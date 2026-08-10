@@ -73,13 +73,15 @@ export async function POST(request: NextRequest) {
         // Reverse the stock change
         const delta = mov.type === 'in' ? -qty : mov.type === 'out' ? qty : 0
         if (delta !== 0) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (supabaseAdmin as any).rpc('increment_stock', {
-            p_product_id: mov.product_id,
-            p_delta:      delta,
-          }).catch(() => {
-            // Fallback: direct update
-          })
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabaseAdmin as any).rpc('increment_stock', {
+              p_product_id: mov.product_id,
+              p_delta:      delta,
+            })
+          } catch {
+            // RPC no disponible — el trigger de DB recalculará el stock
+          }
         }
       }
     }
