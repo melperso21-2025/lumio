@@ -290,7 +290,7 @@ export default function ImportHistory({ companyId, userRole }: ImportHistoryProp
                   <strong>{ENTITY_DEFS[rollbackLog.entity_type as EntityType]?.label}</strong> — {rollbackLog.file_name}
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
-                  Se eliminarán (soft delete) los <strong>{rollbackLog.imported_ids?.length ?? rollbackLog.success_rows}</strong> registros importados en esta sesión. Esta acción no se puede deshacer.
+                  Se eliminarán los <strong>{rollbackLog.imported_ids?.length ?? rollbackLog.success_rows}</strong> registros importados en esta sesión. Esta acción no se puede deshacer.
                 </p>
 
                 {rollbackError && (
