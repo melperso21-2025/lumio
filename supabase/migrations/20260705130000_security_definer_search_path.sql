@@ -73,7 +73,11 @@ BEGIN
       AND  year        IS NOT NULL
     ORDER BY year, week_number
   LOOP
-    PERFORM calculate_weekly_snapshot(p_company_id, v_week.year, v_week.week_number);
+    PERFORM calculate_weekly_snapshot(
+      p_company_id  := p_company_id,
+      p_week_number := v_week.week_number,
+      p_year        := v_week.year
+    );
     v_count := v_count + 1;
   END LOOP;
 
