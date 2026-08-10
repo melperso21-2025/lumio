@@ -93,24 +93,25 @@ export async function POST(request: NextRequest) {
         .in('id', importedIds)
         .catch(() => null)
 
-      // Soft-delete related initial movements
+      // Hard-delete related initial movements (inventory_movements has no deleted_at)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabaseAdmin as any)
         .from('inventory_movements')
-        .update({ deleted_at: now })
+        .delete()
         .in('product_id', importedIds)
         .eq('reason', 'initial')
         .catch(() => null)
     }
 
-    // Soft delete the imported records
-    const table = ENTITY_DEFS[entityType]?.table
+    // Delete the imported records
+    const entityDef = ENTITY_DEFS[entityType]
+    const table = entityDef?.table
     if (table) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: delErr } = await (supabaseAdmin as any)
-        .from(table)
-        .update({ deleted_at: now })
-        .in('id', importedIds)
+      const sb = supabaseAdmin as any
+      const { error: delErr } = entityDef.noSoftDelete
+        ? await sb.from(table).delete().in('id', importedIds)
+        : await sb.from(table).update({ deleted_at: now }).in('id', importedIds)
 
       if (delErr) {
         return NextResponse.json({ error: `Error al revertir: ${delErr.message}` }, { status: 500 })
