@@ -10,6 +10,7 @@ import { UserMenu } from '@/components/layout/Topbar'
 import DateRangePicker from '@/components/ui/DateRangePicker'
 import InsightReminderModal, { type ModalScenario } from '@/components/dashboard/InsightReminderModal'
 import BusinessProfileBanner from '@/components/dashboard/BusinessProfileBanner'
+import BusinessProfileModal from '@/components/dashboard/BusinessProfileModal'
 import DashboardExportButton from '@/components/dashboard/DashboardExportButton'
 import {
   getWeeksInRange,
@@ -627,13 +628,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           gap: 0,
         }}
       >
-        {/* Banner de perfil de negocio incompleto — solo para admin/manager */}
+        {/* Banner + Modal de perfil de negocio incompleto — solo para admin/manager */}
         {['admin', 'manager'].includes(userRole) &&
           companyProfile &&
           !(companyProfile.business_description && companyProfile.main_customer_type && companyProfile.avg_monthly_revenue_range) && (
-          <div style={{ marginBottom: 14 }}>
-            <BusinessProfileBanner companyName={companyProfile.name ?? 'tu empresa'} />
-          </div>
+          <>
+            <BusinessProfileModal companyName={companyProfile.name ?? 'tu empresa'} />
+            <div style={{ marginBottom: 14 }}>
+              <BusinessProfileBanner companyName={companyProfile.name ?? 'tu empresa'} />
+            </div>
+          </>
         )}
 
         <div style={{ marginBottom: 12 }}>
