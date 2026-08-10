@@ -50,7 +50,7 @@ export default function CustomersOverview({
   tableCtype,
   tableClabel,
   tableCiscompany,
-  tableSort = 'created_at',
+  tableSort = 'lifetime_value',
   tableSortAsc = false,
   customers = [],
   prevCustomers = [],

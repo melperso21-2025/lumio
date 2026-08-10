@@ -95,7 +95,7 @@ export default async function CustomersPage({
     'full_name', 'tax_id', 'mobile', 'email', 'customer_type', 'label',
     'total_orders', 'lifetime_value', 'last_purchase_at', 'registered_since', 'created_at',
   ])
-  const csort = SORTABLE_COLS.has(params.csort ?? '') ? (params.csort as string) : 'created_at'
+  const csort = SORTABLE_COLS.has(params.csort ?? '') ? (params.csort as string) : 'lifetime_value'
   const cdir  = params.cdir === 'asc'
 
   // Build paginated filtered table query

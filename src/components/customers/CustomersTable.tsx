@@ -236,7 +236,7 @@ export default function CustomersTable({
   filterLabel,
   filterIsCompany,
   onFilterChange,
-  initialSortBy = 'created_at',
+  initialSortBy = 'lifetime_value',
   initialSortAsc = false,
   onSortChange,
 }: CustomersTableProps) {
