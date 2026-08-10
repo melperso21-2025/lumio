@@ -96,12 +96,6 @@ export async function POST(request: NextRequest) {
     const preview: Record<string, unknown>[] = []
     let validCount = 0
 
-    // DEBUG TEMPORAL
-    warnings.push({
-      row: 1,
-      message: `[DEBUG] fileHeaders: ${JSON.stringify(fileHeaders)} | raw1: ${JSON.stringify(raw1.slice(0, 4))} | fila1: ${JSON.stringify(rows[0])}`,
-    })
-
     for (let i = 0; i < rows.length; i++) {
       const rowNum = i + 2  // +2 because row 1 = headers
       try {
@@ -126,11 +120,6 @@ export async function POST(request: NextRequest) {
       errors,
       warnings,
       preview,
-      _debug: {
-        mappingKeys:   Object.keys(mapping),
-        mappingValues: Object.values(mapping),
-        row0:          rows[0] ?? null,
-      },
     })
 
   } catch (err) {

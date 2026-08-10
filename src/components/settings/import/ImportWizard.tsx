@@ -286,6 +286,7 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
       const data = await res.json()
       setExecResult(data)
       setStep(5)
+      if (data.success > 0) router.refresh()
     } catch {
       setExecResult({ importLogId: null, success: 0, total: 0, errors: [{ row: 0, message: 'Error de conexión' }], status: 'failed' })
     }
