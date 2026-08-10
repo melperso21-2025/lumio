@@ -160,12 +160,12 @@ export async function POST(request: NextRequest) {
       'sales', 'sale_items', 'bank_transactions', 'ad_campaigns',
     ]
     if (successCount > 0 && ENTITIES_THAT_AFFECT_DASHBOARD.includes(entityType)) {
-      // Fire and forget — no bloqueamos la respuesta, Supabase ejecuta en DB
-      void supabaseAdmin.rpc('recalculate_all_snapshots', { p_company_id: companyId })
-      // Recalcular LTV, última compra y total_orders en customers
       if (entityType === 'sales' || entityType === 'sale_items') {
-        void supabaseAdmin.rpc('recalculate_sales_totals', { p_company_id: companyId })
+        // Primero actualizar gross_total y lines_per_order desde sale_items,
+        // luego recalcular snapshots para que avg_lpp use los valores correctos.
+        await supabaseAdmin.rpc('recalculate_sales_totals', { p_company_id: companyId })
       }
+      void supabaseAdmin.rpc('recalculate_all_snapshots', { p_company_id: companyId })
     }
 
     return NextResponse.json({
