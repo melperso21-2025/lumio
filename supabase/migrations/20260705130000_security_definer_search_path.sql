@@ -9,6 +9,8 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
+  -- Solo recalcula gross_total para ventas CON sale_items; las que no tienen
+  -- (importadas históricamente con total directo) conservan su valor actual.
   UPDATE public.sales s
   SET gross_total = (
     SELECT COALESCE(SUM(si.unit_price * si.quantity - si.discount_amount), 0)
@@ -17,7 +19,11 @@ BEGIN
       AND si.deleted_at IS NULL
   )
   WHERE s.company_id = p_company_id
-    AND s.deleted_at IS NULL;
+    AND s.deleted_at IS NULL
+    AND EXISTS (
+      SELECT 1 FROM public.sale_items si
+      WHERE si.sale_id = s.id AND si.deleted_at IS NULL
+    );
 
   UPDATE public.customers c
   SET
