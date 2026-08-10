@@ -11,6 +11,16 @@ import EmptyState from '@/components/ui/EmptyState'
 interface Supplier { id: string; name: string }
 interface Product  { id: string; name: string; sku: string | null; unit_cost: number; current_stock: number }
 
+interface ApRecord {
+  id:          string
+  purchase_id: string
+  amount:      number
+  amount_paid: number
+  balance:     number
+  status:      string
+  due_date:    string | null
+}
+
 interface PurchaseLine {
   product:     Product | null
   description: string
@@ -39,6 +49,7 @@ interface Props {
   to:         string
   purchases:  Purchase[]
   suppliers:  Supplier[]
+  apRecords:  ApRecord[]
   kpis: {
     totalComprado:      number
     totalPendienteCxP:  number
@@ -431,15 +442,152 @@ function PurchaseForm({ mode, purchase, suppliers, companyId, onClose, onSuccess
   )
 }
 
+// ── Payment Modal ────────────────────────────────────────────
+
+function PaymentModal({
+  ap,
+  onClose,
+  onSuccess,
+}: {
+  ap: ApRecord
+  onClose: () => void
+  onSuccess: (apId: string, amountPaid: number) => void
+}) {
+  const [amount,        setAmount]        = useState<number>(ap.balance)
+  const [paymentDate,   setPaymentDate]   = useState(new Date().toISOString().slice(0, 10))
+  const [paymentMethod, setPaymentMethod] = useState('transfer')
+  const [notes,         setNotes]         = useState('')
+  const [loading,       setLoading]       = useState(false)
+  const [error,         setError]         = useState<string | null>(null)
+  const [success,       setSuccess]       = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    if (!amount || amount <= 0) { setError('Ingresa un monto válido.'); return }
+    if (amount > ap.balance + 0.001) { setError(`El monto supera el saldo pendiente ($${fmt(ap.balance)})`); return }
+    setLoading(true)
+
+    const res  = await fetch(`/api/ap/${ap.id}/payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, payment_date: paymentDate, payment_method: paymentMethod, notes: notes || null }),
+    })
+    const json = await res.json()
+    if (!res.ok) { setError(json.error ?? 'Error al registrar el pago'); setLoading(false); return }
+
+    setSuccess(true)
+    setLoading(false)
+    setTimeout(() => onSuccess(ap.id, amount), 1000)
+  }
+
+  const STATUS_LABEL: Record<string, string> = { pending: 'Pendiente', partial: 'Parcial', paid: 'Pagada', overdue: 'Vencida' }
+  const STATUS_COLOR: Record<string, string> = { pending: '#F97316', partial: '#F59E0B', paid: 'var(--green)', overdue: 'var(--red)' }
+
+  return (
+    <div
+      role="dialog" aria-modal="true"
+      style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)' }}
+      onClick={() => { if (!loading) onClose() }}
+    >
+      <div
+        style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '24px 24px 20px', width: '100%', maxWidth: 420, boxShadow: '0 24px 48px rgba(0,0,0,0.2)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <h3 className="font-syne font-bold" style={{ fontSize: 16, color: 'var(--text)' }}>Registrar pago CxP</h3>
+          <button type="button" onClick={onClose} style={{ color: 'var(--muted)', fontSize: 20, background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
+        </div>
+
+        {/* Resumen AP */}
+        <div style={{ background: 'var(--surface)', borderRadius: 10, padding: '12px 14px', marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {[
+            { label: 'Total factura', value: `$${fmt(ap.amount)}`, color: 'var(--text)' },
+            { label: 'Pagado',        value: `$${fmt(ap.amount_paid)}`, color: 'var(--green)' },
+            { label: 'Saldo',         value: `$${fmt(ap.balance)}`, color: '#F97316', bold: true },
+          ].map(r => (
+            <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+              <span style={{ color: 'var(--muted)' }}>{r.label}</span>
+              <span style={{ color: r.color, fontWeight: r.bold ? 700 : 400, fontVariantNumeric: 'tabular-nums' }}>{r.value}</span>
+            </div>
+          ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 2 }}>
+            <span style={{ color: 'var(--muted)' }}>Estado</span>
+            <span style={{ color: STATUS_COLOR[ap.status] ?? 'var(--muted)', fontWeight: 600 }}>{STATUS_LABEL[ap.status] ?? ap.status}</span>
+          </div>
+          {ap.due_date && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+              <span style={{ color: 'var(--muted)' }}>Vencimiento</span>
+              <span style={{ color: 'var(--text2)' }}>{ap.due_date}</span>
+            </div>
+          )}
+        </div>
+
+        {success && (
+          <div style={{ background: 'rgba(5,150,105,0.08)', border: '1px solid rgba(5,150,105,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 12, color: 'var(--green)', fontWeight: 500 }}>
+            ✓ Pago registrado correctamente
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <label style={labelSt}>Monto a pagar <span style={{ color: 'var(--red)' }}>*</span></label>
+            <input
+              type="number" min={0.01} step="0.01" required
+              value={amount || ''}
+              onChange={e => setAmount(parseFloat(e.target.value) || 0)}
+              style={inputBase} onFocus={onFocusSt} onBlur={onBlurSt}
+            />
+          </div>
+          <div>
+            <label style={labelSt}>Fecha de pago</label>
+            <input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} style={inputBase} onFocus={onFocusSt} onBlur={onBlurSt} />
+          </div>
+          <div>
+            <label style={labelSt}>Método de pago</label>
+            <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} style={inputBase} onFocus={onFocusSt} onBlur={onBlurSt}>
+              <option value="transfer">Transferencia</option>
+              <option value="cash">Efectivo</option>
+              <option value="card">Tarjeta</option>
+              <option value="check">Cheque</option>
+            </select>
+          </div>
+          <div>
+            <label style={labelSt}>Notas</label>
+            <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Referencia, número de transacción…" style={inputBase} onFocus={onFocusSt} onBlur={onBlurSt} />
+          </div>
+
+          {error && (
+            <div style={{ background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: 'var(--red)' }}>{error}</div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <button type="button" onClick={onClose} disabled={loading}
+              style={{ flex: 1, padding: '9px 0', borderRadius: 8, fontSize: 13, background: 'var(--hover)', color: 'var(--text2)', border: '1px solid var(--border)', cursor: 'pointer' }}>
+              Cancelar
+            </button>
+            <button type="submit" disabled={loading} className="font-syne font-bold"
+              style={{ flex: 2, padding: '9px 0', borderRadius: 8, fontSize: 13, background: loading ? 'rgba(232,165,0,0.45)' : 'linear-gradient(135deg,#F5C842,#F09A1A)', color: '#1A1B2E', border: 'none', cursor: loading ? 'not-allowed' : 'pointer' }}>
+              {loading ? 'Registrando…' : `Registrar pago · $${fmt(amount || 0)}`}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+
 // ── Component ────────────────────────────────────────────────
 
 export default function PurchasesOverview({
-  companyId, userRole, purchases: initialPurchases, suppliers, kpis,
+  companyId, userRole, purchases: initialPurchases, suppliers, apRecords: initialApRecords, kpis,
 }: Props) {
   const router  = useRouter()
   const canEdit = ['admin', 'manager'].includes(userRole)
 
   const [purchases, setPurchases] = useState<Purchase[]>(initialPurchases)
+  const [apRecords, setApRecords] = useState<ApRecord[]>(initialApRecords)
 
   // Create modal
   const [openCreate, setOpenCreate] = useState(false)
@@ -447,6 +595,9 @@ export default function PurchasesOverview({
   // Edit modal
   const [editPurchase, setEditPurchase] = useState<(Purchase & { items?: { product_id: string | null; description: string | null; quantity: number; unit_cost: number }[] }) | null>(null)
   const [loadingEdit,  setLoadingEdit]  = useState(false)
+
+  // Payment modal
+  const [payingAp, setPayingAp] = useState<ApRecord | null>(null)
 
   // Delete state
   const [deletingId,  setDeletingId]  = useState<string | null>(null)
@@ -604,6 +755,15 @@ export default function PurchasesOverview({
                               <span style={{ fontSize: 10 }}>✎</span> Editar
                             </PillBtn>
                           )}
+                          {(() => {
+                            const ap = apRecords.find(r => r.purchase_id === p.id && ['pending', 'partial', 'overdue'].includes(r.status))
+                            if (!ap) return null
+                            return (
+                              <PillBtn onClick={() => setPayingAp(ap)} disabled={isProcessing} variant="gold">
+                                💳 Pagar (${fmt(ap.balance)})
+                              </PillBtn>
+                            )
+                          })()}
                           {!isCancelled && (
                             <PillBtn
                               onClick={() => handleAnular(p)}
@@ -658,6 +818,29 @@ export default function PurchasesOverview({
             if (updated) {
               setPurchases(prev => prev.map(x => x.id === updated.id ? updated : x))
             }
+            router.refresh()
+          }}
+        />
+      )}
+
+      {/* Modal — Pagar CxP */}
+      {payingAp && (
+        <PaymentModal
+          ap={payingAp}
+          onClose={() => setPayingAp(null)}
+          onSuccess={(apId, amountPaid) => {
+            setApRecords(prev => prev.map(r => {
+              if (r.id !== apId) return r
+              const newPaid = r.amount_paid + amountPaid
+              const newBal  = r.amount - newPaid
+              return {
+                ...r,
+                amount_paid: newPaid,
+                balance: newBal,
+                status: newBal <= 0.001 ? 'paid' : 'partial',
+              }
+            }))
+            setPayingAp(null)
             router.refresh()
           }}
         />

@@ -41,6 +41,7 @@ export async function GET(
     .from('purchase_items')
     .select('id, product_id, description, quantity, unit_cost, subtotal, products(name, sku)')
     .eq('purchase_id', id)
+    .is('deleted_at', null)
 
   return NextResponse.json({ purchase: { ...purchase, items: items ?? [] } })
 }
@@ -81,13 +82,6 @@ export async function PATCH(
   if (body.notes         !== undefined) headerPatch.notes         = body.notes ?? null
   if (body.status        !== undefined) headerPatch.status        = body.status
 
-  // Recalculate totals from items if provided
-  if (body.items) {
-    const subtotal = body.items.reduce((s, i) => s + i.quantity * i.unit_cost, 0)
-    headerPatch.subtotal = subtotal
-    headerPatch.total    = subtotal + (body.tax_amount ?? 0)
-  }
-
   const { error: hErr } = await supabaseAdmin
     .from('purchases')
     .update(headerPatch)
@@ -97,10 +91,16 @@ export async function PATCH(
 
   if (hErr) return NextResponse.json({ error: hErr.message }, { status: 500 })
 
-  // Replace items if provided
+  // Replace items if provided — soft-delete los anteriores, inserta los nuevos.
+  // El trigger fn_recalculate_purchase_totals recalcula subtotal/total automaticamente.
   if (body.items) {
+    const now = new Date().toISOString()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabaseAdmin as any).from('purchase_items').delete().eq('purchase_id', id)
+    await (supabaseAdmin as any)
+      .from('purchase_items')
+      .update({ deleted_at: now })
+      .eq('purchase_id', id)
+      .is('deleted_at', null)
 
     if (body.items.length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -142,7 +142,7 @@ export async function DELETE(
     .from('accounts_payable')
     .select('id', { count: 'exact', head: true })
     .eq('purchase_id', id)
-    .not('paid_at', 'is', null)
+    .gt('amount_paid', 0)
 
   if (apCount && apCount > 0) {
     return NextResponse.json(

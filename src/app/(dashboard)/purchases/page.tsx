@@ -45,18 +45,19 @@ export default async function PurchasesPage({
       .order('name'),
     supabaseAdmin
       .from('accounts_payable')
-      .select('amount, amount_paid, balance, status')
+      .select('id, purchase_id, amount, amount_paid, balance, status, due_date')
       .eq('company_id', companyId)
-      .is('deleted_at', null)
-      .in('status', ['pending', 'partial', 'overdue']),
+      .is('deleted_at', null),
   ])
 
   const purchases = purchasesData ?? []
   const suppliers = suppliersData ?? []
   const apRecords = apData ?? []
 
-  const totalComprado      = purchases.reduce((s, p) => s + (p.total ?? 0), 0)
-  const totalPendienteCxP  = apRecords.reduce((s, r) => s + (r.balance as number ?? 0), 0)
+  const totalComprado     = purchases.reduce((s, p) => s + (p.total ?? 0), 0)
+  const totalPendienteCxP = apRecords
+    .filter(r => ['pending', 'partial', 'overdue'].includes(r.status))
+    .reduce((s, r) => s + (r.balance as number ?? 0), 0)
 
   return (
     <>
@@ -70,6 +71,7 @@ export default async function PurchasesPage({
           to={to}
           purchases={purchases as unknown as Parameters<typeof PurchasesOverview>[0]['purchases']}
           suppliers={suppliers}
+          apRecords={apRecords as unknown as Parameters<typeof PurchasesOverview>[0]['apRecords']}
           kpis={{ totalComprado, totalPendienteCxP, countPurchases: purchases.length }}
         />
       </div>
