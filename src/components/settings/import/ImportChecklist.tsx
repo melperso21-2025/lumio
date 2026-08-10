@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { ENTITY_DEFS, ENTITY_ORDER, type EntityType } from '@/lib/import/entityConfig'
 
-// ── Grupos visuales ────────────────────────────────────────────────────────
+// ── Grupos ────────────────────────────────────────────────────────────────
 
 const GROUPS: { label: string; entities: EntityType[] }[] = [
   {
@@ -18,177 +18,164 @@ const GROUPS: { label: string; entities: EntityType[] }[] = [
   },
 ]
 
-// ── Contar registros de cada entidad ───────────────────────────────────────
+// ── Queries ───────────────────────────────────────────────────────────────
 
 async function fetchCounts(companyId: string): Promise<Record<EntityType, number>> {
   const supabase = await createClient()
-
   const results = await Promise.all(
-    ENTITY_ORDER.map(async (entityKey) => {
-      const table = ENTITY_DEFS[entityKey].table
+    ENTITY_ORDER.map(async (key) => {
       const { count } = await supabase
-        .from(table)
+        .from(ENTITY_DEFS[key].table)
         .select('id', { count: 'exact', head: true })
         .eq('company_id', companyId)
         .is('deleted_at', null)
-      return [entityKey, count ?? 0] as [EntityType, number]
+      return [key, count ?? 0] as [EntityType, number]
     })
   )
-
   return Object.fromEntries(results) as Record<EntityType, number>
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function fmtCount(n: number): string {
+function fmt(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
-  return n.toString()
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`
+  return n.toLocaleString()
 }
 
-// ── Component ──────────────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────────────
 
 export default async function ImportChecklist({ companyId }: { companyId: string }) {
   const counts = await fetchCounts(companyId)
-
-  const totalEntities = ENTITY_ORDER.length
-  const uploadedEntities = ENTITY_ORDER.filter((k) => counts[k] > 0).length
-  const pct = Math.round((uploadedEntities / totalEntities) * 100)
+  const uploaded = ENTITY_ORDER.filter((k) => counts[k] > 0).length
+  const total = ENTITY_ORDER.length
+  const pct = Math.round((uploaded / total) * 100)
 
   return (
     <div
       style={{
         background: 'var(--card)',
         border: '1px solid var(--border)',
-        borderRadius: 12,
-        padding: '16px 18px',
+        borderRadius: 10,
+        padding: '12px 16px',
         display: 'flex',
         flexDirection: 'column',
-        gap: 14,
+        gap: 10,
       }}
     >
-      {/* Header + barra de progreso */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-        <div>
-          <h2 className="font-syne font-bold" style={{ fontSize: 14, color: 'var(--text)', margin: '0 0 2px' }}>
-            Estado de datos
-          </h2>
-          <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0 }}>
-            {uploadedEntities} de {totalEntities} entidades con datos cargados
-          </p>
+      {/* Header compacto */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span className="font-syne font-bold" style={{ fontSize: 12, color: 'var(--text)', flexShrink: 0 }}>
+          Estado de datos
+        </span>
+        {/* Barra de progreso */}
+        <div style={{ flex: 1, height: 3, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}>
+          <div
+            style={{
+              height: '100%',
+              width: `${pct}%`,
+              borderRadius: 99,
+              background: pct === 100 ? '#10b981' : 'linear-gradient(90deg,#F5C842,#F09A1A)',
+            }}
+          />
         </div>
-        <span
-          className="font-syne font-bold"
-          style={{
-            fontSize: 20,
-            color: pct === 100 ? '#10b981' : pct >= 50 ? 'var(--gold)' : 'var(--muted)',
-            lineHeight: 1,
-            flexShrink: 0,
-          }}
-        >
-          {pct}%
+        <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0, fontFamily: 'monospace' }}>
+          {uploaded}/{total}
         </span>
       </div>
 
-      {/* Barra */}
-      <div style={{ height: 4, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}>
-        <div
-          style={{
-            height: '100%',
-            width: `${pct}%`,
-            borderRadius: 99,
-            background:
-              pct === 100
-                ? '#10b981'
-                : pct >= 50
-                ? 'linear-gradient(90deg, #F5C842, #F09A1A)'
-                : 'var(--gold)',
-            transition: 'width 0.4s ease',
-          }}
-        />
-      </div>
-
-      {/* Grupos */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* 3 columnas */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '0 16px',
+          alignItems: 'start',
+        }}
+      >
         {GROUPS.map((group) => (
           <div key={group.label}>
+            {/* Título de grupo */}
             <p
-              className="font-syne font-bold"
               style={{
                 fontSize: 9,
+                fontWeight: 700,
                 color: 'var(--muted)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.1em',
-                margin: '0 0 6px',
+                margin: '0 0 5px',
               }}
             >
               {group.label}
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {group.entities.map((entityKey) => {
-                const def = ENTITY_DEFS[entityKey]
-                const count = counts[entityKey]
+            {/* Filas */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {group.entities.map((key) => {
+                const def = ENTITY_DEFS[key]
+                const count = counts[key]
                 const done = count > 0
-
-                // dependencias aún sin datos
                 const missingDeps = def.dependencies.filter((d) => counts[d] === 0)
                 const blocked = !done && missingDeps.length > 0
 
                 return (
                   <div
-                    key={entityKey}
+                    key={key}
+                    title={
+                      blocked
+                        ? `Requiere: ${missingDeps.map((d) => ENTITY_DEFS[d].label).join(', ')}`
+                        : done
+                        ? `${def.label}: ${count.toLocaleString()} registros`
+                        : def.label
+                    }
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: '16px 1fr auto',
+                      display: 'flex',
                       alignItems: 'center',
-                      gap: 8,
-                      padding: '6px 8px',
-                      borderRadius: 7,
-                      background: done
-                        ? 'rgba(16,185,129,0.06)'
-                        : blocked
-                        ? 'transparent'
-                        : 'transparent',
-                      border: done
-                        ? '1px solid rgba(16,185,129,0.2)'
-                        : '1px solid var(--border)',
-                      opacity: blocked ? 0.5 : 1,
+                      gap: 6,
+                      padding: '4px 6px',
+                      borderRadius: 5,
+                      opacity: blocked ? 0.45 : 1,
                     }}
                   >
-                    {/* Icono */}
-                    <span style={{ fontSize: 12, lineHeight: 1, textAlign: 'center', flexShrink: 0 }}>
-                      {done ? '✓' : blocked ? '⊘' : '○'}
-                    </span>
+                    {/* Punto de estado */}
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        background: done
+                          ? '#10b981'
+                          : blocked
+                          ? 'var(--muted)'
+                          : 'var(--border2)',
+                        border: done ? 'none' : '1px solid var(--border2)',
+                      }}
+                    />
 
-                    {/* Nombre + aviso de dependencias */}
-                    <div style={{ minWidth: 0 }}>
-                      <span
-                        style={{
-                          fontSize: 12,
-                          color: done ? '#10b981' : 'var(--text)',
-                          fontWeight: done ? 600 : 400,
-                        }}
-                      >
-                        {def.label}
-                      </span>
-                      {blocked && (
-                        <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 6 }}>
-                          · requiere: {missingDeps.map((d) => ENTITY_DEFS[d].label).join(', ')}
-                        </span>
-                      )}
-                    </div>
+                    {/* Nombre */}
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: done ? 'var(--text)' : 'var(--text2)',
+                        flex: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        fontWeight: done ? 500 : 400,
+                      }}
+                    >
+                      {def.label}
+                    </span>
 
                     {/* Conteo */}
                     <span
                       style={{
-                        fontSize: 11,
+                        fontSize: 10,
                         fontFamily: 'monospace',
-                        color: done ? '#10b981' : 'var(--muted)',
+                        color: done ? '#10b981' : 'var(--border2)',
                         flexShrink: 0,
                       }}
                     >
-                      {done ? fmtCount(count) : '—'}
+                      {done ? fmt(count) : '—'}
                     </span>
                   </div>
                 )
