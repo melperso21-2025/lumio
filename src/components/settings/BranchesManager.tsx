@@ -77,12 +77,13 @@ export default function BranchesManager({ companyId, canDelete }: BranchesManage
 
   async function fetchBranches() {
     setLoading(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('branches')
       .select('id, name, type, address, phone, is_active')
       .eq('company_id', companyId)
       .is('deleted_at', null)
       .order('name')
+    if (error) console.error('[BranchesManager] fetchBranches error:', error)
     setBranches((data as Branch[]) ?? [])
     setLoading(false)
   }
