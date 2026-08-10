@@ -297,13 +297,21 @@ export async function validateCustomer(
     errors.email = 'El email no tiene un formato válido'
   }
 
-  // phone
-  const phone = String(row.phone ?? '').trim()
-  if (!phone) {
-    if (requirePhone) errors.phone = 'El teléfono es obligatorio'
+  // mobile (celular Ecuador, +593XXXXXXXXX)
+  const mobile = String(row.mobile ?? '').trim()
+  if (!mobile) {
+    if (requirePhone) errors.mobile = 'El celular es obligatorio'
   } else {
-    const phoneResult = validatePhone(phone)
-    if (!phoneResult.valid) errors.phone = phoneResult.error!
+    const mobileResult = validatePhone(mobile)
+    if (!mobileResult.valid) errors.mobile = mobileResult.error!
+  }
+
+  // phone (convencional, opcional)
+  const phoneLandline = String(row.phone ?? '').trim()
+  if (phoneLandline) {
+    const digits = phoneLandline.replace(/\D/g, '')
+    if (digits.length < 6 || digits.length > 9)
+      errors.phone = 'Teléfono convencional: 6-9 dígitos'
   }
 
   // id_type
@@ -389,7 +397,7 @@ export async function validateCustomer(
   const valid = Object.keys(errors).length === 0
   if (!valid) return { valid: false, errors, warnings }
 
-  const phoneFormatted: string | null = phone ? (validatePhone(phone).formatted ?? phone) : null
+  const mobileFormatted: string | null = mobile ? (validatePhone(mobile).formatted ?? mobile) : null
   const emailForData: string | null = requireEmail ? emailRaw : (emailRaw || null)
 
   return {
@@ -398,8 +406,9 @@ export async function validateCustomer(
     warnings,
     data: {
       full_name,
-      email: emailForData,
-      phone:             phoneFormatted,
+      email:             emailForData,
+      mobile:            mobileFormatted,
+      phone:             phoneLandline || null,
       id_type:           id_type || null,
       tax_id,
       customer_type:     customer_type_id,

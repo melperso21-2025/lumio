@@ -33,7 +33,7 @@ export async function GET(
     const { data: customer, error } = await supabaseAdmin
       .from('customers')
       .select(
-        'id, full_name, phone, email, tax_id, id_type, customer_type, label, lifetime_value, last_purchase_at, registered_since, is_company, contact_name, contact_phone, contact_email, address, created_at'
+        'id, full_name, mobile, phone, email, tax_id, id_type, customer_type, label, lifetime_value, last_purchase_at, registered_since, is_company, contact_name, contact_phone, contact_email, address, created_at'
       )
       .eq('id', id)
       .eq('company_id', userData.company_id)
@@ -118,6 +118,7 @@ export async function PATCH(
       full_name?: string
       id_type?: string
       tax_id?: string
+      mobile?: string | null
       phone?: string | null
       email?: string | null
       address?: string | null
@@ -143,11 +144,17 @@ export async function PATCH(
         ? 'El email no tiene un formato válido'
         : 'El email es obligatorio'
 
-    if (!body.phone?.trim()) {
-      validationErrors.phone = 'El teléfono es obligatorio'
+    if (!body.mobile?.trim()) {
+      validationErrors.mobile = 'El celular es obligatorio'
     } else {
-      const phoneRes = validatePhone(body.phone)
-      if (!phoneRes.valid) validationErrors.phone = phoneRes.error!
+      const mobileRes = validatePhone(body.mobile)
+      if (!mobileRes.valid) validationErrors.mobile = mobileRes.error!
+    }
+
+    if (body.phone?.trim()) {
+      const digits = body.phone.replace(/\D/g, '')
+      if (digits.length < 6 || digits.length > 9)
+        validationErrors.phone = 'Teléfono convencional: 6-9 dígitos'
     }
 
     if (!body.tax_id?.trim()) {
@@ -207,7 +214,8 @@ export async function PATCH(
         full_name: body.full_name!.trim(),
         id_type: body.id_type ?? null,
         tax_id: body.tax_id!.trim(),
-        phone: body.phone?.trim() ?? null,
+        mobile: body.mobile?.trim() ?? null,
+        phone: body.phone?.trim() || null,
         email: body.email?.trim() ?? null,
         address: body.address ?? null,
         customer_type: body.customer_type ?? null,
@@ -229,7 +237,7 @@ export async function PATCH(
     const { data: updated } = await supabaseAdmin
       .from('customers')
       .select(
-        'id, full_name, phone, email, tax_id, id_type, customer_type, label, lifetime_value, last_purchase_at, registered_since, is_company, contact_name, contact_phone, contact_email, address, created_at'
+        'id, full_name, mobile, phone, email, tax_id, id_type, customer_type, label, lifetime_value, last_purchase_at, registered_since, is_company, contact_name, contact_phone, contact_email, address, created_at'
       )
       .eq('id', id)
       .single()

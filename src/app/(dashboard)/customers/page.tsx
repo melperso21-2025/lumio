@@ -79,7 +79,7 @@ export default async function CustomersPage({
   }
 
   const CUSTOMER_SELECT =
-    'id, full_name, phone, email, tax_id, id_type, customer_type, label, lifetime_value, last_purchase_at, registered_since, is_company, contact_name, address, created_at, total_orders'
+    'id, full_name, mobile, phone, email, tax_id, id_type, customer_type, label, lifetime_value, last_purchase_at, registered_since, is_company, contact_name, address, created_at, total_orders'
 
   // Table filters from URL
   const q          = params.q?.trim() ?? ''

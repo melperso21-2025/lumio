@@ -173,7 +173,8 @@ export const ENTITY_DEFS: Record<EntityType, EntityDef> = {
     fields: [
       { key: 'full_name',          label: 'nombre_completo',    required: true,  type: 'text',    example: 'María García' },
       { key: 'email',              label: 'email',              required: true,  type: 'email',   example: 'maria@email.com' },
-      { key: 'phone',              label: 'telefono',           required: true,  type: 'text',    example: '+593991234567', hint: 'Formato: +593XXXXXXXXX (9 dígitos sin 0 inicial)' },
+      { key: 'mobile',             label: 'celular',            required: false, type: 'text',    example: '0999123456',    hint: 'Celular Ecuador: 10 dígitos, empieza con 09' },
+      { key: 'phone',              label: 'telefono',           required: false, type: 'text',    example: '022341234',     hint: 'Convencional: 6-9 dígitos (con o sin código de área)' },
       { key: 'id_type',            label: 'tipo_id',            required: true,  type: 'text',    example: 'cedula', hint: 'Valores: cedula, ruc, pasaporte, ruc_extranjero' },
       { key: 'tax_id',             label: 'numero_id',          required: true,  type: 'text',    example: '1712345678', hint: 'Cédula: 10 dígitos | RUC: 13 dígitos | Pasaporte: 6-20 chars alfanuméricos' },
       { key: 'customer_type_name', label: 'tipo_cliente',       required: false, type: 'text',    example: 'Mayorista', hint: 'Debe existir en tu catálogo de tipos (ver hoja IDs de referencia)' },

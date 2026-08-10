@@ -10,6 +10,7 @@ import { useUser } from '@/lib/context/UserContext'
 export type CustomerRow = {
   id: string
   full_name: string | null
+  mobile: string | null
   phone: string | null
   email: string | null
   tax_id: string | null
@@ -35,7 +36,7 @@ export type CatalogItem = {
 type SortKey =
   | 'full_name'
   | 'tax_id'
-  | 'phone'
+  | 'mobile'
   | 'email'
   | 'customer_type'
   | 'label'
@@ -47,7 +48,7 @@ type SortKey =
 const COLUMNS: { key: SortKey; label: string; align: 'left' | 'right' }[] = [
   { key: 'full_name',       label: 'Nombre',        align: 'left'  },
   { key: 'tax_id',          label: 'Identificación', align: 'left'  },
-  { key: 'phone',           label: 'Teléfono',      align: 'left'  },
+  { key: 'mobile',          label: 'Celular',       align: 'left'  },
   { key: 'email',           label: 'Email',         align: 'left'  },
   { key: 'customer_type',   label: 'Tipo',          align: 'left'  },
   { key: 'label',           label: 'Etiqueta',      align: 'left'  },
@@ -60,7 +61,7 @@ function getSortValue(c: CustomerRow, key: SortKey): string | number {
   switch (key) {
     case 'full_name':       return (c.full_name ?? '').toLowerCase()
     case 'tax_id':          return (c.tax_id ?? '').toLowerCase()
-    case 'phone':           return (c.phone ?? '').toLowerCase()
+    case 'mobile':          return (c.mobile ?? '').toLowerCase()
     case 'email':           return (c.email ?? '').toLowerCase()
     case 'customer_type':   return (c.customer_type ?? '').toLowerCase()
     case 'label':           return (c.label ?? '').toLowerCase()
@@ -477,7 +478,7 @@ export default function CustomersTable({
 
                   {/* Teléfono */}
                   <td style={{ padding: '10px 12px', color: 'var(--text2)' }}>
-                    {c.phone ?? '—'}
+                    {c.mobile ?? c.phone ?? '—'}
                   </td>
 
                   {/* Email */}

@@ -10,6 +10,7 @@ import EditCustomerModal from '@/components/customers/EditCustomerModal'
 export interface CustomerDetail {
   id: string
   full_name: string | null
+  mobile: string | null
   phone: string | null
   email: string | null
   tax_id: string | null
@@ -351,6 +352,7 @@ export default function CustomerDetailView({
           >
             Datos de contacto
           </h2>
+          <InfoRow label="Celular" value={currentCustomer.mobile} />
           <InfoRow label="Teléfono" value={currentCustomer.phone} />
           <InfoRow label="Email" value={currentCustomer.email} />
           <InfoRow label="Dirección" value={currentCustomer.address} />

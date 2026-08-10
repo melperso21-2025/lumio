@@ -100,6 +100,7 @@ export default function CustomersOverview({
     Nombre: c.full_name ?? '',
     'Tipo ID': c.id_type ?? '',
     'N° ID': c.tax_id ?? '',
+    Celular: c.mobile ?? '',
     Teléfono: c.phone ?? '',
     Email: c.email ?? '',
     Dirección: c.address ?? '',

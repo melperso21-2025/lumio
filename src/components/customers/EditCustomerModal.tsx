@@ -93,6 +93,7 @@ export default function EditCustomerModal({
     (customer.id_type as 'cedula' | 'ruc' | 'pasaporte' | 'ruc_extranjero') ?? 'cedula'
   )
   const [tax_id, setTaxId] = useState(customer.tax_id ?? '')
+  const [mobile, setMobile] = useState(customer.mobile ?? '')
   const [phone, setPhone] = useState(customer.phone ?? '')
   const [email, setEmail] = useState(customer.email ?? '')
 
@@ -128,11 +129,15 @@ export default function EditCustomerModal({
       errs.full_name = full_name.trim() ? 'El nombre debe tener al menos 2 caracteres' : 'El nombre completo es obligatorio'
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       errs.email = email.trim() ? 'El email no tiene un formato válido' : 'El email es obligatorio'
-    if (!phone.trim()) {
-      errs.phone = 'El teléfono es obligatorio'
+    if (!mobile.trim()) {
+      errs.mobile = 'El celular es obligatorio'
     } else {
-      const phoneRes = validatePhone(phone)
-      if (!phoneRes.valid) errs.phone = phoneRes.error!
+      const mobileRes = validatePhone(mobile)
+      if (!mobileRes.valid) errs.mobile = mobileRes.error!
+    }
+    if (phone.trim()) {
+      const digits = phone.replace(/\D/g, '')
+      if (digits.length < 6 || digits.length > 9) errs.phone = 'Teléfono convencional: 6-9 dígitos'
     }
     if (!tax_id.trim()) {
       errs.tax_id = 'El número de identificación es obligatorio'
@@ -166,6 +171,7 @@ export default function EditCustomerModal({
         full_name: full_name.trim(),
         id_type,
         tax_id: tax_id.trim(),
+        mobile: mobile.trim() || null,
         phone: phone.trim() || null,
         email: email.trim() || null,
         address: address.trim() || null,
@@ -370,8 +376,22 @@ export default function EditCustomerModal({
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                <label style={labelStyle}>Teléfono *</label>
-                <PhoneInput value={phone} onChange={(v) => { setPhone(v); setFieldError('phone', null) }} required />
+                <label style={labelStyle}>Celular *</label>
+                <PhoneInput value={mobile} onChange={(v) => { setMobile(v); setFieldError('mobile', null) }} required />
+                {fieldErrors.mobile && <p style={{ marginTop: 3, fontSize: 11, color: 'var(--red)' }}>{fieldErrors.mobile}</p>}
+              </div>
+              <div>
+                <label style={labelStyle}>Teléfono convencional</label>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => { setPhone(e.target.value.replace(/\D/g, '')); setFieldError('phone', null) }}
+                  placeholder="022341234"
+                  maxLength={9}
+                  style={{ ...inputStyle, borderColor: fieldErrors.phone ? 'rgba(220,38,38,0.6)' : undefined }}
+                  onFocus={onFocus}
+                  onBlur={onBlur}
+                />
                 {fieldErrors.phone && <p style={{ marginTop: 3, fontSize: 11, color: 'var(--red)' }}>{fieldErrors.phone}</p>}
               </div>
               <div>

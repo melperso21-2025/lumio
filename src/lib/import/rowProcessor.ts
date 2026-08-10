@@ -351,6 +351,7 @@ export async function validateAndTransform(
       const rowData: Record<string, unknown> = {
         full_name: row['nombre_completo']?.trim(),
         email:     row['email']?.trim(),
+        mobile:    row['celular']?.trim(),
         phone:     row['telefono']?.trim(),
         id_type:   row['tipo_id']?.trim().toLowerCase(),
         tax_id:    row['numero_id']?.trim(),
@@ -393,6 +394,7 @@ export async function validateAndTransform(
           company_id:        ctx.companyId,
           full_name:         d.full_name,
           email:             d.email,
+          mobile:            d.mobile,
           phone:             d.phone,
           tax_id:            d.tax_id,
           id_type:           d.id_type,
