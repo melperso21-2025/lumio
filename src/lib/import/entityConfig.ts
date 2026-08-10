@@ -24,6 +24,8 @@ export interface EntityDef {
   dedupFields?: string[]
   /** generated columns - NEVER insert these */
   generatedColumns?: string[]
+  /** true when the table has no deleted_at column (no soft-delete support) */
+  noSoftDelete?: boolean
 }
 
 export type EntityType =
@@ -290,6 +292,7 @@ export const ENTITY_DEFS: Record<EntityType, EntityDef> = {
     description: 'Entradas, salidas y ajustes de stock.',
     dependencies: ['products'],
     refEntities: ['products'],
+    noSoftDelete: true,
     fields: [
       { key: 'product_sku',    label: 'sku_producto',      required: true,  type: 'text',   example: 'BOL-001', hint: 'SKU del producto' },
       { key: 'type',           label: 'tipo',              required: true,  type: 'text',   example: 'in', hint: 'in|out|adjustment' },

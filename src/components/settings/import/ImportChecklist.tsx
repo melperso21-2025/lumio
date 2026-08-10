@@ -24,11 +24,12 @@ async function fetchCounts(companyId: string): Promise<Record<EntityType, number
   const supabase = await createClient()
   const results = await Promise.all(
     ENTITY_ORDER.map(async (key) => {
-      const { count } = await supabase
+      let q = supabase
         .from(ENTITY_DEFS[key].table)
         .select('id', { count: 'exact', head: true })
         .eq('company_id', companyId)
-        .is('deleted_at', null)
+      if (!ENTITY_DEFS[key].noSoftDelete) q = q.is('deleted_at', null)
+      const { count } = await q
       return [key, count ?? 0] as [EntityType, number]
     })
   )
