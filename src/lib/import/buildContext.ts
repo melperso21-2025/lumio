@@ -256,34 +256,53 @@ export async function parseFileToRowsAsync(
 
     raw = []
 
-    // Use the streaming WorkbookReader to avoid the ExcelJS "comments" bug
-    // that crashes when loading certain XLSX files with wb.xlsx.load().
+    // Use the streaming WorkbookReader to avoid the ExcelJS "comments" bug.
+    // Extra options (hyperlinks/styles/entries) tell ExcelJS to skip XML parts
+    // that can crash on certain XLSX files (comments, drawings, etc.).
     const stream = Readable.from(buf)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const workbookReader = new (ExcelJS.stream.xlsx.WorkbookReader as any)(stream, {
-      sheets: [0],         // first sheet only
       sharedStrings: 'cache',
+      hyperlinks:    'ignore',
+      styles:        'ignore',
+      entries:       'emit',
     })
 
-    let firstSheet = true
-    for await (const worksheetReader of workbookReader) {
-      if (!firstSheet) break
-      firstSheet = false
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for await (const row of worksheetReader as any) {
-        const cells = (row.values as unknown[]).slice(1) // index 0 is always empty in ExcelJS
-        raw.push(cells.map((c) => {
-          if (c === null || c === undefined) return ''
-          if (typeof c === 'object' && c !== null && 'result' in c) {
-            const r = (c as { result: unknown }).result
-            if (r instanceof Date) return excelDateToISO(r)
-            return r != null ? String(r) : ''
-          }
-          if (typeof c === 'object' && c !== null && 'text' in c) return String((c as { text: string }).text ?? '')
-          if (c instanceof Date) return excelDateToISO(c)
-          return String(c)
-        }))
+    function cellToString(c: unknown): string {
+      if (c === null || c === undefined) return ''
+      if (typeof c === 'object' && 'result' in (c as object)) {
+        const r = (c as { result: unknown }).result
+        if (r instanceof Date) return excelDateToISO(r)
+        return r != null ? String(r) : ''
       }
+      if (typeof c === 'object' && 'text' in (c as object))
+        return String((c as { text: string }).text ?? '')
+      if (c instanceof Date) return excelDateToISO(c)
+      return String(c)
+    }
+
+    let firstSheet = true
+    try {
+      for await (const worksheetReader of workbookReader) {
+        if (!firstSheet) break
+        firstSheet = false
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for await (const row of worksheetReader as any) {
+          try {
+            const cells = (row.values as unknown[]).slice(1)
+            raw.push(cells.map(cellToString))
+          } catch {
+            // skip rows that crash (e.g. rows with unsupported cell types)
+          }
+        }
+      }
+    } catch (streamErr) {
+      // If WorkbookReader still crashes (e.g. on comments/drawings in older XLSX),
+      // re-throw with a clearer message so the user knows what to do.
+      const msg = streamErr instanceof Error ? streamErr.message : String(streamErr)
+      throw new Error(
+        `No se pudo leer el archivo XLSX. Guárdalo como "Excel Workbook (.xlsx)" desde Excel y vuelve a intentarlo. (${msg})`
+      )
     }
   }
 
