@@ -339,7 +339,8 @@ export const ALLOWED_VALUES: Record<string, { label: string; values: string[] }[
   customers: [
     { label: 'tipo_id',    values: ['cedula', 'ruc', 'pasaporte', 'ruc_extranjero'] },
     { label: 'es_empresa', values: ['true', 'false'] },
-    { label: 'telefono',   values: ['+593 seguido de 9 dígitos empezando en 9 (ej: +593991234567)'] },
+    { label: 'celular',    values: ['10 dígitos, empieza con 09 (ej: 0999123456) — opcional'] },
+    { label: 'telefono',   values: ['Convencional 6-9 dígitos (ej: 022341234) — opcional'] },
     { label: 'numero_id',  values: ['Cédula: 10 dígitos con módulo 10', 'RUC: 13 dígitos', 'Pasaporte: 6-20 alfanuméricos'] },
   ],
   bank_transactions: [
