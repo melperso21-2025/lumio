@@ -157,13 +157,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   // ── Semanas en el rango from-to para weekly_snapshots ─────
   const currentYear = now.getFullYear()
-  const startOfYear = new Date(currentYear, 0, 1)
-  const currentWeek = Math.ceil(
-    ((now.getTime() - startOfYear.getTime()) / 86400000 +
-      startOfYear.getDay() +
-      1) /
-      7
-  )
+  const currentWeek = isoWeekFromString(now.toISOString().slice(0, 10)).week
 
   const weeksInRange = getWeeksInRange(from, to)
   const weeksByYear = weeksInRange.reduce(

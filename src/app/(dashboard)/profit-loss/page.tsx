@@ -75,8 +75,9 @@ export default async function ProfitLossPage({
 
   const supabase = await createClient()
   const defaults = getDefaultDateRange()
-  const from = params.from ?? defaults.from
-  const to   = params.to   ?? defaults.to
+  const isoDate = /^\d{4}-\d{2}-\d{2}$/
+  const from = isoDate.test(params.from ?? '') ? params.from! : defaults.from
+  const to   = isoDate.test(params.to   ?? '') ? params.to!   : defaults.to
   const { prevFrom, prevTo } = getPreviousPeriodRolling(from, to)
 
   // 6 meses históricos

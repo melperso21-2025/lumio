@@ -37,9 +37,10 @@ interface Props {
 const fmt = (n: number) =>
   n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-const today = new Date().toISOString().slice(0, 10)
+const getToday = () => new Date().toISOString().slice(0, 10)
 
 function agingBucket(dueDate: string): string {
+  const today = getToday()
   const diff = Math.floor((new Date(today).getTime() - new Date(dueDate).getTime()) / 86400000)
   if (diff <= 0)  return 'Al día'
   if (diff <= 30) return '1-30 días'
@@ -79,7 +80,7 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
 
   const [selected, setSelected] = useState<APRecord | null>(null)
   const [amount,   setAmount]   = useState('')
-  const [date,     setDate]     = useState(today)
+  const [date,     setDate]     = useState(getToday)
   const [method,   setMethod]   = useState('transfer')
   const [notes,    setNotes]    = useState('')
   const [loading,  setLoading]  = useState(false)
@@ -96,7 +97,7 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
   function openModal(r: APRecord) {
     setSelected(r)
     setAmount(String(r.balance > 0 ? r.balance.toFixed(2) : ''))
-    setDate(today); setMethod('transfer'); setNotes('')
+    setDate(getToday()); setMethod('transfer'); setNotes('')
     setError(null); setSuccess(false)
   }
 
@@ -211,7 +212,7 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
               </thead>
               <tbody>
                 {visible.map(r => {
-                  const isOverdue = !['paid'].includes(r.status) && r.due_date < today
+                  const isOverdue = !['paid'].includes(r.status) && r.due_date < getToday()
                   const statusKey = isOverdue && r.status !== 'partial' ? 'overdue' : r.status
                   return (
                     <tr key={r.id} style={{ borderBottom: '1px solid var(--border)' }}>

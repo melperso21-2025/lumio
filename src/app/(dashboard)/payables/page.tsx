@@ -32,6 +32,7 @@ export default async function PayablesPage({
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .order('due_date', { ascending: true })
+    .limit(500)
 
   const records = apData ?? []
   const today   = new Date().toISOString().slice(0, 10)

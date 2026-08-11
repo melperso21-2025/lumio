@@ -86,16 +86,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Products with initial stock: revert current_stock to 0
+    // Products with initial stock: remove the initial movement and recalculate
+    // stock from remaining movements (sales/adjustments post-import must be kept)
     if (entityType === 'products') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabaseAdmin as any)
-        .from('products')
-        .update({ current_stock: 0 })
-        .in('id', importedIds)
-        .catch(() => null)
-
-      // Hard-delete related initial movements (inventory_movements has no deleted_at)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabaseAdmin as any)
         .from('inventory_movements')
@@ -103,6 +96,23 @@ export async function POST(request: NextRequest) {
         .in('product_id', importedIds)
         .eq('reason', 'initial')
         .catch(() => null)
+
+      // Recalculate current_stock for each product from surviving movements
+      for (const productId of importedIds) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: movs } = await (supabaseAdmin as any)
+          .from('inventory_movements')
+          .select('quantity, type')
+          .eq('product_id', productId)
+        const stock = (movs ?? []).reduce((s: number, m: { quantity: number; type: string }) =>
+          s + (m.type === 'in' ? m.quantity : -m.quantity), 0)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabaseAdmin as any)
+          .from('products')
+          .update({ current_stock: Math.max(0, stock) })
+          .eq('id', productId)
+          .catch(() => null)
+      }
     }
 
     // Delete the imported records

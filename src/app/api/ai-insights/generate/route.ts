@@ -84,6 +84,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
     }
 
+    // ── Verificar empresa activa ──────────────────────────────────────────────
+    const { data: company } = await supabase
+      .from('companies')
+      .select('id')
+      .eq('id', companyId)
+      .is('deleted_at', null)
+      .single()
+    if (!company) {
+      return NextResponse.json({ error: 'Empresa no encontrada' }, { status: 404 })
+    }
+
     // ── 2. Control de uso — 1 análisis por empresa/semana ────────────────────
     const { data: existing } = await supabase
       .from('ai_insights')

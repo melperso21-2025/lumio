@@ -33,6 +33,7 @@ export default async function ReceivablesPage({
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .order('due_date', { ascending: true })
+    .limit(500)
 
   const records = arData ?? []
   const today   = new Date().toISOString().slice(0, 10)
