@@ -10,6 +10,7 @@ import { useUser } from '@/lib/context/UserContext'
 export type CustomerRow = {
   id: string
   full_name: string | null
+  mobile: string | null
   phone: string | null
   email: string | null
   tax_id: string | null
@@ -35,7 +36,7 @@ export type CatalogItem = {
 type SortKey =
   | 'full_name'
   | 'tax_id'
-  | 'phone'
+  | 'mobile'
   | 'email'
   | 'customer_type'
   | 'label'
@@ -47,7 +48,7 @@ type SortKey =
 const COLUMNS: { key: SortKey; label: string; align: 'left' | 'right' }[] = [
   { key: 'full_name',       label: 'Nombre',        align: 'left'  },
   { key: 'tax_id',          label: 'Identificación', align: 'left'  },
-  { key: 'phone',           label: 'Teléfono',      align: 'left'  },
+  { key: 'mobile',          label: 'Celular',       align: 'left'  },
   { key: 'email',           label: 'Email',         align: 'left'  },
   { key: 'customer_type',   label: 'Tipo',          align: 'left'  },
   { key: 'label',           label: 'Etiqueta',      align: 'left'  },
@@ -60,7 +61,7 @@ function getSortValue(c: CustomerRow, key: SortKey): string | number {
   switch (key) {
     case 'full_name':       return (c.full_name ?? '').toLowerCase()
     case 'tax_id':          return (c.tax_id ?? '').toLowerCase()
-    case 'phone':           return (c.phone ?? '').toLowerCase()
+    case 'mobile':          return (c.mobile ?? '').toLowerCase()
     case 'email':           return (c.email ?? '').toLowerCase()
     case 'customer_type':   return (c.customer_type ?? '').toLowerCase()
     case 'label':           return (c.label ?? '').toLowerCase()
@@ -218,12 +219,10 @@ interface CustomersTableProps {
   filterType: string
   filterLabel: string
   filterIsCompany: boolean | null
-  onFilterChange: (
-    text: string,
-    type: string,
-    label: string,
-    isCompany: boolean | null
-  ) => void
+  onFilterChange: (text: string, type: string, label: string, isCompany: boolean | null) => void
+  initialSortBy?: string
+  initialSortAsc?: boolean
+  onSortChange?: (key: string, asc: boolean) => void
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -237,12 +236,15 @@ export default function CustomersTable({
   filterLabel,
   filterIsCompany,
   onFilterChange,
+  initialSortBy = 'lifetime_value',
+  initialSortAsc = false,
+  onSortChange,
 }: CustomersTableProps) {
   const { userRole } = useUser()
   const canEdit = userRole === 'admin' || userRole === 'manager'
 
-  const [sortBy, setSortBy] = useState<SortKey>('full_name')
-  const [sortAsc, setSortAsc] = useState(false)
+  const [sortBy, setSortBy] = useState<SortKey>(initialSortBy as SortKey)
+  const [sortAsc, setSortAsc] = useState(initialSortAsc)
 
   // Estado local para el input de texto — desacoplado de la URL.
   // El debounce evita un router.replace por cada keystroke.
@@ -299,22 +301,14 @@ export default function CustomersTable({
     return m
   }, [customerLabels])
 
-  // Data comes pre-filtered from server; only sort client-side within the page
-  const sortedCustomers = useMemo(() => {
-    return [...customers].sort((a, b) => {
-      const va = getSortValue(a, sortBy)
-      const vb = getSortValue(b, sortBy)
-      const cmp =
-        typeof va === 'string' && typeof vb === 'string'
-          ? va.localeCompare(vb)
-          : (va as number) - (vb as number)
-      return sortAsc ? cmp : -cmp
-    })
-  }, [customers, sortBy, sortAsc])
+  // Data is sorted server-side; render as-is
+  const sortedCustomers = customers
 
   function handleSort(key: SortKey) {
-    if (sortBy === key) setSortAsc((p) => !p)
-    else { setSortBy(key); setSortAsc(false) }
+    const newAsc = sortBy === key ? !sortAsc : false
+    setSortBy(key)
+    setSortAsc(newAsc)
+    onSortChange?.(key, newAsc)
   }
 
   const hasActiveFilters =
@@ -367,6 +361,7 @@ export default function CustomersTable({
                 return (
                   <th
                     key={key}
+                    scope="col"
                     onClick={() => handleSort(key)}
                     style={{
                       textAlign: align,
@@ -392,6 +387,7 @@ export default function CustomersTable({
               })}
               {canEdit && (
                 <th
+                  scope="col"
                   style={{
                     padding: '10px 12px',
                     color: 'var(--muted)',
@@ -477,7 +473,7 @@ export default function CustomersTable({
 
                   {/* Teléfono */}
                   <td style={{ padding: '10px 12px', color: 'var(--text2)' }}>
-                    {c.phone ?? '—'}
+                    {c.mobile ?? c.phone ?? '—'}
                   </td>
 
                   {/* Email */}

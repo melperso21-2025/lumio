@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 // ── Tipos ──────────────────────────────────────────────────
@@ -15,8 +14,7 @@ interface CompanyOption {
 
 // ── Componente principal ───────────────────────────────────
 export default function LoginPage() {
-  const router   = useRouter()
-  const supabase = createClient()
+  const router = useRouter()
 
   const [view,      setView]      = useState<View>('login')
   const [email,     setEmail]     = useState('')
@@ -94,11 +92,13 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/auth/update-password`,
+    const res = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
     })
 
-    if (error) {
+    if (!res.ok) {
       setError('No pudimos enviar el email. Verifica la dirección.')
       setLoading(false)
       return

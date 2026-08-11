@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import ModuleAiButton from '@/components/ai/ModuleAiButton'
+import EmptyState from '@/components/ui/EmptyState'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -35,9 +37,10 @@ interface Props {
 const fmt = (n: number) =>
   n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-const today = new Date().toISOString().slice(0, 10)
+const getToday = () => new Date().toISOString().slice(0, 10)
 
 function agingBucket(dueDate: string): string {
+  const today = getToday()
   const diff = Math.floor((new Date(today).getTime() - new Date(dueDate).getTime()) / 86400000)
   if (diff <= 0)  return 'Al día'
   if (diff <= 30) return '1-30 días'
@@ -77,7 +80,7 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
 
   const [selected, setSelected] = useState<APRecord | null>(null)
   const [amount,   setAmount]   = useState('')
-  const [date,     setDate]     = useState(today)
+  const [date,     setDate]     = useState(getToday)
   const [method,   setMethod]   = useState('transfer')
   const [notes,    setNotes]    = useState('')
   const [loading,  setLoading]  = useState(false)
@@ -94,7 +97,7 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
   function openModal(r: APRecord) {
     setSelected(r)
     setAmount(String(r.balance > 0 ? r.balance.toFixed(2) : ''))
-    setDate(today); setMethod('transfer'); setNotes('')
+    setDate(getToday()); setMethod('transfer'); setNotes('')
     setError(null); setSuccess(false)
   }
 
@@ -125,11 +128,26 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
   const agingOrder  = ['Al día', '1-30 días', '31-60 días', '61-90 días', '+90 días']
   const agingColors = ['var(--green)', 'var(--gold)', '#F97316', '#EF4444', '#DC2626']
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
+  const getModuleData = useCallback(() => ({
+    totalPendiente: kpis.totalPendiente,
+    totalVencido: kpis.totalVencido,
+    totalPagado: kpis.totalPagado,
+    countActivas: kpis.countPendiente,
+    agingResumen: agingOrder.map(b => ({ bucket: b, monto: agingMap[b] ?? 0 })),
+    registros: records.slice(0, 20).map(r => ({
+      proveedor: r.suppliers?.name ?? 'Sin nombre',
+      monto: r.amount,
+      saldo: r.balance,
+      vencimiento: r.due_date,
+      estado: r.status,
+    })),
+  }), [kpis, agingMap, agingOrder, records])
 
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* KPIs + IA */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr) auto', gap: 12, alignItems: 'stretch' }}>
         {[
           { label: 'Pendiente de pago', value: `$${fmt(kpis.totalPendiente)}`, color: '#F97316'      },
           { label: 'Vencido',           value: `$${fmt(kpis.totalVencido)}`,   color: 'var(--red)'   },
@@ -141,6 +159,9 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
             <div style={{ fontSize: 20, fontWeight: 700, color: k.color, fontFamily: 'var(--font-syne)' }}>{k.value}</div>
           </div>
         ))}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <ModuleAiButton module="payables" getModuleData={getModuleData} />
+        </div>
       </div>
 
       {/* Aging */}
@@ -159,7 +180,7 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
       {/* Filtros */}
       <div style={{ display: 'flex', gap: 8 }}>
         {(['all', 'pending', 'partial', 'paid'] as const).map(f => (
-          <button key={f} onClick={() => setFilter(f)}
+          <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}
             style={{ fontSize: 11, padding: '4px 12px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', fontWeight: 600, background: filter === f ? 'var(--gold)' : 'var(--surface)', color: filter === f ? '#1A1B2E' : 'var(--muted)' }}>
             {f === 'all' ? 'Todas' : f === 'pending' ? 'Pendientes' : f === 'partial' ? 'Parciales' : 'Pagadas'}
           </button>
@@ -167,21 +188,31 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
       </div>
 
       {/* Tabla */}
-      <div style={{ flex: 1, overflowY: 'auto', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10 }}>
-        {visible.length === 0
-          ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Sin registros</div>
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, overflowX: 'auto' }}>
+        {records.length === 0
+          ? (
+            <EmptyState
+              icon="📤"
+              title="No hay facturas por pagar"
+              description="Las cuentas por pagar (CxP) se crean automáticamente cuando registras una compra a crédito. Aquí verás cuánto le debes a cada proveedor y cuándo vence el plazo de pago."
+              tip="Registra una compra en el módulo de Compras y elige 'Crédito' como método de pago. La CxP se generará sola."
+              action={{ label: 'Ir a Compras →', href: '/purchases' }}
+            />
+          )
+          : visible.length === 0
+          ? <EmptyState isFilterEmpty onClearFilter={() => setFilter('all')} />
           : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
                   {['Proveedor', 'Emisión', 'Vencimiento', 'Total', 'Pagado', 'Saldo', 'Estado', ''].map(h => (
-                    <th key={h} style={{ padding: '9px 12px', textAlign: 'left', fontSize: 9, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</th>
+                    <th key={h} scope="col" style={{ padding: '9px 12px', textAlign: 'left', fontSize: 9, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {visible.map(r => {
-                  const isOverdue = !['paid'].includes(r.status) && r.due_date < today
+                  const isOverdue = !['paid'].includes(r.status) && r.due_date < getToday()
                   const statusKey = isOverdue && r.status !== 'partial' ? 'overdue' : r.status
                   return (
                     <tr key={r.id} style={{ borderBottom: '1px solid var(--border)' }}>

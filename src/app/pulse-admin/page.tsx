@@ -21,7 +21,7 @@ export default async function PulseAdminPage() {
   // Lista empresas
   const { data: companiesList } = await supabase
     .from('companies')
-    .select('id, name, plan, status, created_at')
+    .select('id, name, plan, status, created_at, trial_expires_at, max_users')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
   const companies = companiesList ?? []
@@ -74,11 +74,54 @@ export default async function PulseAdminPage() {
 
   const pendingRequests = pendingRequestsData ?? []
 
-  // MRR placeholder
-  const mrr = 0
+  // MRR estimado por plan
+  const PLAN_MRR: Record<string, number> = { trial: 0, basic: 49, standard: 99, pro: 199 }
+  const mrr = companies.reduce((acc, c) => acc + (PLAN_MRR[c.plan] ?? 0), 0)
   const mrrTarget = 1000
   const mrrPct =
     mrrTarget > 0 ? Math.min(Math.round((mrr / mrrTarget) * 100), 100) : 0
+
+  // Alertas: trials por vencer (≤7 días)
+  const now = new Date()
+  const trialExpiringSoon = companies.filter((c) => {
+    if (!c.trial_expires_at) return false
+    const diff = new Date(c.trial_expires_at).getTime() - now.getTime()
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
+    return days >= 0 && days <= 7
+  })
+
+  // Última actividad de usuarios (para detectar inactividad)
+  const { data: lastSeenData } = await supabase
+    .from('users')
+    .select('company_id, last_seen_at')
+    .is('deleted_at', null)
+    .not('last_seen_at', 'is', null)
+    .gte('last_seen_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+
+  const lastActivityByCompany: Record<string, string> = {}
+  lastSeenData?.forEach((u) => {
+    const cid = u.company_id!
+    if (!lastActivityByCompany[cid] || u.last_seen_at! > lastActivityByCompany[cid]!) {
+      lastActivityByCompany[cid] = u.last_seen_at!
+    }
+  })
+  const companiesWithNoActivity = companies.filter((c) => !lastActivityByCompany[c.id])
+
+  // Usuarios al límite
+  const { data: userCountData } = await supabase
+    .from('users')
+    .select('company_id')
+    .is('deleted_at', null)
+    .not('company_id', 'is', null)
+
+  const userCountByCompany: Record<string, number> = {}
+  userCountData?.forEach((u) => {
+    if (u.company_id) userCountByCompany[u.company_id] = (userCountByCompany[u.company_id] ?? 0) + 1
+  })
+  const companiesAtUserLimit = companies.filter((c) => {
+    const max = c.max_users ?? 3
+    return max > 0 && (userCountByCompany[c.id] ?? 0) >= max
+  })
 
   return (
     <>
@@ -200,6 +243,46 @@ export default async function PulseAdminPage() {
           </div>
           <RecalculateSnapshotsButton />
         </div>
+
+        {/* Alertas operativas */}
+        {(trialExpiringSoon.length > 0 || companiesWithNoActivity.length > 0 || companiesAtUserLimit.length > 0) && (
+          <div style={{ background: 'var(--card)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 10, padding: '14px 18px' }}>
+            <div className="font-syne font-bold" style={{ fontSize: 12, color: 'var(--red)', marginBottom: 10 }}>
+              ⚠ Alertas que requieren atención
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {trialExpiringSoon.map((c) => {
+                const diff = new Date(c.trial_expires_at!).getTime() - now.getTime()
+                const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
+                return (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(217,119,6,0.06)', borderRadius: 8, border: '1px solid rgba(217,119,6,0.15)' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text)' }}>
+                      <strong>{c.name}</strong> — trial vence en{' '}
+                      <strong style={{ color: days <= 3 ? 'var(--red)' : 'var(--orange)' }}>{days} días</strong>
+                    </span>
+                    <a href={`/pulse-admin/companies/${c.id}`} style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none', fontWeight: 600 }}>Ver empresa →</a>
+                  </div>
+                )
+              })}
+              {companiesAtUserLimit.map((c) => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(220,38,38,0.04)', borderRadius: 8, border: '1px solid rgba(220,38,38,0.12)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text)' }}>
+                    <strong>{c.name}</strong> — al límite de usuarios ({userCountByCompany[c.id]}/{c.max_users ?? 3})
+                  </span>
+                  <a href={`/pulse-admin/companies/${c.id}`} style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none', fontWeight: 600 }}>Ver empresa →</a>
+                </div>
+              ))}
+              {companiesWithNoActivity.map((c) => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(220,38,38,0.04)', borderRadius: 8, border: '1px solid rgba(220,38,38,0.12)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text)' }}>
+                    <strong>{c.name}</strong> — sin actividad en los últimos 30 días
+                  </span>
+                  <a href={`/pulse-admin/companies/${c.id}`} style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none', fontWeight: 600 }}>Ver empresa →</a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 5 KPI Stats */}
         <div
@@ -803,11 +886,7 @@ export default async function PulseAdminPage() {
                   gap: 8,
                 }}
               >
-                {(() => {
-                  const inactiveCompany = companies.find(
-                    (c) => (insightsByCompany[c.id] ?? 0) === 0
-                  )
-                  return (
+                {companiesWithNoActivity.length > 0 ? (
                     <div
                       style={{
                         background: 'rgba(220,38,38,0.05)',
@@ -816,32 +895,47 @@ export default async function PulseAdminPage() {
                         padding: '10px 12px',
                       }}
                     >
-                      <div
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          color: 'var(--red)',
-                          marginBottom: 3,
-                        }}
-                      >
-                        🔴{' '}
-                        {inactiveCompany
-                          ? `${inactiveCompany.name} — Sin actividad`
-                          : 'Sin alertas críticas'}
+                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--red)', marginBottom: 3 }}>
+                        🔴 {companiesWithNoActivity[0]?.name} — Sin actividad 30d
                       </div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: 'var(--text2)',
-                        }}
-                      >
-                        {inactiveCompany
-                          ? 'Empresa sin insights generados. Programar sesión de onboarding.'
-                          : 'Todas las empresas tienen actividad esta semana. ✓'}
+                      <div style={{ fontSize: 11, color: 'var(--text2)' }}>
+                        {companiesWithNoActivity.length === 1 ? '1 empresa sin actividad.' : `${companiesWithNoActivity.length} empresas sin actividad.`} Programar sesión de seguimiento.
                       </div>
                     </div>
-                  )
-                })()}
+                  ) : (
+                    <div
+                      style={{
+                        background: 'rgba(5,150,105,0.05)',
+                        border: '1px solid rgba(5,150,105,0.15)',
+                        borderRadius: 8,
+                        padding: '10px 12px',
+                      }}
+                    >
+                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--green)', marginBottom: 3 }}>
+                        ✓ Sin alertas críticas de actividad
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text2)' }}>
+                        Todas las empresas tienen actividad reciente. ✓
+                      </div>
+                    </div>
+                  )}
+                {trialExpiringSoon.length > 0 && (
+                  <div
+                    style={{
+                      background: 'rgba(217,119,6,0.06)',
+                      border: '1px solid rgba(217,119,6,0.2)',
+                      borderRadius: 8,
+                      padding: '10px 12px',
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--orange)', marginBottom: 3 }}>
+                      ⏰ {trialExpiringSoon.length} empresa{trialExpiringSoon.length > 1 ? 's' : ''} con trial por vencer
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text2)' }}>
+                      {trialExpiringSoon.map((c) => c.name).join(', ')} — contactar para conversión.
+                    </div>
+                  </div>
+                )}
                 <div
                   style={{
                     background: 'var(--gold-bg)',

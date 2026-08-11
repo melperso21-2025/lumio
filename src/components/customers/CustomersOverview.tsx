@@ -7,6 +7,7 @@ import ExportButton from '@/components/ui/ExportButton'
 import NewCustomerForm from '@/components/customers/NewCustomerForm'
 import CustomersTable, { type CustomerRow, type CatalogItem } from '@/components/customers/CustomersTable'
 import AiInsightBox from '@/components/ui/AiInsightBox'
+import EmptyState from '@/components/ui/EmptyState'
 import RFMSegmentation, { type RFMCustomer } from '@/components/customers/RFMSegmentation'
 
 function calcDelta(
@@ -27,6 +28,8 @@ interface CustomersOverviewProps {
   tableCtype: string
   tableClabel: string
   tableCiscompany: string
+  tableSort?: string
+  tableSortAsc?: boolean
   customers?: CustomerRow[]      // nuevos en el período — para KPIs
   prevCustomers?: CustomerRow[]
   customerTypes?: CatalogItem[]
@@ -47,6 +50,8 @@ export default function CustomersOverview({
   tableCtype,
   tableClabel,
   tableCiscompany,
+  tableSort = 'lifetime_value',
+  tableSortAsc = false,
   customers = [],
   prevCustomers = [],
   customerTypes = [],
@@ -99,6 +104,7 @@ export default function CustomersOverview({
     Nombre: c.full_name ?? '',
     'Tipo ID': c.id_type ?? '',
     'N° ID': c.tax_id ?? '',
+    Celular: c.mobile ?? '',
     Teléfono: c.phone ?? '',
     Email: c.email ?? '',
     Dirección: c.address ?? '',
@@ -127,11 +133,21 @@ export default function CustomersOverview({
     })
   }, [searchParams, pathname, router])
 
+  const onSortChange = useCallback((key: string, asc: boolean) => {
+    startTransition(() => {
+      const p = new URLSearchParams(searchParams.toString())
+      p.set('csort', key)
+      p.set('cdir', asc ? 'asc' : 'desc')
+      p.delete('cpage')
+      router.replace(`${pathname}?${p.toString()}`)
+    })
+  }, [searchParams, pathname, router])
+
   const filterIsCompany: boolean | null =
     tableCiscompany === 'true' ? true : tableCiscompany === 'false' ? false : null
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1, minHeight: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* KPIs — período */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, flexShrink: 0 }}>
         <KpiCard
@@ -169,8 +185,6 @@ export default function CustomersOverview({
           background: 'var(--card)',
           border: '1px solid var(--border)',
           padding: '14px 16px',
-          flex: 1,
-          minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -203,13 +217,14 @@ export default function CustomersOverview({
         </div>
 
         {tableTotal === 0 && !tableQ && !tableCtype && !tableClabel && !tableCiscompany ? (
-          <AiInsightBox
-            variant="blue"
-            title="Sin clientes registrados"
-            text="Aún no hay clientes en el directorio. Usa el botón '+ Nuevo cliente' para agregar el primero."
+          <EmptyState
+            icon="👥"
+            title="Aún no tienes clientes registrados"
+            description="Tu directorio de clientes te permite saber quién te compra más, con qué frecuencia y cuánto ha gastado en total (LTV). Con esa información puedes enfocarte en los clientes que más aportan al negocio."
+            tip="No tienes que cargar todos de una vez. Empieza añadiendo a tus 5 mejores clientes. Lumio los clasifica automáticamente en VIP, frecuentes y en riesgo de perderse."
           />
         ) : (
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ overflowX: 'auto' }}>
             <CustomersTable
               customers={tableCustomers}
               customerTypes={customerTypes}
@@ -219,6 +234,9 @@ export default function CustomersOverview({
               filterLabel={tableClabel}
               filterIsCompany={filterIsCompany}
               onFilterChange={onFilterChange}
+              initialSortBy={tableSort}
+              initialSortAsc={tableSortAsc}
+              onSortChange={onSortChange}
             />
 
             {/* Pagination */}

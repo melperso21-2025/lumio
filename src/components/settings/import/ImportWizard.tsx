@@ -143,43 +143,24 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
     setMapping({}); setParseError(null); setValidateApiError(null); setValidation(null); setExecResult(null)
   }
 
-  // ── Parse uploaded file client-side ────────────────────────────────────
+  // ── Parse uploaded file (server-side to avoid ExcelJS browser bugs) ──────
   const parseFile = useCallback(async (file: File) => {
     setParseError(null)
     try {
-      const isCsv = file.name.toLowerCase().endsWith('.csv')
-      let rows: string[][]
+      const base64 = await fileToBase64(file)
+      const res = await fetch('/api/import/headers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileData: base64 }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setParseError(data.error ?? 'Error leyendo archivo'); return }
 
-      if (isCsv) {
-        const Papa = (await import('papaparse')).default
-        const text = await file.text()
-        const result = Papa.parse<string[]>(text, { header: false, skipEmptyLines: true })
-        rows = result.data as string[][]
-      } else {
-        const ExcelJS = (await import('exceljs')).default
-        const ab = await file.arrayBuffer()
-        const wb = new ExcelJS.Workbook()
-        await wb.xlsx.load(ab)
-        const ws = wb.worksheets[0]
-        rows = []
-        ws.eachRow((row) => {
-          const cells = (row.values as unknown[]).slice(1)
-          rows.push(cells.map((c) => {
-            if (c === null || c === undefined) return ''
-            if (typeof c === 'object' && c !== null && 'text' in c) return String((c as { text: string }).text ?? '')
-            if (c instanceof Date) return c.toISOString().slice(0, 10)
-            return String(c)
-          }))
-        })
-      }
-
-      if (rows.length < 1) { setParseError('El archivo está vacío'); return }
-
-      const headers = rows[0].map((h) => String(h ?? '').trim()).filter(Boolean)
+      const headers: string[] = data.headers ?? []
       if (headers.length === 0) { setParseError('No se encontraron encabezados en la primera fila'); return }
 
       setFileHeaders(headers)
-      setFileRows(rows.slice(1, 6))
+      setFileRows((data.sample ?? []) as string[][])
 
       if (def) {
         const autoMap: Record<string, string> = {}
@@ -305,6 +286,7 @@ export default function ImportWizard({ companyId }: ImportWizardProps) {
       const data = await res.json()
       setExecResult(data)
       setStep(5)
+      if (data.success > 0) router.refresh()
     } catch {
       setExecResult({ importLogId: null, success: 0, total: 0, errors: [{ row: 0, message: 'Error de conexión' }], status: 'failed' })
     }

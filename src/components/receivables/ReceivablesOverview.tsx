@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import ModuleAiButton from '@/components/ai/ModuleAiButton'
+import EmptyState from '@/components/ui/EmptyState'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -36,9 +38,10 @@ interface Props {
 const fmt = (n: number) =>
   n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-const today = new Date().toISOString().slice(0, 10)
+const getToday = () => new Date().toISOString().slice(0, 10)
 
 function agingBucket(dueDate: string): string {
+  const today = getToday()
   const diff = Math.floor((new Date(today).getTime() - new Date(dueDate).getTime()) / 86400000)
   if (diff <= 0)  return 'Al día'
   if (diff <= 30) return '1-30 días'
@@ -76,17 +79,18 @@ export default function ReceivablesOverview({ records, kpis, userRole }: Props) 
   const router  = useRouter()
   const canEdit = ['admin', 'manager'].includes(userRole)
 
-  const [selected, setSelected] = useState<ARRecord | null>(null)
-  const [amount,   setAmount]   = useState('')
-  const [date,     setDate]     = useState(today)
-  const [method,   setMethod]   = useState('transfer')
-  const [notes,    setNotes]    = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
-  const [success,  setSuccess]  = useState(false)
-  const [filter,   setFilter]   = useState<'all' | 'pending' | 'partial' | 'paid'>('all')
+  const [localRecords, setLocalRecords] = useState<ARRecord[]>(records)
+  const [selected,     setSelected]     = useState<ARRecord | null>(null)
+  const [amount,       setAmount]       = useState('')
+  const [date,         setDate]         = useState(getToday)
+  const [method,       setMethod]       = useState('transfer')
+  const [notes,        setNotes]        = useState('')
+  const [loading,      setLoading]      = useState(false)
+  const [error,        setError]        = useState<string | null>(null)
+  const [success,      setSuccess]      = useState(false)
+  const [filter,       setFilter]       = useState<'all' | 'pending' | 'partial' | 'paid'>('all')
 
-  const visible = records.filter(r =>
+  const visible = localRecords.filter(r =>
     filter === 'all' ? true :
     filter === 'pending' ? ['pending', 'partial'].includes(r.status) :
     r.status === filter
@@ -95,7 +99,7 @@ export default function ReceivablesOverview({ records, kpis, userRole }: Props) 
   function openModal(r: ARRecord) {
     setSelected(r)
     setAmount(String(r.balance > 0 ? r.balance.toFixed(2) : ''))
-    setDate(today); setMethod('transfer'); setNotes('')
+    setDate(getToday()); setMethod('transfer'); setNotes('')
     setError(null); setSuccess(false)
   }
 
@@ -104,13 +108,27 @@ export default function ReceivablesOverview({ records, kpis, userRole }: Props) 
     if (!selected) return
     setError(null); setLoading(true)
 
+    const paid = parseFloat(amount)
     const res = await fetch(`/api/ar/${selected.id}/payment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: parseFloat(amount), payment_date: date, payment_method: method, notes: notes || undefined }),
+      body: JSON.stringify({ amount: paid, payment_date: date, payment_method: method, notes: notes || undefined }),
     })
     const json = await res.json()
     if (!res.ok) { setError(json.error ?? 'Error'); setLoading(false); return }
+
+    // Actualización optimista — balance es GENERATED (amount - amount_paid) en DB
+    setLocalRecords(prev => prev.map(r => {
+      if (r.id !== selected.id) return r
+      const newPaid    = r.amount_paid + paid
+      const newBalance = r.amount - newPaid
+      return {
+        ...r,
+        amount_paid: newPaid,
+        balance:     newBalance,
+        status:      newBalance <= 0.001 ? 'paid' : newPaid > 0 ? 'partial' : 'pending',
+      }
+    }))
 
     setSuccess(true); setLoading(false)
     router.refresh()
@@ -119,18 +137,33 @@ export default function ReceivablesOverview({ records, kpis, userRole }: Props) 
 
   // Aging summary
   const agingMap: Record<string, number> = {}
-  records.filter(r => !['paid', 'cancelled'].includes(r.status)).forEach(r => {
+  localRecords.filter(r => !['paid', 'cancelled'].includes(r.status)).forEach(r => {
     const b = agingBucket(r.due_date)
     agingMap[b] = (agingMap[b] ?? 0) + r.balance
   })
   const agingOrder = ['Al día', '1-30 días', '31-60 días', '61-90 días', '+90 días']
   const agingColors = ['var(--green)', 'var(--gold)', '#F97316', '#EF4444', '#DC2626']
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
+  const getModuleData = useCallback(() => ({
+    totalPendiente: kpis.totalPendiente,
+    totalVencido: kpis.totalVencido,
+    totalCobrado: kpis.totalCobrado,
+    countActivas: kpis.countPendiente,
+    agingResumen: agingOrder.map(b => ({ bucket: b, monto: agingMap[b] ?? 0 })),
+    registros: localRecords.slice(0, 20).map(r => ({
+      cliente: r.customers?.full_name ?? 'Sin nombre',
+      monto: r.amount,
+      saldo: r.balance,
+      vencimiento: r.due_date,
+      estado: r.status,
+    })),
+  }), [kpis, agingMap, agingOrder, localRecords])
 
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* KPIs + IA */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr) auto', gap: 12, alignItems: 'stretch' }}>
         {[
           { label: 'Pendiente de cobro', value: `$${fmt(kpis.totalPendiente)}`, color: 'var(--gold)' },
           { label: 'Vencido',            value: `$${fmt(kpis.totalVencido)}`,   color: 'var(--red)'  },
@@ -142,6 +175,9 @@ export default function ReceivablesOverview({ records, kpis, userRole }: Props) 
             <div style={{ fontSize: 20, fontWeight: 700, color: k.color, fontFamily: 'var(--font-syne)' }}>{k.value}</div>
           </div>
         ))}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <ModuleAiButton module="receivables" getModuleData={getModuleData} />
+        </div>
       </div>
 
       {/* Aging */}
@@ -160,7 +196,7 @@ export default function ReceivablesOverview({ records, kpis, userRole }: Props) 
       {/* Filtros */}
       <div style={{ display: 'flex', gap: 8 }}>
         {(['all', 'pending', 'partial', 'paid'] as const).map(f => (
-          <button key={f} onClick={() => setFilter(f)}
+          <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}
             style={{ fontSize: 11, padding: '4px 12px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', fontWeight: 600, background: filter === f ? 'var(--gold)' : 'var(--surface)', color: filter === f ? '#1A1B2E' : 'var(--muted)' }}>
             {f === 'all' ? 'Todas' : f === 'pending' ? 'Pendientes' : f === 'partial' ? 'Parciales' : 'Pagadas'}
           </button>
@@ -168,21 +204,31 @@ export default function ReceivablesOverview({ records, kpis, userRole }: Props) 
       </div>
 
       {/* Tabla */}
-      <div style={{ flex: 1, overflowY: 'auto', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10 }}>
-        {visible.length === 0
-          ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Sin registros</div>
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, overflowX: 'auto' }}>
+        {localRecords.length === 0
+          ? (
+            <EmptyState
+              icon="📥"
+              title="No hay facturas por cobrar"
+              description="Las cuentas por cobrar (CxC) se generan automáticamente cuando registras una venta a crédito. Aquí podrás ver quién te debe, cuánto y cuándo vence el plazo."
+              tip="Para que aparezca una CxC, registra una venta y elige 'Crédito' como método de pago. Lumio hará el resto automáticamente."
+              action={{ label: 'Ir a Ventas →', href: '/sales' }}
+            />
+          )
+          : visible.length === 0
+          ? <EmptyState isFilterEmpty onClearFilter={() => setFilter('all')} />
           : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
                   {['Cliente', 'Emisión', 'Vencimiento', 'Total', 'Cobrado', 'Saldo', 'Estado', ''].map(h => (
-                    <th key={h} style={{ padding: '9px 12px', textAlign: 'left', fontSize: 9, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</th>
+                    <th key={h} scope="col" style={{ padding: '9px 12px', textAlign: 'left', fontSize: 9, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {visible.map(r => {
-                  const isOverdue = !['paid','cancelled'].includes(r.status) && r.due_date < today
+                  const isOverdue = !['paid','cancelled'].includes(r.status) && r.due_date < getToday()
                   const statusKey = isOverdue && r.status !== 'partial' ? 'overdue' : r.status
                   return (
                     <tr key={r.id} style={{ borderBottom: '1px solid var(--border)' }}>

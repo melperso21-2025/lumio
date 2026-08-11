@@ -73,44 +73,57 @@ export async function POST(request: NextRequest) {
         // Reverse the stock change
         const delta = mov.type === 'in' ? -qty : mov.type === 'out' ? qty : 0
         if (delta !== 0) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (supabaseAdmin as any).rpc('increment_stock', {
-            p_product_id: mov.product_id,
-            p_delta:      delta,
-          }).catch(() => {
-            // Fallback: direct update
-          })
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabaseAdmin as any).rpc('increment_stock', {
+              p_product_id: mov.product_id,
+              p_delta:      delta,
+            })
+          } catch {
+            // RPC no disponible — el trigger de DB recalculará el stock
+          }
         }
       }
     }
 
-    // Products with initial stock: revert current_stock to 0
+    // Products with initial stock: remove the initial movement and recalculate
+    // stock from remaining movements (sales/adjustments post-import must be kept)
     if (entityType === 'products') {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabaseAdmin as any)
-        .from('products')
-        .update({ current_stock: 0 })
-        .in('id', importedIds)
-        .catch(() => null)
-
-      // Soft-delete related initial movements
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabaseAdmin as any)
         .from('inventory_movements')
-        .update({ deleted_at: now })
+        .delete()
         .in('product_id', importedIds)
         .eq('reason', 'initial')
         .catch(() => null)
+
+      // Recalculate current_stock for each product from surviving movements
+      for (const productId of importedIds) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: movs } = await (supabaseAdmin as any)
+          .from('inventory_movements')
+          .select('quantity, type')
+          .eq('product_id', productId)
+        const stock = (movs ?? []).reduce((s: number, m: { quantity: number; type: string }) =>
+          s + (m.type === 'in' ? m.quantity : -m.quantity), 0)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabaseAdmin as any)
+          .from('products')
+          .update({ current_stock: Math.max(0, stock) })
+          .eq('id', productId)
+          .catch(() => null)
+      }
     }
 
-    // Soft delete the imported records
-    const table = ENTITY_DEFS[entityType]?.table
+    // Delete the imported records
+    const entityDef = ENTITY_DEFS[entityType]
+    const table = entityDef?.table
     if (table) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: delErr } = await (supabaseAdmin as any)
-        .from(table)
-        .update({ deleted_at: now })
-        .in('id', importedIds)
+      const sb = supabaseAdmin as any
+      const { error: delErr } = entityDef.noSoftDelete
+        ? await sb.from(table).delete().in('id', importedIds)
+        : await sb.from(table).update({ deleted_at: now }).in('id', importedIds)
 
       if (delErr) {
         return NextResponse.json({ error: `Error al revertir: ${delErr.message}` }, { status: 500 })
@@ -128,6 +141,7 @@ export async function POST(request: NextRequest) {
 
   } catch (err) {
     console.error('POST /api/import/rollback:', err)
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
+    const msg = err instanceof Error ? err.message : String(err)
+    return NextResponse.json({ error: `Error interno: ${msg}` }, { status: 500 })
   }
 }

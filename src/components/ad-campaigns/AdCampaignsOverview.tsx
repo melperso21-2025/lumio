@@ -6,6 +6,7 @@ import ExportButton from '@/components/ui/ExportButton'
 import NewCampaignForm from '@/components/ad-campaigns/NewCampaignForm'
 import CampaignsTable from '@/components/ad-campaigns/CampaignsTable'
 import RoasTrendChart from '@/components/charts/RoasTrendChart'
+import EmptyState from '@/components/ui/EmptyState'
 import PlatformBreakdown from '@/components/ad-campaigns/PlatformBreakdown'
 
 type CampaignRow = {
@@ -236,8 +237,6 @@ export default function AdCampaignsOverview({
         display: 'flex',
         flexDirection: 'column',
         gap: 14,
-        flex: 1,
-        minHeight: 0,
       }}
     >
       {/* KPIs con deltas */}
@@ -282,7 +281,7 @@ export default function AdCampaignsOverview({
         <KpiCard
           label="Calidad contactos"
           suffix="%"
-          value={quality_ratio_pct.toFixed(1)}
+          value={quality_ratio_pct.toFixed(2)}
           delta={
             prev_quality_ratio_pct > 0
               ? calcDelta(quality_ratio_pct, prev_quality_ratio_pct, hasPrevData)
@@ -290,14 +289,14 @@ export default function AdCampaignsOverview({
           }
           compare={
             prev_quality_ratio_pct > 0
-              ? `Ant: ${prev_quality_ratio_pct.toFixed(1)}%`
+              ? `Ant: ${prev_quality_ratio_pct.toFixed(2)}%`
               : undefined
           }
         />
         <KpiCard
           label="Efectividad"
           suffix="%"
-          value={effectiveness_pct.toFixed(1)}
+          value={effectiveness_pct.toFixed(2)}
           delta={
             prev_effectiveness_pct > 0
               ? calcDelta(
@@ -309,7 +308,7 @@ export default function AdCampaignsOverview({
           }
           compare={
             prev_effectiveness_pct > 0
-              ? `Ant: ${prev_effectiveness_pct.toFixed(1)}%`
+              ? `Ant: ${prev_effectiveness_pct.toFixed(2)}%`
               : undefined
           }
         />
@@ -374,8 +373,6 @@ export default function AdCampaignsOverview({
           background: 'var(--card)',
           border: '1px solid var(--border)',
           padding: '14px 16px',
-          flex: 1,
-          minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -406,25 +403,15 @@ export default function AdCampaignsOverview({
         </div>
 
         {campaigns.length === 0 ? (
-          <p
-            style={{
-              textAlign: 'center',
-              color: 'var(--muted)',
-              fontSize: 14,
-              padding: 32,
-            }}
-          >
-            Aún no hay campañas registradas
-          </p>
+          <EmptyState
+            icon="📣"
+            title="Aún no hay pautas publicitarias"
+            description="Aquí registras lo que inviertes en publicidad — Meta, Google, TikTok, lo que uses. Lumio calcula tu ROAS (cuánto ganas por cada dólar invertido) y te dice qué campañas vale la pena seguir y cuáles pausar."
+            tip="ROAS = dinero generado ÷ dinero invertido. Si inviertes $100 y generas $400 en ventas, tu ROAS es 4x. Registra tu próxima campaña para empezar a medirlo."
+            action={{ label: '+ Registrar primera pauta', href: '/ad-campaigns' }}
+          />
         ) : (
-          <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
+          <div style={{ overflowX: 'auto' }}>
             <CampaignsTable
               campaigns={campaigns}
               filterWeek={filterWeek}

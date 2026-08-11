@@ -23,7 +23,7 @@ export async function GET(
     const { data: supplier, error } = await (supabaseAdmin as any)
       .from('suppliers')
       .select(
-        'id, name, first_name, last_name, is_company, id_type, tax_id, phone, email, address, bank_name, bank_account, account_type, bank_tax_id, is_active, created_at, default_lead_time_days, payment_terms'
+        'id, name, first_name, last_name, is_company, id_type, tax_id, celular, telefono, email, address, bank_name, bank_account, account_type, bank_tax_id, is_active, created_at, default_lead_time_days, payment_terms'
       )
       .eq('id', id)
       .eq('company_id', userData.company_id)

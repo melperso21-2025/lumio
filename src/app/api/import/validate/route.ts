@@ -68,13 +68,16 @@ export async function POST(request: NextRequest) {
 
     // Parse file
     let rows: Record<string, string>[]
+    let fileHeaders: string[] = []
+    let raw1: string[] = []
     try {
-      rows = await parseFileToRowsAsync(fileData, mapping)
+      const parsed = await parseFileToRowsAsync(fileData, mapping)
+      rows = parsed.rows
+      fileHeaders = parsed.fileHeaders
+      raw1 = parsed.raw1
     } catch (e) {
       return errorJson(`Error leyendo archivo: ${(e as Error).message}`, 400)
     }
-
-    console.log('validate request:', { entityType, rowCount: rows.length })
 
     if (rows.length === 0) {
       return errorJson('El archivo no contiene datos (solo encabezados o está vacío)', 400)

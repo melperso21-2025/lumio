@@ -79,7 +79,7 @@ export default async function SuppliersPage({
         pageSubtitle={`${from} → ${to}`}
         showPeriodSelector
       />
-      <div style={{ padding: '14px 16px', height: 'calc(100vh - 52px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '14px 16px' }}>
         <SuppliersOverview
           companyId={companyId}
           from={from}

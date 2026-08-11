@@ -62,7 +62,8 @@ export async function POST(request: NextRequest) {
     // Parse file
     let rows: Record<string, string>[]
     try {
-      rows = await parseFileToRowsAsync(fileData, mapping)
+      const parsed = await parseFileToRowsAsync(fileData, mapping)
+      rows = parsed.rows
     } catch (e) {
       return NextResponse.json({ error: `Error leyendo archivo: ${(e as Error).message}` }, { status: 400 })
     }
@@ -159,7 +160,11 @@ export async function POST(request: NextRequest) {
       'sales', 'sale_items', 'bank_transactions', 'ad_campaigns',
     ]
     if (successCount > 0 && ENTITIES_THAT_AFFECT_DASHBOARD.includes(entityType)) {
-      // Fire and forget — no bloqueamos la respuesta, Supabase ejecuta en DB
+      if (entityType === 'sales' || entityType === 'sale_items') {
+        // Primero actualizar gross_total y lines_per_order desde sale_items,
+        // luego recalcular snapshots para que avg_lpp use los valores correctos.
+        await supabaseAdmin.rpc('recalculate_sales_totals', { p_company_id: companyId })
+      }
       void supabaseAdmin.rpc('recalculate_all_snapshots', { p_company_id: companyId })
     }
 

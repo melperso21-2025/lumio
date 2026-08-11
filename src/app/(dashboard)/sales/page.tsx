@@ -58,6 +58,7 @@ export default async function SalesPage({
     { data: filterOptions },
     { data: channelsList },
     { data: branchesList },
+    { data: saleStatusesList },
   ] = await Promise.all([
     // 1 — KPIs período actual: todos los registros filtrados, sin límite
     applyFilters(
@@ -134,6 +135,14 @@ export default async function SalesPage({
       .is('deleted_at', null)
       .eq('is_active', true)
       .order('name'),
+
+    // 8 — Estados de venta
+    supabase
+      .from('sale_statuses')
+      .select('id, name, color')
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .order('name'),
   ])
 
   // Derivar opciones únicas de filtro desde los datos del período
@@ -147,7 +156,8 @@ export default async function SalesPage({
   ) as string[]
 
   const channelIdsInPeriod = new Set(rows.map((r) => r.channel_id).filter(Boolean))
-  const channels = (channelsList ?? []).filter((c) => channelIdsInPeriod.has(c.id))
+  // Todos los canales activos — para el formulario de nueva venta y el filtro del historial
+  const channels = channelsList ?? []
 
   const totalCount = filteredCount ?? 0
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
@@ -161,15 +171,7 @@ export default async function SalesPage({
         showExportButton
       />
 
-      <div
-        style={{
-          padding: '14px 16px',
-          height: 'calc(100vh - 52px)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <div style={{ padding: '14px 16px' }}>
         <SalesOverview
           kpiSales={kpiSales ?? []}
           sales={tableRows ?? []}
@@ -194,6 +196,7 @@ export default async function SalesPage({
           // Opciones de filtro
           uniqueWeeks={uniqueWeeks}
           uniqueStatuses={uniqueStatuses}
+          saleStatuses={saleStatusesList ?? []}
         />
       </div>
     </>

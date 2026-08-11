@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ENTITY_DEFS, type EntityType } from '@/lib/import/entityConfig'
 
@@ -52,6 +53,7 @@ const fStyle: React.CSSProperties = {
 // ── Component ─────────────────────────────────────────────────────────────
 
 export default function ImportHistory({ companyId, userRole }: ImportHistoryProps) {
+  const router = useRouter()
   const [logs,    setLogs]    = useState<ImportLog[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -96,6 +98,7 @@ export default function ImportHistory({ companyId, userRole }: ImportHistoryProp
       if (!res.ok) { setRollbackError(json.error ?? 'Error al revertir'); setRollbackLoading(false); return }
       setRollbackSuccess(true)
       await loadLogs()
+      router.refresh()
       setTimeout(() => {
         setRollbackLog(null)
         setRollbackSuccess(false)
@@ -134,7 +137,7 @@ export default function ImportHistory({ companyId, userRole }: ImportHistoryProp
           <thead style={{ position: 'sticky', top: 0, background: 'var(--card)', boxShadow: '0 1px 0 var(--border)', zIndex: 1 }}>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
               {['Fecha', 'Entidad', 'Archivo', 'Total', 'Exitosas', 'Fallidas', 'Estado', 'Usuario', 'Acciones'].map((h) => (
-                <th key={h} style={{ padding: '9px 10px', textAlign: 'left', color: 'var(--muted)', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', whiteSpace: 'nowrap', letterSpacing: '0.06em' }}>
+                <th key={h} scope="col" style={{ padding: '9px 10px', textAlign: 'left', color: 'var(--muted)', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', whiteSpace: 'nowrap', letterSpacing: '0.06em' }}>
                   {h}
                 </th>
               ))}
@@ -278,7 +281,7 @@ export default function ImportHistory({ companyId, userRole }: ImportHistoryProp
                   Rollback completado
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>
-                  {rollbackLog.success_rows} registros eliminados (soft delete)
+                  {rollbackLog.success_rows} registros eliminados
                 </p>
               </div>
             ) : (
@@ -290,7 +293,7 @@ export default function ImportHistory({ companyId, userRole }: ImportHistoryProp
                   <strong>{ENTITY_DEFS[rollbackLog.entity_type as EntityType]?.label}</strong> — {rollbackLog.file_name}
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
-                  Se eliminarán (soft delete) los <strong>{rollbackLog.imported_ids?.length ?? rollbackLog.success_rows}</strong> registros importados en esta sesión. Esta acción no se puede deshacer.
+                  Se eliminarán los <strong>{rollbackLog.imported_ids?.length ?? rollbackLog.success_rows}</strong> registros importados en esta sesión. Esta acción no se puede deshacer.
                 </p>
 
                 {rollbackError && (

@@ -134,10 +134,13 @@ export default function Sidebar({
         id: 'settings',
         label: 'Configuración',
         items: [
+          { href: '/settings/business',  label: 'Mi negocio', icon: '✦', roles: ['admin', 'manager'] },
           { href: '/settings/customers', label: 'Clientes', icon: '🏷', roles: ['admin', 'manager'] },
           { href: '/settings/finance', label: 'Finanzas', icon: '💳', roles: ['admin', 'manager'] },
           { href: '/settings/import', label: 'Importar datos', icon: '⬆', roles: ['admin'] },
           { href: '/settings/products', label: 'Productos', icon: '📦', roles: ['admin', 'manager'] },
+          { href: '/settings/branches',      label: 'Sucursales',        icon: '🏪', roles: ['admin', 'manager'] },
+          { href: '/settings/sale-statuses', label: 'Estados de venta',  icon: '🏷', roles: ['admin', 'manager'] },
           { href: '/settings/sales-channels', label: 'Canales de venta', icon: '📡', roles: ['admin', 'manager'] },
           { href: '/settings/users', label: 'Usuarios & Roles', icon: '🔐', roles: ['admin'] },
         ],

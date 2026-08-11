@@ -20,10 +20,7 @@ export async function GET(request: NextRequest) {
 
     if (!companies?.length) return NextResponse.json({ ok: true, processed: 0 })
 
-    let totalEmails = 0
-
-    for (const company of companies) {
-      // Fetch productos activos con stock mínimo configurado
+    async function processCompany(company: { id: string; name: string }): Promise<boolean> {
       const { data: rawProducts } = await supabaseAdmin
         .from('products')
         .select('name, sku, current_stock, min_stock_alert, unit_label, product_categories!left(name)')
@@ -49,9 +46,8 @@ export async function GET(request: NextRequest) {
         }))
         .sort((a: LowStockProduct, b: LowStockProduct) => a.current_stock - b.current_stock)
 
-      if (alertProducts.length === 0) continue
+      if (alertProducts.length === 0) return false
 
-      // Admins y managers de la empresa
       const { data: recipients } = await supabaseAdmin
         .from('users')
         .select('email')
@@ -61,7 +57,7 @@ export async function GET(request: NextRequest) {
         .not('email', 'is', null)
 
       const emails = (recipients ?? []).map((r) => r.email).filter(Boolean) as string[]
-      if (!emails.length) continue
+      if (!emails.length) return false
 
       await resend.emails.send({
         from:    FROM,
@@ -71,8 +67,11 @@ export async function GET(request: NextRequest) {
         text:    stockAlertText(alertProducts, company.name),
       })
 
-      totalEmails++
+      return true
     }
+
+    const results = await Promise.all(companies.map(processCompany))
+    const totalEmails = results.filter(Boolean).length
 
     return NextResponse.json({ ok: true, processed: totalEmails })
   } catch (err) {

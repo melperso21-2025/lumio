@@ -14,7 +14,8 @@ export type SupplierRow = {
   is_company: boolean | null
   id_type: string | null
   tax_id: string | null
-  phone: string | null
+  celular: string | null
+  telefono: string | null
   email: string | null
   address: string | null
   bank_name: string | null
@@ -215,8 +216,8 @@ export default function SuppliersTable({ suppliers, onEdit, onDelete }: Supplier
                   ) : '—'}
                 </td>
 
-                {/* Teléfono */}
-                <td style={tdStyle}>{s.phone ?? '—'}</td>
+                {/* Celular / Teléfono */}
+                <td style={tdStyle}>{s.celular ?? s.telefono ?? '—'}</td>
 
                 {/* Email */}
                 <td style={{ ...tdStyle, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

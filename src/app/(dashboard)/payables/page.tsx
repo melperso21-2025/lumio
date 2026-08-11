@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
 import Topbar from '@/components/layout/Topbar'
 import PayablesOverview from '@/components/payables/PayablesOverview'
 import { getDefaultDateRange } from '@/lib/dateUtils'
@@ -27,12 +26,13 @@ export default async function PayablesPage({
   const from = params.from ?? defaults.from
   const to   = params.to   ?? defaults.to
 
-  const { data: apData } = await supabaseAdmin
+  const { data: apData } = await supabase
     .from('accounts_payable')
     .select('id, purchase_id, supplier_id, amount, amount_paid, balance, issue_date, due_date, status, notes, suppliers(name)')
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .order('due_date', { ascending: true })
+    .limit(500)
 
   const records = apData ?? []
   const today   = new Date().toISOString().slice(0, 10)
@@ -47,7 +47,7 @@ export default async function PayablesPage({
   return (
     <>
       <Topbar pageTitle="CxP — Cuentas por Pagar" pageSubtitle={`${from} → ${to}`} showPeriodSelector />
-      <div style={{ padding: '14px 16px', height: 'calc(100vh - 52px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '14px 16px' }}>
         <PayablesOverview
           records={records as unknown as Parameters<typeof PayablesOverview>[0]['records']}
           userRole={userData?.role ?? 'viewer'}

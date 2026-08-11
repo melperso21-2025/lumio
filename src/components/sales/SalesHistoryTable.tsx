@@ -136,8 +136,8 @@ export default function SalesHistoryTable({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+    <div>
+      <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--card)', boxShadow: '0 1px 0 var(--border)' }}>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
@@ -146,6 +146,7 @@ export default function SalesHistoryTable({
                 return (
                   <th
                     key={key}
+                    scope="col"
                     onClick={() => handleSort(key)}
                     style={{ textAlign: align, padding: '10px 12px', color: 'var(--muted)', fontWeight: 600, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   >
@@ -156,11 +157,11 @@ export default function SalesHistoryTable({
                   </th>
                 )
               })}
-              <th style={{ padding: '10px 12px', color: 'var(--muted)', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>
+              <th scope="col" style={{ padding: '10px 12px', color: 'var(--muted)', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>
                 Cliente
               </th>
               {(canEdit || canCancel) && (
-                <th style={{ padding: '10px 12px', color: 'var(--muted)', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>
+                <th scope="col" style={{ padding: '10px 12px', color: 'var(--muted)', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>
                   Acciones
                 </th>
               )}

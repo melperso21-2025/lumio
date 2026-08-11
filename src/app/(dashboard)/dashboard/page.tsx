@@ -9,6 +9,8 @@ import QuickSaleForm from '@/components/sales/QuickSaleForm'
 import { UserMenu } from '@/components/layout/Topbar'
 import DateRangePicker from '@/components/ui/DateRangePicker'
 import InsightReminderModal, { type ModalScenario } from '@/components/dashboard/InsightReminderModal'
+import BusinessProfileBanner from '@/components/dashboard/BusinessProfileBanner'
+import BusinessProfileModal from '@/components/dashboard/BusinessProfileModal'
 import DashboardExportButton from '@/components/dashboard/DashboardExportButton'
 import {
   getWeeksInRange,
@@ -129,7 +131,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     )
   }
 
-  const [{ data: branchesList }, { data: channelsList }] = await Promise.all([
+  const [{ data: branchesList }, { data: channelsList }, { data: companyProfile }] = await Promise.all([
     supabase
       .from('branches')
       .select('id, name, type')
@@ -143,6 +145,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .eq('company_id', companyId)
       .is('deleted_at', null)
       .order('name', { ascending: true }),
+    supabase
+      .from('companies')
+      .select('name, business_description, main_customer_type, avg_monthly_revenue_range')
+      .eq('id', companyId)
+      .single(),
   ])
 
   const branches  = branchesList ?? []
@@ -150,13 +157,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   // ── Semanas en el rango from-to para weekly_snapshots ─────
   const currentYear = now.getFullYear()
-  const startOfYear = new Date(currentYear, 0, 1)
-  const currentWeek = Math.ceil(
-    ((now.getTime() - startOfYear.getTime()) / 86400000 +
-      startOfYear.getDay() +
-      1) /
-      7
-  )
+  const currentWeek = isoWeekFromString(now.toISOString().slice(0, 10)).week
 
   const weeksInRange = getWeeksInRange(from, to)
   const weeksByYear = weeksInRange.reduce(
@@ -476,11 +477,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     0
   )
   const slowMovers = products
-    .filter(
-      (p) =>
-        (p.current_stock ?? 0) > (p.min_stock_alert ?? 0) * 3 &&
-        (p.min_stock_alert ?? 0) > 0
-    )
+    .filter((p) => (p.current_stock ?? 0) > 0)
     .sort((a, b) => (b.current_stock ?? 0) - (a.current_stock ?? 0))
     .slice(0, 3)
   const totalStock = products.reduce(
@@ -509,7 +506,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .reduce((s, t) => s + (t.amount ?? 0), 0)
   const balance = totalIncome - totalExpenses
   const fixedExpensesPct =
-    totalExpenses > 0 ? Math.round((fixedExpenses / totalExpenses) * 100) : 0
+    totalExpenses > 0 ? parseFloat(((fixedExpenses / totalExpenses) * 100).toFixed(2)) : 0
 
   // Insight desactualizado si es de una semana anterior
   const insightIsStale =
@@ -625,6 +622,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           gap: 0,
         }}
       >
+        {/* Banner + Modal de perfil de negocio incompleto — solo para admin/manager */}
+        {['admin', 'manager'].includes(userRole) &&
+          companyProfile &&
+          !(companyProfile.business_description && companyProfile.main_customer_type && companyProfile.avg_monthly_revenue_range) && (
+          <>
+            <BusinessProfileModal companyName={companyProfile.name ?? 'tu empresa'} />
+            <div style={{ marginBottom: 14 }}>
+              <BusinessProfileBanner companyName={companyProfile.name ?? 'tu empresa'} />
+            </div>
+          </>
+        )}
+
         <div style={{ marginBottom: 12 }}>
           <AiInsightBox
             variant={insightIsStale ? 'blue' : 'gold'}
@@ -689,15 +698,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <KpiCard
             label="Margen neto"
             suffix="%"
-            value={avgNetMargin.toFixed(1)}
+            value={avgNetMargin.toFixed(2)}
             delta={calcDelta(avgNetMargin, prevAvgNetMargin)}
             compare="desde egresos bancarios"
           />
           <KpiCard
             label="Gastos fijos / Egr"
             suffix="%"
-            value={fixedExpensesPct}
-            delta={calcDelta(fixedExpensesPct, Math.round(prevFixedVsTotal))}
+            value={fixedExpensesPct.toFixed(2)}
+            delta={calcDelta(fixedExpensesPct, prevFixedVsTotal)}
             compare="Benchmark: <55%"
           />
         </div>
@@ -740,14 +749,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           />
           <KpiCard
             label="LPP"
-            value={avgLpp.toFixed(1)}
+            value={avgLpp.toFixed(2)}
             delta={calcDelta(avgLpp, prevAvgLpp)}
             compare="líneas por pedido"
           />
           <KpiCard
             label="Margen bruto"
             suffix="%"
-            value={avgGrossMargin.toFixed(1)}
+            value={avgGrossMargin.toFixed(2)}
             delta={calcDelta(avgGrossMargin, prevAvgGrossMargin)}
             compare="del período"
           />
@@ -763,7 +772,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <KpiCard
             label="Descuentos"
             prefix="$"
-            value={totalDiscounts.toFixed(2)}
+            value={Math.round(totalDiscounts)}
             delta={calcDelta(totalDiscounts, prevTotalDiscounts)}
             compare={
               totalSales > 0
@@ -1148,7 +1157,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 marginBottom: 4,
               }}
             >
-              {inventoryDays} días
+              {inventoryDays > 0 ? `${inventoryDays} días` : '—'}
             </div>
             <div style={{ fontSize: 9, color: 'var(--muted)' }}>
               Óptimo: 20–45 días
@@ -1211,14 +1220,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           />
           <KpiCard
             label="Trans. digitales"
-            value={snaps.reduce(
-              (s, r) => s + Number(r.total_transactions ?? 0),
-              0
-            )}
-            delta={calcDelta(
-              snaps.reduce((s, r) => s + Number(r.total_transactions ?? 0), 0),
-              prevTotalTransactions
-            )}
+            value={totalAdSpend > 0 ? snaps.reduce((s, r) => s + Number(r.total_transactions ?? 0), 0) : 0}
           />
           <KpiCard
             label="Leads generados"
@@ -1231,11 +1233,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <KpiCard
             label="Efectividad"
             suffix="%"
-            value={avgEffectiveness.toFixed(1)}
+            value={avgEffectiveness.toFixed(2)}
             delta={calcDelta(avgEffectiveness, prevAvgEffectiveness)}
             compare={
               prevAvgEffectiveness > 0
-                ? `Ant: ${prevAvgEffectiveness.toFixed(1)}%`
+                ? `Ant: ${prevAvgEffectiveness.toFixed(2)}%`
                 : undefined
             }
           />

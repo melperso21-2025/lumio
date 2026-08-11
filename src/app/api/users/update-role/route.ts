@@ -85,6 +85,13 @@ export async function PATCH(request: NextRequest) {
     if (updateError)
       return NextResponse.json({ error: updateError.message }, { status: 500 })
 
+    // Sincronizar rol en user_company_memberships para la empresa del target
+    await supabase
+      .from('user_company_memberships')
+      .update({ role })
+      .eq('user_id', userId)
+      .eq('company_id', target.company_id)
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error actualizando rol:', error)

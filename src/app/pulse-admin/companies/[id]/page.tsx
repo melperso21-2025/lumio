@@ -30,9 +30,8 @@ export default async function PulseAdminCompanyDetailPage({
 
   const { data: userRows, error: uErr } = await supabase
     .from('users')
-    .select('id, full_name, email, role, last_seen_at')
+    .select('id, full_name, email, role, last_seen_at, deleted_at')
     .eq('company_id', id)
-    .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
   const users = uErr ? [] : (userRows ?? [])

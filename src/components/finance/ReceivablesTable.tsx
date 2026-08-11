@@ -91,6 +91,7 @@ export default function ReceivablesTable({
               {['Cliente', 'Referencia', 'Emitida', 'Vence', 'Monto', 'Estado', ...(canEdit ? [''] : [])].map((h) => (
                 <th
                   key={h}
+                  scope="col"
                   style={{
                     textAlign: h === 'Monto' ? 'right' : 'left',
                     padding: '6px 10px',

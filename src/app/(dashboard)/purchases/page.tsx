@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
 import Topbar from '@/components/layout/Topbar'
 import PurchasesOverview from '@/components/purchases/PurchasesOverview'
 import { getDefaultDateRange } from '@/lib/dateUtils'
@@ -28,7 +27,7 @@ export default async function PurchasesPage({
   const to   = params.to   ?? defaults.to
 
   const [{ data: purchasesData }, { data: suppliersData }, { data: apData }] = await Promise.all([
-    supabaseAdmin
+    supabase
       .from('purchases')
       .select('id, purchase_date, invoice_ref, subtotal, tax_amount, total, payment_method, credit_days, status, notes, suppliers(id,name)')
       .eq('company_id', companyId)
@@ -36,39 +35,42 @@ export default async function PurchasesPage({
       .gte('purchase_date', from)
       .lte('purchase_date', to)
       .order('purchase_date', { ascending: false }),
-    supabaseAdmin
+    supabase
       .from('suppliers')
       .select('id, name')
       .eq('company_id', companyId)
       .is('deleted_at', null)
       .eq('is_active', true)
       .order('name'),
-    supabaseAdmin
+    supabase
       .from('accounts_payable')
-      .select('amount, amount_paid, balance, status')
+      .select('id, purchase_id, amount, amount_paid, balance, status, due_date')
       .eq('company_id', companyId)
-      .is('deleted_at', null)
-      .in('status', ['pending', 'partial', 'overdue']),
+      .is('deleted_at', null),
   ])
 
   const purchases = purchasesData ?? []
   const suppliers = suppliersData ?? []
   const apRecords = apData ?? []
 
-  const totalComprado      = purchases.reduce((s, p) => s + (p.total ?? 0), 0)
-  const totalPendienteCxP  = apRecords.reduce((s, r) => s + (r.balance as number ?? 0), 0)
+  const totalComprado     = purchases.reduce((s, p) => s + (p.total ?? 0), 0)
+  const totalPendienteCxP = apRecords
+    .filter(r => ['pending', 'partial', 'overdue'].includes(r.status))
+    .reduce((s, r) => s + (r.balance as number ?? 0), 0)
 
   return (
     <>
       <Topbar pageTitle="Compras" pageSubtitle={`${from} → ${to}`} showPeriodSelector />
-      <div style={{ padding: '14px 16px', height: 'calc(100vh - 52px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '14px 16px' }}>
         <PurchasesOverview
+          key={`${from}-${to}`}
           companyId={companyId}
           userRole={userData?.role ?? 'viewer'}
           from={from}
           to={to}
           purchases={purchases as unknown as Parameters<typeof PurchasesOverview>[0]['purchases']}
           suppliers={suppliers}
+          apRecords={apRecords as unknown as Parameters<typeof PurchasesOverview>[0]['apRecords']}
           kpis={{ totalComprado, totalPendienteCxP, countPurchases: purchases.length }}
         />
       </div>

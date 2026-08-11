@@ -13,8 +13,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Sin empresa asignada' }, { status: 403 })
 
   const sp = request.nextUrl.searchParams
-  const from = sp.get('from') ?? new Date(new Date().setDate(1)).toISOString().slice(0, 10)
-  const to   = sp.get('to')   ?? new Date().toISOString().slice(0, 10)
+  const isoDate = /^\d{4}-\d{2}-\d{2}$/
+  const from = isoDate.test(sp.get('from') ?? '') ? sp.get('from')! : new Date(new Date().setDate(1)).toISOString().slice(0, 10)
+  const to   = isoDate.test(sp.get('to')   ?? '') ? sp.get('to')!   : new Date().toISOString().slice(0, 10)
 
   const { data, error } = await supabaseAdmin
     .from('purchases')

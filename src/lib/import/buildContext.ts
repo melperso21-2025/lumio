@@ -182,6 +182,12 @@ export async function buildContext(
   }
 }
 
+// ── Excel date helper ─────────────────────────────────────────────────────
+// ExcelJS stores dates as UTC midnight. toISOString() is safe here.
+function excelDateToISO(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+
 // ── Parse base64 file to rows ─────────────────────────────────────────────
 
 export function parseFileToRows(
@@ -190,8 +196,9 @@ export function parseFileToRows(
 ): Record<string, string>[] {
   const buf = Buffer.from(fileDataBase64, 'base64')
 
-  // Detect CSV by magic bytes (text or UTF-8 BOM)
-  const isCsv = buf[0] === 0xef || buf[0] < 0x80
+  // Detect CSV by magic bytes (text or UTF-8 BOM). Check XLSX/ZIP first since 0x50 ('P') < 0x80.
+  const isXlsxOrZip = buf[0] === 0x50 && buf[1] === 0x4b
+  const isCsv = !isXlsxOrZip && (buf[0] === 0xef || buf[0] < 0x80)
 
   let raw: string[][]
 
@@ -228,9 +235,10 @@ export function parseFileToRows(
 export async function parseFileToRowsAsync(
   fileDataBase64: string,
   mapping: Record<string, string>
-): Promise<Record<string, string>[]> {
+): Promise<{ rows: Record<string, string>[]; fileHeaders: string[]; raw1: string[] }> {
   const buf = Buffer.from(fileDataBase64, 'base64')
-  const isCsv = buf[0] === 0xef || buf[0] < 0x80
+  const isXlsxOrZip = buf[0] === 0x50 && buf[1] === 0x4b
+  const isCsv = !isXlsxOrZip && (buf[0] === 0xef || buf[0] < 0x80)
 
   let raw: string[][]
 
@@ -243,31 +251,79 @@ export async function parseFileToRowsAsync(
   } else {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const ExcelJS = require('exceljs') as typeof import('exceljs')
-    const wb = new ExcelJS.Workbook()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (wb.xlsx as any).load(buf)
-    const ws = wb.worksheets[0]
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Readable } = require('stream') as typeof import('stream')
+
     raw = []
-    ws.eachRow((row) => {
-      const cells = (row.values as unknown[]).slice(1) // index 0 is empty
-      raw.push(cells.map((c) => {
-        if (c === null || c === undefined) return ''
-        if (typeof c === 'object' && c !== null && 'text' in c) return String((c as { text: string }).text ?? '')
-        if (c instanceof Date) return c.toISOString().slice(0, 10)
-        return String(c)
-      }))
+
+    // Use the streaming WorkbookReader to avoid the ExcelJS "comments" bug.
+    // Extra options (hyperlinks/styles/entries) tell ExcelJS to skip XML parts
+    // that can crash on certain XLSX files (comments, drawings, etc.).
+    const stream = Readable.from(buf)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const workbookReader = new (ExcelJS.stream.xlsx.WorkbookReader as any)(stream, {
+      sharedStrings: 'cache',
+      hyperlinks:    'ignore',
+      styles:        'ignore',
+      entries:       'emit',
     })
+
+    function cellToString(c: unknown): string {
+      if (c === null || c === undefined) return ''
+      if (typeof c === 'object' && 'result' in (c as object)) {
+        const r = (c as { result: unknown }).result
+        if (r instanceof Date) return excelDateToISO(r)
+        return r != null ? String(r) : ''
+      }
+      if (typeof c === 'object' && 'text' in (c as object))
+        return String((c as { text: string }).text ?? '')
+      if (c instanceof Date) return excelDateToISO(c)
+      return String(c)
+    }
+
+    let firstSheet = true
+    try {
+      for await (const worksheetReader of workbookReader) {
+        if (!firstSheet) break
+        firstSheet = false
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for await (const row of worksheetReader as any) {
+          try {
+            const cells = (row.values as unknown[]).slice(1)
+            raw.push(cells.map(cellToString))
+          } catch {
+            // skip rows that crash (e.g. rows with unsupported cell types)
+          }
+        }
+      }
+    } catch (streamErr) {
+      // If WorkbookReader still crashes (e.g. on comments/drawings in older XLSX),
+      // re-throw with a clearer message so the user knows what to do.
+      const msg = streamErr instanceof Error ? streamErr.message : String(streamErr)
+      throw new Error(
+        `No se pudo leer el archivo XLSX. Guárdalo como "Excel Workbook (.xlsx)" desde Excel y vuelve a intentarlo. (${msg})`
+      )
+    }
   }
 
-  if (raw.length < 2) return []
+  if (raw.length < 2) return { rows: [], fileHeaders: [], raw1: [] }
   const fileHeaders = raw[0].map((h) => String(h ?? '').trim())
 
-  return raw.slice(1).filter((r) => r.some((c) => c !== '')).map((row) => {
+  // If the client sent an empty mapping (race condition or auto-map failure),
+  // fall back to a direct 1:1 mapping so Lumio-template files still work
+  // (the template uses system-label names as column headers).
+  const effectiveMapping = Object.keys(mapping).length > 0
+    ? mapping
+    : Object.fromEntries(fileHeaders.filter(Boolean).map((h) => [h, h]))
+
+  const rows = raw.slice(1).filter((r) => r.some((c) => c !== '')).map((row) => {
     const mapped: Record<string, string> = {}
-    Object.entries(mapping).forEach(([systemLabel, fileHeader]) => {
+    Object.entries(effectiveMapping).forEach(([systemLabel, fileHeader]) => {
       const colIdx = fileHeaders.indexOf(fileHeader)
       if (colIdx !== -1) mapped[systemLabel] = String(row[colIdx] ?? '').trim()
     })
     return mapped
   })
+
+  return { rows, fileHeaders, raw1: raw[1] ?? [] }
 }

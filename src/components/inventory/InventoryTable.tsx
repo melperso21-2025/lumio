@@ -147,9 +147,9 @@ function InventoryFilterBar({
   return (
     <div
       style={{
-        display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center',
-        padding: '10px 0 12px', borderBottom: '1px solid var(--border)',
-        marginBottom: 12, flexShrink: 0,
+        display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center',
+        padding: '8px 0 10px', borderBottom: '1px solid var(--border)',
+        marginBottom: 8, flexShrink: 0,
       }}
     >
       <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', fontWeight: 600 }}>
@@ -396,14 +396,14 @@ export default function InventoryTable({
               display: 'flex',
               gap: 8,
               alignItems: 'center',
-              padding: '8px 12px',
-              borderRadius: 8,
+              padding: '6px 12px',
+              borderRadius: 7,
               background: 'rgba(220,38,38,0.06)',
               border: '1px solid rgba(220,38,38,0.2)',
-              fontSize: 12,
+              fontSize: 11,
               color: 'var(--red)',
               fontWeight: 500,
-              marginBottom: 10,
+              marginBottom: 8,
               flexShrink: 0,
               flexWrap: 'wrap',
             } as React.CSSProperties}
@@ -426,8 +426,8 @@ export default function InventoryTable({
                 {COLUMNS.map(({ key, label, align }) => {
                   const isActive = sortBy === key
                   return (
-                    <th key={key} onClick={() => handleSort(key)}
-                      style={{ textAlign: align, padding: '10px 12px', color: 'var(--muted)', fontWeight: 600, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', fontSize: 11 }}>
+                    <th key={key} scope="col" onClick={() => handleSort(key)}
+                      style={{ textAlign: align, padding: '7px 10px', color: 'var(--muted)', fontWeight: 600, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', fontSize: 11 }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         {label}
                         {isActive && <span style={{ fontSize: 10, color: 'var(--gold)' }}>{sortAsc ? '↑' : '↓'}</span>}
@@ -435,7 +435,7 @@ export default function InventoryTable({
                     </th>
                   )
                 })}
-                <th style={{ padding: '10px 12px', color: 'var(--muted)', fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                <th scope="col" style={{ padding: '7px 10px', color: 'var(--muted)', fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap', textAlign: 'center' }}>
                   Acciones
                 </th>
               </tr>
@@ -476,13 +476,13 @@ export default function InventoryTable({
                     onMouseLeave={(e) => (e.currentTarget.style.background = '')}
                   >
                     {/* Producto */}
-                    <td style={{ padding: '10px 12px', color: 'var(--text)' }}>
+                    <td style={{ padding: '7px 10px', color: 'var(--text)' }}>
                       <div style={{ fontWeight: 500, color: 'var(--blue)', textDecoration: 'underline', textUnderlineOffset: 2 }}>{p.name}</div>
                       {p.sku && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{p.sku}</div>}
                     </td>
 
                     {/* Tipo */}
-                    <td style={{ padding: '10px 12px' }}>
+                    <td style={{ padding: '7px 10px' }}>
                       <span style={{
                         fontSize: 11, padding: '2px 7px', borderRadius: 5, fontWeight: 500,
                         background: isService ? 'rgba(146,148,172,0.12)' : 'rgba(37,99,235,0.1)',
@@ -493,12 +493,12 @@ export default function InventoryTable({
                     </td>
 
                     {/* Unidad */}
-                    <td style={{ padding: '10px 12px', color: 'var(--text2)', fontSize: 12 }}>
+                    <td style={{ padding: '7px 10px', color: 'var(--text2)', fontSize: 12 }}>
                       {isService ? <span style={{ color: 'var(--muted)' }}>—</span> : (p.unit_label ?? '—')}
                     </td>
 
                     {/* Stock */}
-                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                    <td style={{ padding: '7px 10px', textAlign: 'right' }}>
                       {isService ? (
                         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: stockBadge.bg, color: stockBadge.color, fontWeight: 500 }}>
                           N/A
@@ -511,12 +511,12 @@ export default function InventoryTable({
                     </td>
 
                     {/* Mín */}
-                    <td style={{ padding: '10px 12px', color: 'var(--text2)', textAlign: 'right' }}>
+                    <td style={{ padding: '7px 10px', color: 'var(--text2)', textAlign: 'right' }}>
                       {isService ? '—' : (p.min_stock_alert ?? 0).toLocaleString('es-EC', { maximumFractionDigits: 3 })}
                     </td>
 
                     {/* Caducidad */}
-                    <td style={{ padding: '10px 12px' }}>
+                    <td style={{ padding: '7px 10px' }}>
                       {p.is_perishable ? (
                         <span style={{
                           fontSize: 11, padding: '2px 8px', borderRadius: 5, fontWeight: 500,
@@ -540,7 +540,7 @@ export default function InventoryTable({
                     </td>
 
                     {/* Categoría */}
-                    <td style={{ padding: '10px 12px', color: 'var(--text2)' }}>
+                    <td style={{ padding: '7px 10px', color: 'var(--text2)' }}>
                       {p.category_id && categoriesMap[p.category_id]
                         ? categoriesMap[p.category_id]
                         : <span style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: 11 }}>Sin categoría</span>}
@@ -548,7 +548,7 @@ export default function InventoryTable({
 
                     {/* Acciones */}
                     <td
-                      style={{ padding: '10px 12px', textAlign: 'center', whiteSpace: 'nowrap' }}
+                      style={{ padding: '7px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center' }}>

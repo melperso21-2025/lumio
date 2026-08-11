@@ -1,13 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import KpiCard from '@/components/ui/KpiCard'
 import ExportButton from '@/components/ui/ExportButton'
 import QuickSaleForm from '@/components/sales/QuickSaleForm'
 import SalesHistoryTable from '@/components/sales/SalesHistoryTable'
-import EditSaleModal, { type SaleWithItems } from '@/components/sales/EditSaleModal'
+import EditSaleModal, { type SaleWithItems, type SaleStatus } from '@/components/sales/EditSaleModal'
 import SalesTrendChart from '@/components/charts/SalesTrendChart'
+import ModuleAiButton from '@/components/ai/ModuleAiButton'
+import EmptyState from '@/components/ui/EmptyState'
 
 type SaleRow = {
   id: string
@@ -72,6 +74,7 @@ interface SalesOverviewProps {
   // Opciones de filtro
   uniqueWeeks: number[]
   uniqueStatuses: string[]
+  saleStatuses: SaleStatus[]
 }
 
 export default function SalesOverview({
@@ -93,6 +96,7 @@ export default function SalesOverview({
   filterStatus,
   uniqueWeeks,
   uniqueStatuses,
+  saleStatuses,
   prevFrom,
   prevTo,
 }: SalesOverviewProps) {
@@ -188,11 +192,27 @@ export default function SalesOverview({
   const pageStart = currentPage * pageSize + 1
   const pageEnd   = Math.min((currentPage + 1) * pageSize, totalCount)
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1, minHeight: 0 }}>
+  const getModuleData = useCallback(() => ({
+    periodo: `${from} → ${to}`,
+    totalVentas: total_sales,
+    totalTransacciones: total_transactions,
+    lppPromedio: parseFloat(avg_lpp.toFixed(2)),
+    totalDescuentos: total_discounts,
+    variacionVsAnterior: hasPrevData
+      ? `${(((total_sales - prev_total_sales) / prev_total_sales) * 100).toFixed(1)}%`
+      : 'sin datos anteriores',
+    topVentas: kpiSales.slice(0, 10).map(s => ({
+      fecha: s.sale_date,
+      total: s.gross_total,
+      descuento: s.discount_amount,
+    })),
+  }), [from, to, total_sales, total_transactions, avg_lpp, total_discounts, hasPrevData, prev_total_sales, kpiSales])
 
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, flexShrink: 0 }}>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+      {/* KPIs + botón IA */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: 8, flexShrink: 0 }}>
         <KpiCard label="Ventas" prefix="$" value={Math.round(total_sales)} isGold
           delta={calcDelta(total_sales, prev_total_sales, hasPrevData)}
           compare={prev_total_sales > 0 ? `Ant: $${Math.round(prev_total_sales)}` : undefined}
@@ -201,7 +221,7 @@ export default function SalesOverview({
           delta={calcDelta(total_transactions, prev_total_transactions, hasPrevData)}
           compare={prev_total_transactions > 0 ? `Ant: ${prev_total_transactions}` : undefined}
         />
-        <KpiCard label="LPP prom." value={avg_lpp.toFixed(1)}
+        <KpiCard label="LPP prom." value={avg_lpp.toFixed(2)}
           delta={calcDelta(avg_lpp, prev_avg_lpp, hasPrevData)}
           compare="líneas por pedido"
         />
@@ -209,13 +229,16 @@ export default function SalesOverview({
           delta={calcDelta(total_discounts, prev_total_discounts, hasPrevData)}
           compare={prev_total_discounts > 0 ? `Ant: $${Math.round(prev_total_discounts)}` : undefined}
         />
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <ModuleAiButton module="sales" getModuleData={getModuleData} />
+        </div>
       </div>
 
       {/* Gráfico de tendencia (usa kpiSales — todos los datos del período) */}
       <SalesTrendChart sales={kpiSales} from={from} to={to} />
 
       {/* Historial + filtros + paginación */}
-      <div style={{ borderRadius: 12, background: 'var(--card)', border: '1px solid var(--border)', padding: '14px 16px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ borderRadius: 12, background: 'var(--card)', border: '1px solid var(--border)', padding: '14px 16px', display: 'flex', flexDirection: 'column' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexShrink: 0 }}>
@@ -293,13 +316,25 @@ export default function SalesOverview({
         </div>
 
         {/* Tabla */}
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          <SalesHistoryTable
-            sales={sales}
-            userRole={userRole}
-            onEdit={handleEdit}
-            onCancel={handleCancel}
-          />
+        <div>
+          {kpiSales.length === 0 ? (
+            <EmptyState
+              icon="💰"
+              title="Aún no hay ventas en este período"
+              description="Registra tus ventas para que Lumio calcule tu ticket promedio, margen de ganancia y tendencias semana a semana. Entre más datos tengas, más precisos serán los análisis."
+              tip="Puedes registrar ventas rápidamente desde el formulario de la derecha. Si tienes ventas anteriores, cambia el período de fechas para verlas."
+              action={{ label: '+ Registrar primera venta', href: '/sales' }}
+              isFilterEmpty={!!(hasActiveFilters && sales.length === 0)}
+              onClearFilter={() => { setFilter('filterWeek', ''); setFilter('filterChannelId', ''); setFilter('filterStatus', '') }}
+            />
+          ) : (
+            <SalesHistoryTable
+              sales={sales}
+              userRole={userRole}
+              onEdit={handleEdit}
+              onCancel={handleCancel}
+            />
+          )}
         </div>
 
         {/* Paginación */}
@@ -371,6 +406,7 @@ export default function SalesOverview({
           customers={[]}
           branches={branches}
           channels={channels}
+          saleStatuses={saleStatuses}
           companyId={companyId}
           userRole={userRole}
           onClose={handleEditClose}

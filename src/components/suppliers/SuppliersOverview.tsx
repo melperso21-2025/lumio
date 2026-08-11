@@ -37,7 +37,7 @@ export default function SuppliersOverview({
     const { data } = await supabase
       .from('suppliers')
       .select(
-        'id, name, first_name, last_name, is_company, id_type, tax_id, phone, email, address, bank_name, bank_account, account_type, is_active, created_at'
+        'id, name, first_name, last_name, is_company, id_type, tax_id, celular, telefono, email, address, bank_name, bank_account, account_type, is_active, created_at'
       )
       .eq('company_id', companyId)
       .is('deleted_at', null)
@@ -69,7 +69,7 @@ export default function SuppliersOverview({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* KPIs — período */}
       {(from && to) && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
@@ -136,7 +136,7 @@ export default function SuppliersOverview({
       )}
 
       {/* Table */}
-      <div style={{ flex: 1, overflow: 'hidden' }}>
+      <div style={{ overflowX: 'auto' }}>
         <SuppliersTable
           suppliers={suppliers}
           onEdit={(s) => setEditing(s)}

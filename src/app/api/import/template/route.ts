@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     // Force text format for critical columns in example row
     const textFormatLabels = new Set([
       'documento_numero', 'numero_cuenta', 'dias_entrega',
-      'telefono', 'tax_id', 'numero_id',
+      'celular', 'telefono', 'tax_id', 'numero_id',
     ])
     def.fields.forEach((f, colIdx) => {
       if (!textFormatLabels.has(f.label)) return
@@ -101,7 +101,8 @@ export async function GET(request: NextRequest) {
     if (entity === 'customers') {
       refSheet.addRow(['', ''])
       refSheet.addRow(['── REGLAS ECUADOR ──', ''])
-      refSheet.addRow(['telefono', '+593 + 9 dígitos empezando en 9  (ej: +593991234567)'])
+      refSheet.addRow(['celular', 'Celular Ecuador: 10 dígitos, empieza con 09  (ej: 0999123456) — opcional en importación'])
+      refSheet.addRow(['telefono', 'Convencional: 6-9 dígitos con o sin código de área  (ej: 022341234) — opcional'])
       refSheet.addRow(['numero_id (cédula)', '10 dígitos numéricos con algoritmo módulo 10'])
       refSheet.addRow(['numero_id (ruc)', '13 dígitos — persona natural: cédula+001 | empresa: tercer dígito 9 | público: 6'])
       refSheet.addRow(['numero_id (pasaporte)', '6 a 20 caracteres alfanuméricos'])

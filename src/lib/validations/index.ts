@@ -15,8 +15,9 @@ export interface SupplierValidationResult {
     is_company:            boolean
     id_type:               string
     tax_id:                string
-    phone:                 string
-    email:                 string
+    celular:               string | null
+    telefono:              string | null
+    email:                 string | null
     address:               string | null
     bank_name:             string | null
     bank_account:          string | null
@@ -49,6 +50,35 @@ export function validatePhone(phone: string): {
     valid: false,
     error: 'Teléfono inválido. Móvil: 09XXXXXXXX · Fijo: 0XX-XXXXXXX (área 02-07)',
   }
+}
+
+// ── Celular Ecuador ────────────────────────────────────────────────────────
+// Exactamente 10 dígitos, empieza con 09
+
+export function validateCelular(v: string): {
+  valid: boolean; error?: string; formatted?: string
+} {
+  if (!v) return { valid: true }
+  const digits = v.replace(/\D/g, '')
+  const local = digits.startsWith('593') ? digits.slice(3)
+    : digits.startsWith('0')             ? digits.slice(1)
+    : digits
+  if (local.length === 9 && local.startsWith('9'))
+    return { valid: true, formatted: '+593' + local }
+  return { valid: false, error: 'Celular inválido. Formato: 09XXXXXXXXX (10 dígitos)' }
+}
+
+// ── Teléfono convencional ──────────────────────────────────────────────────
+// Solo dígitos, entre 6 y 9 caracteres (flexible: con o sin código de área)
+
+export function validateTelefono(v: string): {
+  valid: boolean; error?: string
+} {
+  if (!v) return { valid: true }
+  const digits = v.replace(/\D/g, '')
+  if (digits.length < 6 || digits.length > 9)
+    return { valid: false, error: 'Teléfono convencional: entre 6 y 9 dígitos numéricos' }
+  return { valid: true }
 }
 
 // ── Cédula Ecuador (módulo 10) ─────────────────────────────────────────────
@@ -130,15 +160,24 @@ export function validatePassport(passport: string): {
 
 // ── Tax ID — dispatcher según tipo ────────────────────────────────────────
 
+export function validateRucExtranjero(v: string): { valid: boolean; error?: string } {
+  const s = v.trim()
+  if (!s) return { valid: false, error: 'El número de identificación es requerido' }
+  if (s.length < 5 || s.length > 30) return { valid: false, error: 'RUC extranjero: entre 5 y 30 caracteres' }
+  if (!/^[a-zA-Z0-9\-]+$/.test(s)) return { valid: false, error: 'RUC extranjero: solo letras, números y guiones' }
+  return { valid: true }
+}
+
 export function validateTaxId(
   taxId: string,
-  idType: 'cedula' | 'ruc' | 'pasaporte'
+  idType: 'cedula' | 'ruc' | 'pasaporte' | 'ruc_extranjero'
 ): { valid: boolean; error?: string } {
   if (!taxId) return { valid: false, error: 'El número de identificación es requerido' }
   switch (idType) {
-    case 'cedula':    return validateCedula(taxId)
-    case 'ruc':       return validateRUC(taxId)
-    case 'pasaporte': return validatePassport(taxId)
+    case 'cedula':         return validateCedula(taxId)
+    case 'ruc':            return validateRUC(taxId)
+    case 'pasaporte':      return validatePassport(taxId)
+    case 'ruc_extranjero': return validateRucExtranjero(taxId)
   }
 }
 
@@ -258,22 +297,30 @@ export async function validateCustomer(
     errors.email = 'El email no tiene un formato válido'
   }
 
-  // phone
-  const phone = String(row.phone ?? '').trim()
-  if (!phone) {
-    if (requirePhone) errors.phone = 'El teléfono es obligatorio'
+  // mobile (celular Ecuador, +593XXXXXXXXX)
+  const mobile = String(row.mobile ?? '').trim()
+  if (!mobile) {
+    if (requirePhone) errors.mobile = 'El celular es obligatorio'
   } else {
-    const phoneResult = validatePhone(phone)
-    if (!phoneResult.valid) errors.phone = phoneResult.error!
+    const mobileResult = validatePhone(mobile)
+    if (!mobileResult.valid) errors.mobile = mobileResult.error!
+  }
+
+  // phone (convencional, opcional)
+  const phoneLandline = String(row.phone ?? '').trim()
+  if (phoneLandline) {
+    const digits = phoneLandline.replace(/\D/g, '')
+    if (digits.length < 6 || digits.length > 9)
+      errors.phone = 'Teléfono convencional: 6-9 dígitos'
   }
 
   // id_type
   const id_type = String(row.id_type ?? '').trim().toLowerCase()
-  const validIdTypes = ['cedula', 'ruc', 'pasaporte']
+  const validIdTypes = ['cedula', 'ruc', 'pasaporte', 'ruc_extranjero']
   if (!id_type) {
     errors.id_type = 'El tipo de identificación es obligatorio'
   } else if (!validIdTypes.includes(id_type)) {
-    errors.id_type = 'Tipo de ID inválido. Valores: cedula, ruc, pasaporte'
+    errors.id_type = 'Tipo de ID inválido. Valores: cedula, ruc, pasaporte, ruc_extranjero'
   }
 
   // tax_id
@@ -283,7 +330,7 @@ export async function validateCustomer(
   } else if (tax_id === '9999999999') {
     // Placeholder: válido sin algoritmo de cédula
   } else if (validIdTypes.includes(id_type)) {
-    const taxResult = validateTaxId(tax_id, id_type as 'cedula' | 'ruc' | 'pasaporte')
+    const taxResult = validateTaxId(tax_id, id_type as 'cedula' | 'ruc' | 'pasaporte' | 'ruc_extranjero')
     if (!taxResult.valid) errors.tax_id = taxResult.error!
   }
 
@@ -350,7 +397,7 @@ export async function validateCustomer(
   const valid = Object.keys(errors).length === 0
   if (!valid) return { valid: false, errors, warnings }
 
-  const phoneFormatted: string | null = phone ? (validatePhone(phone).formatted ?? phone) : null
+  const mobileFormatted: string | null = mobile ? (validatePhone(mobile).formatted ?? mobile) : null
   const emailForData: string | null = requireEmail ? emailRaw : (emailRaw || null)
 
   return {
@@ -359,8 +406,9 @@ export async function validateCustomer(
     warnings,
     data: {
       full_name,
-      email: emailForData,
-      phone:             phoneFormatted,
+      email:             emailForData,
+      mobile:            mobileFormatted,
+      phone:             phoneLandline || null,
       id_type:           id_type || null,
       tax_id,
       customer_type:     customer_type_id,
@@ -601,10 +649,22 @@ export async function validateBankTransaction(
 // Validates a supplier row synchronously (no DB lookups needed).
 // Accumulates all errors before returning.
 
+export interface SupplierValidationOptions {
+  requireCelular?: boolean
+  requireEmail?: boolean
+}
+
+export const validateSupplierImportOptions: SupplierValidationOptions = {
+  requireCelular: false,
+  requireEmail: false,
+}
+
 export function validateSupplier(
   row: Record<string, unknown>,
-  _companyId: string = ''
+  _companyId: string = '',
+  options: SupplierValidationOptions = { requireCelular: true, requireEmail: true }
 ): SupplierValidationResult {
+  const { requireCelular = true, requireEmail = true } = options
   const errors: Record<string, string> = {}
 
   // ── is_company ───────────────────────────────────────────────────────────
@@ -632,11 +692,11 @@ export function validateSupplier(
 
   // ── id_type ──────────────────────────────────────────────────────────────
   const id_type = String(row.id_type ?? '').trim().toLowerCase()
-  const validIdTypes = ['cedula', 'ruc', 'pasaporte']
+  const validIdTypes = ['cedula', 'ruc', 'pasaporte', 'ruc_extranjero']
   if (!id_type) {
     errors.id_type = 'El tipo de documento es obligatorio'
   } else if (!validIdTypes.includes(id_type)) {
-    errors.id_type = `Tipo de documento inválido. Valores: cedula, ruc, pasaporte`
+    errors.id_type = `Tipo de documento inválido. Valores: cedula, ruc, pasaporte, ruc_extranjero`
   }
 
   // ── tax_id ───────────────────────────────────────────────────────────────
@@ -644,23 +704,30 @@ export function validateSupplier(
   if (!tax_id) {
     errors.tax_id = 'El número de identificación es obligatorio'
   } else if (validIdTypes.includes(id_type)) {
-    const taxResult = validateTaxId(tax_id, id_type as 'cedula' | 'ruc' | 'pasaporte')
+    const taxResult = validateTaxId(tax_id, id_type as 'cedula' | 'ruc' | 'pasaporte' | 'ruc_extranjero')
     if (!taxResult.valid) errors.tax_id = taxResult.error!
   }
 
-  // ── phone ────────────────────────────────────────────────────────────────
-  const phone = String(row.phone ?? '').trim()
-  if (!phone) {
-    errors.phone = 'El teléfono es obligatorio'
+  // ── celular ───────────────────────────────────────────────────────────────
+  const celularRaw = String(row.celular ?? '').trim()
+  if (!celularRaw) {
+    if (requireCelular) errors.celular = 'El celular es obligatorio'
   } else {
-    const phoneResult = validatePhone(phone)
-    if (!phoneResult.valid) errors.phone = phoneResult.error!
+    const celularResult = validateCelular(celularRaw)
+    if (!celularResult.valid) errors.celular = celularResult.error!
+  }
+
+  // ── telefono (convencional, opcional) ────────────────────────────────────
+  const telefonoRaw = String(row.telefono ?? '').trim()
+  if (telefonoRaw) {
+    const telResult = validateTelefono(telefonoRaw)
+    if (!telResult.valid) errors.telefono = telResult.error!
   }
 
   // ── email ────────────────────────────────────────────────────────────────
   const email = String(row.email ?? '').trim()
   if (!email) {
-    errors.email = 'El email es obligatorio'
+    if (requireEmail) errors.email = 'El email es obligatorio'
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     errors.email = `Email "${email}" no tiene formato válido`
   }
@@ -674,7 +741,8 @@ export function validateSupplier(
 
   if (Object.keys(errors).length > 0) return { valid: false, errors }
 
-  const phoneFormatted = validatePhone(phone).formatted ?? phone
+  const celularFormatted = celularRaw ? (validateCelular(celularRaw).formatted ?? celularRaw) : null
+  const telefonoNormalized = telefonoRaw ? telefonoRaw.replace(/\D/g, '') || null : null
 
   return {
     valid: true,
@@ -686,8 +754,9 @@ export function validateSupplier(
       is_company,
       id_type,
       tax_id,
-      phone:                 phoneFormatted,
-      email,
+      celular:               celularFormatted,
+      telefono:              telefonoNormalized,
+      email:                 email || null,
       address:               String(row.address ?? '').trim()      || null,
       bank_name:             String(row.bank_name ?? '').trim()    || null,
       bank_account:          bank_account                          || null,

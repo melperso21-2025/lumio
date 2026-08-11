@@ -5,6 +5,12 @@ import { createClient } from '@/lib/supabase/client'
 
 // ── Types ───────────────────────────────────────────────────
 
+export interface SaleStatus {
+  id: string
+  name: string
+  color: string | null
+}
+
 export interface SaleItemRaw {
   product_id: string
   quantity: number
@@ -57,19 +63,12 @@ export interface EditSaleModalProps {
   customers: { id: string; full_name: string | null }[]
   branches: { id: string; name: string }[]
   channels: { id: string; name: string }[]
+  saleStatuses: SaleStatus[]
   companyId: string
   userRole: string
   onClose: () => void
   onSuccess: () => void
 }
-
-// ── Constants ───────────────────────────────────────────────
-
-const STATUS_OPTIONS = [
-  { value: 'closed', label: 'Cerrada' },
-  { value: 'review', label: 'Revisión' },
-  { value: 'contact', label: 'Contacto' },
-] as const
 
 // ── Styles ──────────────────────────────────────────────────
 
@@ -116,6 +115,7 @@ export default function EditSaleModal({
   customers,
   branches,
   channels,
+  saleStatuses,
   companyId,
   userRole,
   onClose,
@@ -620,11 +620,20 @@ export default function EditSaleModal({
                 onFocus={onFocus}
                 onBlur={onBlur}
               >
-                {STATUS_OPTIONS.map(o => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
+                {saleStatuses.length > 0
+                  ? saleStatuses.map(s => (
+                      <option key={s.id} value={s.name}>
+                        {s.name}
+                      </option>
+                    ))
+                  : (
+                    <>
+                      <option value="closed">Cerrada</option>
+                      <option value="review">Revisión</option>
+                      <option value="contact">Contacto</option>
+                    </>
+                  )
+                }
               </select>
             </div>
           </div>

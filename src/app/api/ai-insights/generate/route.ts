@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
 import type { Database } from '@/lib/supabase/database.types'
+import { aiLimiter, checkRateLimit } from '@/lib/ratelimit'
+import { CLAUDE_MODEL } from '@/lib/ai'
 
 type WeeklySnapshotRow = Database['public']['Tables']['weekly_snapshots']['Row']
 
@@ -49,6 +51,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ── Rate limiting: 5 requests / 5 min por IP (endpoint costoso) ──────────
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+    const rl = await checkRateLimit(aiLimiter, `ai-generate:${ip}`)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Intenta en unos minutos.' },
+        { status: 429 }
+      )
+    }
+
     const supabase = await createClient()
 
     // ── 1. Autenticación ──────────────────────────────────────────────────────
@@ -71,6 +83,17 @@ export async function POST(request: NextRequest) {
 
     if (!isPulseAdmin && !isCompanyAdmin) {
       return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
+    }
+
+    // ── Verificar empresa activa ──────────────────────────────────────────────
+    const { data: company } = await supabase
+      .from('companies')
+      .select('id')
+      .eq('id', companyId)
+      .is('deleted_at', null)
+      .single()
+    if (!company) {
+      return NextResponse.json({ error: 'Empresa no encontrada' }, { status: 404 })
     }
 
     // ── 2. Control de uso — 1 análisis por empresa/semana ────────────────────
@@ -265,7 +288,7 @@ Playbook: 3–5 acciones. Máximo 1 urgent. Si una métrica está bien, reconóc
     // ── 6. Llamar a Claude ────────────────────────────────────────────────────
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-7',
+      model: CLAUDE_MODEL,
       max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }],
     })
