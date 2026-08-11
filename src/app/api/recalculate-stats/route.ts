@@ -26,13 +26,19 @@ export async function POST() {
   const { error: statsErr } = await supabase.rpc('recalculate_sales_totals', {
     p_company_id: companyId,
   })
-  if (statsErr) return NextResponse.json({ error: statsErr.message }, { status: 500 })
+  if (statsErr) {
+    console.error('[recalculate-stats] statsErr:', statsErr.message)
+    return NextResponse.json({ error: 'Error recalculando estadísticas de ventas' }, { status: 500 })
+  }
 
   // ── Paso 2: snapshots de todas las semanas históricas (loop en DB) ─────
   const { data: snapCount, error: snapErr } = await supabase.rpc('recalculate_all_snapshots', {
     p_company_id: companyId,
   })
-  if (snapErr) return NextResponse.json({ error: snapErr.message }, { status: 500 })
+  if (snapErr) {
+    console.error('[recalculate-stats] snapErr:', snapErr.message)
+    return NextResponse.json({ error: 'Error recalculando snapshots semanales' }, { status: 500 })
+  }
 
   return NextResponse.json({
     ok: true,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { CLAUDE_MODEL } from '@/lib/ai'
 
 // Cuotas mensuales de análisis inline por plan
 const PLAN_QUOTAS: Record<string, number> = {
@@ -255,7 +256,7 @@ INSTRUCCIONES DEL JSON:
     // ── 5. Llamar a Claude ────────────────────────────────────────────────────
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-7',
+      model: CLAUDE_MODEL,
       max_tokens: 1500,
       messages: [{ role: 'user', content: prompt }],
     })
