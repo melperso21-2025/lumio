@@ -360,7 +360,7 @@ export default function ProductDetailView({
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
                   {['Fecha', 'Tipo', 'Razón', 'Cantidad', 'Lote', 'Notas'].map((h) => (
-                    <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--muted)', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
+                    <th key={h} scope="col" style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--muted)', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
                       {h}
                     </th>
                   ))}

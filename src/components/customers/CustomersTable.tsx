@@ -361,6 +361,7 @@ export default function CustomersTable({
                 return (
                   <th
                     key={key}
+                    scope="col"
                     onClick={() => handleSort(key)}
                     style={{
                       textAlign: align,
@@ -386,6 +387,7 @@ export default function CustomersTable({
               })}
               {canEdit && (
                 <th
+                  scope="col"
                   style={{
                     padding: '10px 12px',
                     color: 'var(--muted)',

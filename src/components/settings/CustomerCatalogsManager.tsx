@@ -401,10 +401,10 @@ export default function CustomerCatalogsManager({
           border: '1px solid var(--border)', alignSelf: 'flex-start',
         }}
       >
-        <button type="button" onClick={() => setActiveTab('types')} style={tabStyle(activeTab === 'types')}>
+        <button type="button" aria-pressed={activeTab === 'types'} onClick={() => setActiveTab('types')} style={tabStyle(activeTab === 'types')}>
           Tipos de cliente
         </button>
-        <button type="button" onClick={() => setActiveTab('labels')} style={tabStyle(activeTab === 'labels')}>
+        <button type="button" aria-pressed={activeTab === 'labels'} onClick={() => setActiveTab('labels')} style={tabStyle(activeTab === 'labels')}>
           Etiquetas
         </button>
       </div>

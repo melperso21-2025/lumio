@@ -146,6 +146,7 @@ export default function SalesHistoryTable({
                 return (
                   <th
                     key={key}
+                    scope="col"
                     onClick={() => handleSort(key)}
                     style={{ textAlign: align, padding: '10px 12px', color: 'var(--muted)', fontWeight: 600, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   >
@@ -156,11 +157,11 @@ export default function SalesHistoryTable({
                   </th>
                 )
               })}
-              <th style={{ padding: '10px 12px', color: 'var(--muted)', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>
+              <th scope="col" style={{ padding: '10px 12px', color: 'var(--muted)', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>
                 Cliente
               </th>
               {(canEdit || canCancel) && (
-                <th style={{ padding: '10px 12px', color: 'var(--muted)', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>
+                <th scope="col" style={{ padding: '10px 12px', color: 'var(--muted)', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>
                   Acciones
                 </th>
               )}

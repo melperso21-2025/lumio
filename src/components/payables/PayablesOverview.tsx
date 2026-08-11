@@ -180,7 +180,7 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
       {/* Filtros */}
       <div style={{ display: 'flex', gap: 8 }}>
         {(['all', 'pending', 'partial', 'paid'] as const).map(f => (
-          <button key={f} onClick={() => setFilter(f)}
+          <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}
             style={{ fontSize: 11, padding: '4px 12px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', fontWeight: 600, background: filter === f ? 'var(--gold)' : 'var(--surface)', color: filter === f ? '#1A1B2E' : 'var(--muted)' }}>
             {f === 'all' ? 'Todas' : f === 'pending' ? 'Pendientes' : f === 'partial' ? 'Parciales' : 'Pagadas'}
           </button>
@@ -206,7 +206,7 @@ export default function PayablesOverview({ records, kpis, userRole }: Props) {
               <thead>
                 <tr style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
                   {['Proveedor', 'Emisión', 'Vencimiento', 'Total', 'Pagado', 'Saldo', 'Estado', ''].map(h => (
-                    <th key={h} style={{ padding: '9px 12px', textAlign: 'left', fontSize: 9, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</th>
+                    <th key={h} scope="col" style={{ padding: '9px 12px', textAlign: 'left', fontSize: 9, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</th>
                   ))}
                 </tr>
               </thead>

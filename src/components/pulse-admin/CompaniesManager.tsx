@@ -298,6 +298,7 @@ export default function CompaniesManager({
                 (h) => (
                   <th
                     key={h}
+                    scope="col"
                     style={{
                       padding: '10px 12px',
                       fontSize: 9,

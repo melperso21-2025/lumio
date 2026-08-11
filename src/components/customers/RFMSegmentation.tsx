@@ -237,10 +237,10 @@ export default function RFMSegmentation({ customers }: { customers: RFMCustomer[
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead style={{ position: 'sticky', top: 0, background: 'var(--card)', zIndex: 1 }}>
                   <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ padding: '7px 14px', textAlign: 'left', color: 'var(--muted)', fontWeight: 600, fontSize: 11 }}>Cliente</th>
-                    <th style={{ padding: '7px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 600, fontSize: 11 }}>Pedidos</th>
-                    <th style={{ padding: '7px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 600, fontSize: 11 }}>LTV</th>
-                    <th style={{ padding: '7px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 600, fontSize: 11 }}>Última compra</th>
+                    <th scope="col" style={{ padding: '7px 14px', textAlign: 'left', color: 'var(--muted)', fontWeight: 600, fontSize: 11 }}>Cliente</th>
+                    <th scope="col" style={{ padding: '7px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 600, fontSize: 11 }}>Pedidos</th>
+                    <th scope="col" style={{ padding: '7px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 600, fontSize: 11 }}>LTV</th>
+                    <th scope="col" style={{ padding: '7px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 600, fontSize: 11 }}>Última compra</th>
                   </tr>
                 </thead>
                 <tbody>

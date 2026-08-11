@@ -413,6 +413,7 @@ export default function CustomerDetailView({
                     (h) => (
                       <th
                         key={h}
+                        scope="col"
                         style={{
                           textAlign: 'left',
                           padding: '8px 12px',

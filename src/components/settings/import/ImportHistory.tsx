@@ -137,7 +137,7 @@ export default function ImportHistory({ companyId, userRole }: ImportHistoryProp
           <thead style={{ position: 'sticky', top: 0, background: 'var(--card)', boxShadow: '0 1px 0 var(--border)', zIndex: 1 }}>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
               {['Fecha', 'Entidad', 'Archivo', 'Total', 'Exitosas', 'Fallidas', 'Estado', 'Usuario', 'Acciones'].map((h) => (
-                <th key={h} style={{ padding: '9px 10px', textAlign: 'left', color: 'var(--muted)', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', whiteSpace: 'nowrap', letterSpacing: '0.06em' }}>
+                <th key={h} scope="col" style={{ padding: '9px 10px', textAlign: 'left', color: 'var(--muted)', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', whiteSpace: 'nowrap', letterSpacing: '0.06em' }}>
                   {h}
                 </th>
               ))}

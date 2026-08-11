@@ -715,7 +715,7 @@ export default function PurchasesOverview({
             <thead>
               <tr style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
                 {['Fecha', 'Proveedor', 'Factura', 'Subtotal', 'IVA', 'Total', 'Método', 'Estado', 'Acciones'].map(h => (
-                  <th key={h} style={{ padding: '9px 12px', textAlign: 'left', fontSize: 9, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} scope="col" style={{ padding: '9px 12px', textAlign: 'left', fontSize: 9, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>

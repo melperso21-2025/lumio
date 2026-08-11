@@ -202,7 +202,7 @@ export default function PriceHistoryView({
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
                   {['Fecha', 'Precio venta', 'Costo unitario', 'Precio proveedor', 'Margen', 'Notas'].map((h) => (
-                    <th key={h} style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--muted)', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
+                    <th key={h} scope="col" style={{ padding: '7px 10px', textAlign: 'left', color: 'var(--muted)', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
                       {h}
                     </th>
                   ))}

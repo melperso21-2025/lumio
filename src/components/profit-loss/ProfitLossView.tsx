@@ -793,7 +793,7 @@ export default function ProfitLossView({ cur, prev, monthlyData, campaigns }: Pr
                     <thead>
                       <tr>
                         {['Campaña', 'Canal', 'Inversión', 'Ventas atr.', 'ROAS'].map(h => (
-                          <th key={h} style={{
+                          <th key={h} scope="col" style={{
                             fontSize: 9, textTransform: 'uppercase', letterSpacing: '.07em',
                             fontWeight: 700, color: 'var(--muted)', padding: '7px 10px',
                             textAlign: 'left', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap',

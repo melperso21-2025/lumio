@@ -429,7 +429,7 @@ export default function TransactionsTable({
               {COLUMNS.map(({ key, label, align }) => {
                 const isActive = sortBy === key
                 return (
-                  <th key={key} onClick={() => handleSort(key)}
+                  <th key={key} scope="col" onClick={() => handleSort(key)}
                     style={{ textAlign: align, padding: '10px 12px', color: 'var(--muted)', fontWeight: 600, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       {label}
@@ -438,7 +438,7 @@ export default function TransactionsTable({
                   </th>
                 )
               })}
-              <th style={{ padding: '10px 12px', color: 'var(--muted)', fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}>
+              <th scope="col" style={{ padding: '10px 12px', color: 'var(--muted)', fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}>
                 Acciones
               </th>
             </tr>

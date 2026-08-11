@@ -426,7 +426,7 @@ export default function InventoryTable({
                 {COLUMNS.map(({ key, label, align }) => {
                   const isActive = sortBy === key
                   return (
-                    <th key={key} onClick={() => handleSort(key)}
+                    <th key={key} scope="col" onClick={() => handleSort(key)}
                       style={{ textAlign: align, padding: '7px 10px', color: 'var(--muted)', fontWeight: 600, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', fontSize: 11 }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         {label}
@@ -435,7 +435,7 @@ export default function InventoryTable({
                     </th>
                   )
                 })}
-                <th style={{ padding: '7px 10px', color: 'var(--muted)', fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                <th scope="col" style={{ padding: '7px 10px', color: 'var(--muted)', fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap', textAlign: 'center' }}>
                   Acciones
                 </th>
               </tr>

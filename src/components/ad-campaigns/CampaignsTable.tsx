@@ -451,6 +451,7 @@ export default function CampaignsTable({
                 return (
                   <th
                     key={key}
+                    scope="col"
                     onClick={() => handleSort(key)}
                     style={{
                       textAlign: align,
