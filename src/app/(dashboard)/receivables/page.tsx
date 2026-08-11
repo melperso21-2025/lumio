@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
 import Topbar from '@/components/layout/Topbar'
 import ReceivablesOverview from '@/components/receivables/ReceivablesOverview'
 import { getDefaultDateRange } from '@/lib/dateUtils'
@@ -28,7 +27,7 @@ export default async function ReceivablesPage({
   const to   = params.to   ?? defaults.to
 
   // Todos los AR del período + los pendientes fuera del período
-  const { data: arData } = await supabaseAdmin
+  const { data: arData } = await supabase
     .from('accounts_receivable')
     .select('id, sale_id, customer_id, amount, amount_paid, balance, issue_date, due_date, status, invoice_ref, notes, customers(full_name)')
     .eq('company_id', companyId)

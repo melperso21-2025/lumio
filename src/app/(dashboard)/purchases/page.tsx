@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
 import Topbar from '@/components/layout/Topbar'
 import PurchasesOverview from '@/components/purchases/PurchasesOverview'
 import { getDefaultDateRange } from '@/lib/dateUtils'
@@ -28,7 +27,7 @@ export default async function PurchasesPage({
   const to   = params.to   ?? defaults.to
 
   const [{ data: purchasesData }, { data: suppliersData }, { data: apData }] = await Promise.all([
-    supabaseAdmin
+    supabase
       .from('purchases')
       .select('id, purchase_date, invoice_ref, subtotal, tax_amount, total, payment_method, credit_days, status, notes, suppliers(id,name)')
       .eq('company_id', companyId)
@@ -36,14 +35,14 @@ export default async function PurchasesPage({
       .gte('purchase_date', from)
       .lte('purchase_date', to)
       .order('purchase_date', { ascending: false }),
-    supabaseAdmin
+    supabase
       .from('suppliers')
       .select('id, name')
       .eq('company_id', companyId)
       .is('deleted_at', null)
       .eq('is_active', true)
       .order('name'),
-    supabaseAdmin
+    supabase
       .from('accounts_payable')
       .select('id, purchase_id, amount, amount_paid, balance, status, due_date')
       .eq('company_id', companyId)

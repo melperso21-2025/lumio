@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
 import Topbar from '@/components/layout/Topbar'
 import PayablesOverview from '@/components/payables/PayablesOverview'
 import { getDefaultDateRange } from '@/lib/dateUtils'
@@ -27,7 +26,7 @@ export default async function PayablesPage({
   const from = params.from ?? defaults.from
   const to   = params.to   ?? defaults.to
 
-  const { data: apData } = await supabaseAdmin
+  const { data: apData } = await supabase
     .from('accounts_payable')
     .select('id, purchase_id, supplier_id, amount, amount_paid, balance, issue_date, due_date, status, notes, suppliers(name)')
     .eq('company_id', companyId)
