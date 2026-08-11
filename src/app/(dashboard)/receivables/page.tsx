@@ -43,7 +43,7 @@ export default async function ReceivablesPage({
 
   const totalPendiente = pending.reduce((s, r) => s + (r.balance as number ?? 0), 0)
   const totalVencido   = pending.filter(r => r.due_date < today).reduce((s, r) => s + (r.balance as number ?? 0), 0)
-  const totalCobrado   = paid.reduce((s, r) => s + (r.amount ?? 0), 0)
+  const totalCobrado   = paid.reduce((s, r) => s + (r.amount_paid ?? 0), 0)
 
   return (
     <>

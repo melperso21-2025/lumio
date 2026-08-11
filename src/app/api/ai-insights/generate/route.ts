@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
 import type { Database } from '@/lib/supabase/database.types'
+import { aiLimiter, checkRateLimit } from '@/lib/ratelimit'
 
 type WeeklySnapshotRow = Database['public']['Tables']['weekly_snapshots']['Row']
 
@@ -46,6 +47,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Parámetros incompletos' },
         { status: 400 }
+      )
+    }
+
+    // ── Rate limiting: 5 requests / 5 min por IP (endpoint costoso) ──────────
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+    const rl = await checkRateLimit(aiLimiter, `ai-generate:${ip}`)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Intenta en unos minutos.' },
+        { status: 429 }
       )
     }
 

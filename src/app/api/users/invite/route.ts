@@ -157,12 +157,12 @@ export async function POST(request: NextRequest) {
 
     if (authError) {
       if (authError.message.includes('already been registered')) {
-        const { data: listData } =
-          await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
-        const existingUser = listData?.users?.find(
-          (u) => u.email?.toLowerCase() === email.toLowerCase()
-        )
-        userId = existingUser?.id
+        const { data: existingUserRow } = await supabaseAdmin
+          .from('users')
+          .select('id')
+          .eq('email', email.toLowerCase())
+          .maybeSingle()
+        userId = existingUserRow?.id
       } else {
         return NextResponse.json(
           { error: authError.message },
