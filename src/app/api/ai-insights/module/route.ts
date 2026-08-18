@@ -258,6 +258,9 @@ INSTRUCCIONES DEL JSON:
     const message = await anthropic.messages.create({
       model: CLAUDE_MODEL,
       max_tokens: 1500,
+      // El razonamiento adaptativo viene activado por defecto y comparte
+      // max_tokens con la respuesta; desactivarlo evita que el JSON se corte.
+      thinking: { type: 'disabled' },
       messages: [{ role: 'user', content: prompt }],
     })
 

@@ -1,0 +1,174 @@
+<title>lumio — Arquitectura de Sistema</title>
+<style>
+:root{--bg:#080810;--bg2:#0D0D1A;--card:#12121F;--border:#1e1e35;--text:#E8E8F0;--muted:#7070A0;}
+@media(prefers-color-scheme:light){:root{--bg:#f4f4f8;--bg2:#e8e8f0;--card:#fff;--border:#d0d0e0;--text:#12121F;--muted:#6060a0;}}
+:root[data-theme="light"]{--bg:#f4f4f8;--bg2:#e8e8f0;--card:#fff;--border:#d0d0e0;--text:#12121F;--muted:#6060a0;}
+:root[data-theme="dark"]{--bg:#080810;--bg2:#0D0D1A;--card:#12121F;--border:#1e1e35;--text:#E8E8F0;--muted:#7070A0;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',system-ui,sans-serif;}
+.wrap{padding:16px;overflow-x:auto;}
+svg{max-width:100%;height:auto;}
+</style>
+<div class="wrap">
+<svg viewBox="0 0 900 640" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#F5C842"/>
+      <stop offset="100%" style="stop-color:#F09A1A"/>
+    </linearGradient>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#4a4a7a"/>
+    </marker>
+    <marker id="ag" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#F5C842"/>
+    </marker>
+    <marker id="ap" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#8B5CF6"/>
+    </marker>
+  </defs>
+  <rect width="900" height="640" fill="#080810"/>
+  <rect x="0" y="0" width="900" height="50" fill="#0D0D1A"/>
+  <text x="24" y="20" font-family="'Syne',sans-serif" font-weight="800" font-size="15" fill="url(#g)">lumio</text>
+  <text x="24" y="38" font-size="11" fill="#7070A0">Arquitectura de Sistema · Next.js 16 + Supabase + Claude API + Vercel</text>
+
+  <!-- LAYER LABELS -->
+  <text x="14" y="100" font-size="9" fill="#2a2a5a" letter-spacing="1.5" text-anchor="middle" transform="rotate(-90,14,100)">CLIENTE</text>
+  <text x="14" y="230" font-size="9" fill="#2a2a5a" letter-spacing="1.5" text-anchor="middle" transform="rotate(-90,14,230)">FRONTEND</text>
+  <text x="14" y="380" font-size="9" fill="#2a2a5a" letter-spacing="1.5" text-anchor="middle" transform="rotate(-90,14,380)">BACKEND</text>
+  <text x="14" y="530" font-size="9" fill="#2a2a5a" letter-spacing="1.5" text-anchor="middle" transform="rotate(-90,14,530)">SERVICIOS</text>
+
+  <line x1="28" y1="125" x2="875" y2="125" stroke="#1e1e35" stroke-width="1" stroke-dasharray="4,4"/>
+  <line x1="28" y1="280" x2="875" y2="280" stroke="#1e1e35" stroke-width="1" stroke-dasharray="4,4"/>
+  <line x1="28" y1="440" x2="875" y2="440" stroke="#1e1e35" stroke-width="1" stroke-dasharray="4,4"/>
+
+  <!-- CLIENT -->
+  <rect x="80" y="62" width="120" height="52" rx="8" fill="#12121F" stroke="#2a2a45"/>
+  <text x="140" y="83" text-anchor="middle" font-size="11" fill="#E8E8F0" font-weight="600">Navegador</text>
+  <text x="140" y="98" text-anchor="middle" font-size="9" fill="#7070A0">Chrome / Firefox</text>
+  <text x="140" y="111" text-anchor="middle" font-size="9" fill="#7070A0">HTTPS</text>
+
+  <rect x="230" y="62" width="120" height="52" rx="8" fill="#12121F" stroke="#1e1e35" stroke-dasharray="3,3"/>
+  <text x="290" y="83" text-anchor="middle" font-size="11" fill="#4a4a7a" font-weight="600">App Móvil</text>
+  <text x="290" y="98" text-anchor="middle" font-size="9" fill="#4a4a7a">Roadmap v2</text>
+
+  <rect x="380" y="62" width="150" height="52" rx="8" fill="#12121F" stroke="#1e1e35" stroke-dasharray="3,3"/>
+  <text x="455" y="83" text-anchor="middle" font-size="11" fill="#4a4a7a" font-weight="600">APIs Externas</text>
+  <text x="455" y="98" text-anchor="middle" font-size="9" fill="#4a4a7a">Meta / Google / TikTok</text>
+  <text x="455" y="111" text-anchor="middle" font-size="9" fill="#4a4a7a">SRI Ecuador · Roadmap</text>
+
+  <!-- NEXT.JS -->
+  <rect x="40" y="140" width="530" height="125" rx="10" fill="#0D0D1A" stroke="#2a2a45"/>
+  <text x="56" y="160" font-size="10" fill="#7070A0" font-weight="600" letter-spacing="0.8">NEXT.JS 16 · APP ROUTER · VERCEL</text>
+
+  <rect x="56" y="170" width="96" height="36" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="104" y="185" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">Server</text>
+  <text x="104" y="197" text-anchor="middle" font-size="9" fill="#7070A0">Components</text>
+
+  <rect x="164" y="170" width="96" height="36" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="212" y="185" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">Client</text>
+  <text x="212" y="197" text-anchor="middle" font-size="9" fill="#7070A0">Components</text>
+
+  <rect x="272" y="170" width="96" height="36" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="320" y="185" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">API Routes</text>
+  <text x="320" y="197" text-anchor="middle" font-size="9" fill="#7070A0">/api/**</text>
+
+  <rect x="380" y="170" width="96" height="36" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="428" y="185" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">Middleware</text>
+  <text x="428" y="197" text-anchor="middle" font-size="9" fill="#7070A0">Auth guard</text>
+
+  <rect x="56" y="218" width="498" height="36" rx="6" fill="#080810" stroke="#1e1e35"/>
+  <text x="66" y="234" font-size="9" fill="#4a4a7a">Módulos: </text>
+  <text x="66" y="248" font-size="9" fill="#7070A0">Dashboard · Ventas · Inventario · Clientes · Marketing · Reportes · AI Insights · Importación · Pulse Admin</text>
+
+  <!-- VERCEL -->
+  <rect x="590" y="140" width="120" height="52" rx="8" fill="#12121F" stroke="#F5C842"/>
+  <text x="650" y="162" text-anchor="middle" font-size="11" fill="#F5C842" font-weight="700">Vercel</text>
+  <text x="650" y="177" text-anchor="middle" font-size="9" fill="#7070A0">staging.lumio.ec</text>
+  <text x="650" y="190" text-anchor="middle" font-size="9" fill="#7070A0">Edge · CDN</text>
+
+  <!-- UPSTASH -->
+  <rect x="730" y="140" width="120" height="52" rx="8" fill="#12121F" stroke="#8B5CF6"/>
+  <text x="790" y="162" text-anchor="middle" font-size="11" fill="#a78bfa" font-weight="700">Upstash Redis</text>
+  <text x="790" y="177" text-anchor="middle" font-size="9" fill="#7070A0">Rate Limiting</text>
+  <text x="790" y="190" text-anchor="middle" font-size="9" fill="#7070A0">authLimiter · aiLimiter</text>
+
+  <!-- SUPABASE -->
+  <rect x="40" y="295" width="530" height="130" rx="10" fill="#0D0D1A" stroke="#059669"/>
+  <text x="56" y="315" font-size="10" fill="#059669" font-weight="600" letter-spacing="0.8">SUPABASE · POSTGRESQL</text>
+
+  <rect x="56" y="324" width="96" height="40" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="104" y="340" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">Auth</text>
+  <text x="104" y="353" text-anchor="middle" font-size="9" fill="#7070A0">email+password</text>
+  <text x="104" y="362" text-anchor="middle" font-size="8" fill="#4a4a7a">session_token</text>
+
+  <rect x="164" y="324" width="96" height="40" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="212" y="340" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">RLS</text>
+  <text x="212" y="353" text-anchor="middle" font-size="9" fill="#7070A0">Row Level Security</text>
+  <text x="212" y="362" text-anchor="middle" font-size="8" fill="#4a4a7a">company_id isolation</text>
+
+  <rect x="272" y="324" width="96" height="40" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="320" y="340" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">Triggers</text>
+  <text x="320" y="353" text-anchor="middle" font-size="9" fill="#7070A0">14 triggers activos</text>
+  <text x="320" y="362" text-anchor="middle" font-size="8" fill="#4a4a7a">SECURITY DEFINER</text>
+
+  <rect x="380" y="324" width="96" height="40" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="428" y="340" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">Storage</text>
+  <text x="428" y="353" text-anchor="middle" font-size="9" fill="#7070A0">Logos · Avatares</text>
+
+  <rect x="56" y="376" width="498" height="36" rx="6" fill="#080810" stroke="#1e1e35"/>
+  <text x="66" y="392" font-size="9" fill="#4a4a7a">Schema: </text>
+  <text x="66" y="404" font-size="9" fill="#7070A0">31 tablas · 14 triggers · 17 funciones · Soft-delete en todas las tablas de negocio</text>
+
+  <!-- CLAUDE -->
+  <rect x="590" y="295" width="120" height="52" rx="8" fill="#12121F" stroke="#8B5CF6"/>
+  <text x="650" y="317" text-anchor="middle" font-size="11" fill="#a78bfa" font-weight="700">Claude API</text>
+  <text x="650" y="332" text-anchor="middle" font-size="9" fill="#7070A0">claude-sonnet-4-7</text>
+  <text x="650" y="343" text-anchor="middle" font-size="9" fill="#7070A0">AI Insights</text>
+
+  <!-- SHEETJS -->
+  <rect x="730" y="295" width="120" height="52" rx="8" fill="#12121F" stroke="#059669"/>
+  <text x="790" y="317" text-anchor="middle" font-size="11" fill="#6ee7b7" font-weight="700">SheetJS</text>
+  <text x="790" y="332" text-anchor="middle" font-size="9" fill="#7070A0">Excel Import/Export</text>
+
+  <!-- SERVICIOS -->
+  <rect x="56" y="460" width="120" height="52" rx="8" fill="#12121F" stroke="#3B82F6"/>
+  <text x="116" y="482" text-anchor="middle" font-size="11" fill="#93c5fd" font-weight="700">Resend</text>
+  <text x="116" y="497" text-anchor="middle" font-size="9" fill="#7070A0">Email transaccional</text>
+  <text x="116" y="508" text-anchor="middle" font-size="9" fill="#7070A0">Invitaciones · Reset</text>
+
+  <rect x="200" y="460" width="120" height="52" rx="8" fill="#12121F" stroke="#F5C842"/>
+  <text x="260" y="482" text-anchor="middle" font-size="11" fill="#F5C842" font-weight="700">Vercel Cron</text>
+  <text x="260" y="497" text-anchor="middle" font-size="9" fill="#7070A0">Stock alerts</text>
+  <text x="260" y="508" text-anchor="middle" font-size="9" fill="#7070A0">Weekly snapshots</text>
+
+  <rect x="344" y="460" width="120" height="52" rx="8" fill="#12121F" stroke="#2a2a45"/>
+  <text x="404" y="482" text-anchor="middle" font-size="11" fill="#E8E8F0" font-weight="700">GitHub</text>
+  <text x="404" y="497" text-anchor="middle" font-size="9" fill="#7070A0">melperso21-2025/lumio</text>
+  <text x="404" y="508" text-anchor="middle" font-size="9" fill="#7070A0">dev → main</text>
+
+  <!-- ARROWS -->
+  <line x1="140" y1="114" x2="140" y2="138" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="305" y1="265" x2="305" y2="293" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="590" y1="220" x2="600" y2="250" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#ap)"/>
+  <line x1="650" y1="265" x2="650" y2="293" stroke="#8B5CF6" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="590" y1="166" x2="570" y2="166" stroke="#F5C842" stroke-width="1" marker-end="url(#a)"/>
+  <line x1="290" y1="265" x2="116" y2="458" stroke="#3B82F6" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#a)"/>
+
+  <!-- LEGEND -->
+  <rect x="40" y="560" width="820" height="60" rx="8" fill="#0D0D1A" stroke="#1e1e35"/>
+  <text x="56" y="578" font-size="9" fill="#4a4a7a" font-weight="600" letter-spacing="0.8">LEYENDA</text>
+  <rect x="56" y="586" width="8" height="8" rx="2" fill="#059669"/>
+  <text x="70" y="594" font-size="9" fill="#7070A0">Supabase / DB</text>
+  <rect x="160" y="586" width="8" height="8" rx="2" fill="#8B5CF6"/>
+  <text x="174" y="594" font-size="9" fill="#7070A0">IA / Claude</text>
+  <rect x="250" y="586" width="8" height="8" rx="2" fill="#F5C842"/>
+  <text x="264" y="594" font-size="9" fill="#7070A0">Vercel / Deploy</text>
+  <rect x="360" y="586" width="8" height="8" rx="2" fill="#3B82F6"/>
+  <text x="374" y="594" font-size="9" fill="#7070A0">Email / Comms</text>
+  <line x1="460" y1="590" x2="490" y2="590" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <text x="496" y="594" font-size="9" fill="#7070A0">Llamada IA</text>
+  <line x1="560" y1="590" x2="590" y2="590" stroke="#1e1e35" stroke-width="1.5" stroke-dasharray="3,3"/>
+  <text x="596" y="594" font-size="9" fill="#4a4a7a">Roadmap / futuro</text>
+  <text x="56" y="612" font-size="9" fill="#4a4a7a">TypeScript strict · Tailwind CSS v4 · RLS en todas las tablas · SECURITY DEFINER en triggers · rate limiting Upstash · soft-delete universal</text>
+</svg>
+</div>

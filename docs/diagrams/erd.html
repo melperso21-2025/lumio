@@ -1,0 +1,470 @@
+<title>lumio — Diagrama ERD</title>
+<style>
+  :root {
+    --bg: #080810;
+    --bg2: #0D0D1A;
+    --card: #12121F;
+    --border: #1e1e35;
+    --border2: #2a2a45;
+    --text: #E8E8F0;
+    --text2: #a0a0c0;
+    --muted: #7070A0;
+    --gold: #F5C842;
+    --gold2: #F09A1A;
+    --green: #059669;
+    --red: #DC2626;
+    --blue: #3B82F6;
+    --purple: #8B5CF6;
+    --teal: #0D9488;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f4f4f8; --bg2: #e8e8f0; --card: #ffffff;
+      --border: #d0d0e0; --border2: #b8b8d0;
+      --text: #12121F; --text2: #3a3a5a; --muted: #6060a0;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f4f8; --bg2: #e8e8f0; --card: #ffffff;
+    --border: #d0d0e0; --border2: #b8b8d0;
+    --text: #12121F; --text2: #3a3a5a; --muted: #6060a0;
+  }
+  :root[data-theme="dark"] {
+    --bg: #080810; --bg2: #0D0D1A; --card: #12121F;
+    --border: #1e1e35; --border2: #2a2a45;
+    --text: #E8E8F0; --text2: #a0a0c0; --muted: #7070A0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  header {
+    padding: 20px 28px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    background: linear-gradient(90deg, #F5C842, #F09A1A);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header .subtitle {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  .legend {
+    display: flex;
+    gap: 16px;
+    padding: 10px 28px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .legend-dot {
+    width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
+  }
+  .canvas-wrap {
+    overflow: auto;
+    padding: 28px;
+    background: var(--bg);
+    min-height: calc(100vh - 90px);
+  }
+  svg text { font-family: 'DM Sans', system-ui, sans-serif; }
+</style>
+
+<header>
+  <div>
+    <div class="logo">lumio</div>
+    <div class="subtitle">Diagrama de Arquitectura de Base de Datos (ERD) · Supabase PostgreSQL</div>
+  </div>
+</header>
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#F5C842"></div>Sistema / Tenant</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#059669"></div>Ventas</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#3B82F6"></div>Finanzas</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#8B5CF6"></div>IA / Insights</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#F09A1A"></div>Marketing</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#0D9488"></div>Catálogos</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#DC2626"></div>Auditoría</div>
+</div>
+<div class="canvas-wrap">
+<pre class="mermaid">
+%%{init: {
+  'theme': 'dark',
+  'themeVariables': {
+    'primaryColor': '#12121F',
+    'primaryTextColor': '#E8E8F0',
+    'primaryBorderColor': '#2a2a45',
+    'lineColor': '#7070A0',
+    'secondaryColor': '#0D0D1A',
+    'tertiaryColor': '#080810',
+    'edgeLabelBackground': '#12121F',
+    'clusterBkg': '#0D0D1A'
+  }
+}}%%
+erDiagram
+  companies {
+    uuid id PK
+    text name
+    text ruc
+    text plan
+    int max_users
+    int ai_monthly_used
+    timestamptz created_at
+    timestamptz deleted_at
+  }
+  users {
+    uuid id PK
+    text email
+    text full_name
+    uuid company_id FK
+    text role
+    text session_token
+    timestamptz created_at
+  }
+  user_company_memberships {
+    uuid id PK
+    uuid user_id FK
+    uuid company_id FK
+    text role
+    timestamptz created_at
+  }
+  customers {
+    uuid id PK
+    uuid company_id FK
+    text full_name
+    text email
+    text phone
+    text id_type
+    text id_number
+    uuid type_id FK
+    uuid label_id FK
+    numeric total_purchases
+    int total_orders
+    timestamptz deleted_at
+  }
+  customer_types {
+    uuid id PK
+    uuid company_id FK
+    text name
+    text color
+    timestamptz deleted_at
+  }
+  customer_labels {
+    uuid id PK
+    uuid company_id FK
+    text name
+    text color
+    timestamptz deleted_at
+  }
+  products {
+    uuid id PK
+    uuid company_id FK
+    text name
+    text sku
+    numeric price
+    numeric cost
+    numeric current_stock
+    numeric min_stock
+    boolean is_active
+    timestamptz deleted_at
+  }
+  product_price_history {
+    uuid id PK
+    uuid company_id FK
+    uuid product_id FK
+    numeric old_price
+    numeric new_price
+    numeric old_cost
+    numeric new_cost
+    uuid changed_by FK
+    timestamptz changed_at
+  }
+  suppliers {
+    uuid id PK
+    uuid company_id FK
+    text name
+    text ruc
+    text id_type
+    text email
+    text phone
+    int payment_terms
+    timestamptz deleted_at
+  }
+  sales {
+    uuid id PK
+    uuid company_id FK
+    uuid customer_id FK
+    date sale_date
+    text payment_method
+    int credit_days
+    numeric gross_total
+    numeric discount_amount
+    numeric net_total
+    text status
+    uuid branch_id FK
+    timestamptz deleted_at
+  }
+  sale_items {
+    uuid id PK
+    uuid company_id FK
+    uuid sale_id FK
+    uuid product_id FK
+    numeric quantity
+    numeric unit_price
+    numeric unit_cost
+    numeric discount_pct
+    numeric subtotal
+    timestamptz deleted_at
+  }
+  inventory_movements {
+    uuid id PK
+    uuid company_id FK
+    uuid product_id FK
+    text type
+    numeric quantity
+    text reason
+    timestamptz movement_date
+    uuid sale_item_id FK
+    uuid purchase_item_id FK
+  }
+  purchases {
+    uuid id PK
+    uuid company_id FK
+    uuid supplier_id FK
+    date purchase_date
+    text invoice_ref
+    numeric subtotal
+    numeric tax_amount
+    numeric total
+    text payment_method
+    int credit_days
+    text status
+    timestamptz deleted_at
+  }
+  purchase_items {
+    uuid id PK
+    uuid company_id FK
+    uuid purchase_id FK
+    uuid product_id FK
+    numeric quantity
+    numeric unit_cost
+    numeric subtotal
+    timestamptz deleted_at
+  }
+  accounts_receivable {
+    uuid id PK
+    uuid company_id FK
+    uuid sale_id FK
+    uuid customer_id FK
+    numeric amount
+    numeric amount_paid
+    numeric balance
+    date due_date
+    text status
+    timestamptz deleted_at
+  }
+  ar_payments {
+    uuid id PK
+    uuid company_id FK
+    uuid ar_id FK
+    date payment_date
+    numeric amount
+    text payment_method
+    timestamptz deleted_at
+  }
+  accounts_payable {
+    uuid id PK
+    uuid company_id FK
+    uuid supplier_id FK
+    uuid purchase_id FK
+    numeric amount
+    numeric amount_paid
+    numeric balance
+    date due_date
+    text status
+    timestamptz deleted_at
+  }
+  ap_payments {
+    uuid id PK
+    uuid company_id FK
+    uuid ap_id FK
+    date payment_date
+    numeric amount
+    text payment_method
+    timestamptz deleted_at
+  }
+  bank_accounts {
+    uuid id PK
+    uuid company_id FK
+    text bank_name
+    text account_type
+    numeric balance
+    timestamptz deleted_at
+  }
+  bank_transactions {
+    uuid id PK
+    uuid company_id FK
+    uuid account_id FK
+    date tx_date
+    text description
+    numeric amount
+    text type
+    uuid category_id FK
+    timestamptz deleted_at
+  }
+  bank_transaction_categories {
+    uuid id PK
+    uuid company_id FK
+    text name
+    text type
+    boolean is_default
+    timestamptz deleted_at
+  }
+  ad_campaigns {
+    uuid id PK
+    uuid company_id FK
+    text name
+    text platform
+    numeric spend
+    numeric revenue
+    numeric roas
+    numeric effectiveness
+    text status
+    timestamptz deleted_at
+  }
+  weekly_snapshots {
+    uuid id PK
+    uuid company_id FK
+    int week_number
+    int year
+    numeric total_revenue
+    numeric net_profit
+    numeric avg_roas
+    numeric inventory_days
+    timestamptz created_at
+  }
+  ai_insights {
+    uuid id PK
+    uuid company_id FK
+    int week_number
+    int year
+    text type
+    text content
+    text summary
+    timestamptz deleted_at
+  }
+  insight_requests {
+    uuid id PK
+    uuid company_id FK
+    uuid requested_by FK
+    int week_number
+    text status
+    timestamptz deleted_at
+  }
+  ai_module_insights {
+    uuid id PK
+    uuid company_id FK
+    text module
+    text summary
+    jsonb playbook
+    int tokens_used
+    timestamptz deleted_at
+  }
+  playbook_actions {
+    uuid id PK
+    uuid company_id FK
+    uuid source_id
+    text action
+    text priority
+    text status
+    timestamptz deleted_at
+  }
+  import_logs {
+    uuid id PK
+    uuid company_id FK
+    text entity_type
+    text status
+    jsonb errors
+    text[] imported_ids
+    timestamptz deleted_at
+  }
+  branches {
+    uuid id PK
+    uuid company_id FK
+    text name
+    text type
+    boolean is_active
+    timestamptz deleted_at
+  }
+  sale_statuses {
+    uuid id PK
+    uuid company_id FK
+    text name
+    text color
+    boolean is_active
+    timestamptz deleted_at
+  }
+
+  companies ||--o{ users : "tiene"
+  companies ||--o{ user_company_memberships : "tiene"
+  companies ||--o{ customers : "tiene"
+  companies ||--o{ products : "tiene"
+  companies ||--o{ suppliers : "tiene"
+  companies ||--o{ sales : "tiene"
+  companies ||--o{ purchases : "tiene"
+  companies ||--o{ bank_accounts : "tiene"
+  companies ||--o{ ad_campaigns : "tiene"
+  companies ||--o{ weekly_snapshots : "tiene"
+  companies ||--o{ ai_insights : "tiene"
+  companies ||--o{ ai_module_insights : "tiene"
+  companies ||--o{ branches : "tiene"
+  companies ||--o{ sale_statuses : "tiene"
+  companies ||--o{ import_logs : "tiene"
+  users ||--o{ user_company_memberships : "pertenece"
+  customers ||--o| customer_types : "tipo"
+  customers ||--o| customer_labels : "etiqueta"
+  customers ||--o{ sales : "compra"
+  customers ||--o{ accounts_receivable : "debe"
+  products ||--o{ sale_items : "vendido en"
+  products ||--o{ purchase_items : "comprado en"
+  products ||--o{ inventory_movements : "mueve"
+  products ||--o{ product_price_history : "historial"
+  suppliers ||--o{ purchases : "proveé"
+  suppliers ||--o{ accounts_payable : "deuda a"
+  sales ||--o{ sale_items : "contiene"
+  sales ||--o| accounts_receivable : "genera"
+  sale_items ||--o{ inventory_movements : "mueve stock"
+  purchases ||--o{ purchase_items : "contiene"
+  purchases ||--o| accounts_payable : "genera"
+  purchase_items ||--o{ inventory_movements : "entrada stock"
+  accounts_receivable ||--o{ ar_payments : "cobros"
+  accounts_payable ||--o{ ap_payments : "pagos"
+  bank_accounts ||--o{ bank_transactions : "movimientos"
+  bank_transactions ||--o| bank_transaction_categories : "categoría"
+  insight_requests ||--o| users : "solicitado por"
+</pre>
+</div>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.getAttribute('data-theme') === 'light' ? 'default' : 'dark' });
+</script>
