@@ -412,7 +412,7 @@ Cuentas bancarias del negocio.
 | company_id | UUID | NO | — | FK → companies(id) |
 | bank_name | TEXT | NO | — | |
 | account_number | TEXT | SÍ | — | Últimos 4 dígitos u ofuscado |
-| account_type | TEXT | SÍ | — | corriente / ahorros |
+| account_type | TEXT | SÍ | — | CHECK: `checking` \| `savings` \| `cash` \| `other` (verificado 18-ago-2026) |
 | currency | TEXT | NO | 'USD' | |
 | balance | NUMERIC(12,4) | NO | 0 | Actualizado por trigger desde bank_transactions |
 | is_active | BOOLEAN | NO | true | |

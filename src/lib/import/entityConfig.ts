@@ -199,7 +199,7 @@ export const ENTITY_DEFS: Record<EntityType, EntityDef> = {
     dedupFields: ['account_number'],
     fields: [
       { key: 'bank_name',       label: 'nombre_banco',   required: true,  type: 'text',   example: 'Banco Pichincha' },
-      { key: 'account_type',    label: 'tipo_cuenta',    required: false, type: 'text',   example: 'corriente', hint: 'ahorros|corriente' },
+      { key: 'account_type',    label: 'tipo_cuenta',    required: false, type: 'text',   example: 'corriente', hint: 'corriente|ahorros|caja chica|otra' },
       { key: 'account_number',  label: 'numero_cuenta',  required: false, type: 'text',   example: '2200123456' },
       { key: 'initial_balance', label: 'saldo_inicial',  required: false, type: 'number', example: '5000.00' },
     ],

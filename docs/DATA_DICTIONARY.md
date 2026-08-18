@@ -57,10 +57,14 @@
 | `card` | Tarjeta de crédito/débito |
 
 ### sales.status
+> Verificado contra la restricción `CHECK` de la tabla el 18-ago-2026.
+> La base **rechaza** `pending` y `completed`.
+
 | Valor | Descripción |
 |---|---|
-| `pending` | Venta registrada pero no completada |
-| `completed` | Venta finalizada |
+| `closed` | Venta cerrada (valor por defecto en importación) |
+| `review` | Venta en revisión |
+| `contact` | Pendiente de contacto con el cliente |
 | `cancelled` | Venta cancelada — revierte inventario y cancela CxC asociada |
 
 ### accounts_receivable.status / accounts_payable.status
@@ -80,13 +84,18 @@
 | `adjustment` | Ajuste físico absoluto | `current_stock = quantity` (sobrescribe) |
 
 ### inventory_movements.reason
+> Verificado contra la restricción `CHECK` el 18-ago-2026.
+> La base **rechaza** `sale_reversal`.
+
 | Valor | Origen |
 |---|---|
 | `sale` | Generado automáticamente por `tg_sync_inventory_from_sale_item` |
 | `purchase` | Generado automáticamente por `tg_sync_inventory_from_purchase_item` |
+| `return` | Devolución de mercadería |
 | `adjustment` | Creado manualmente (conteo físico) |
+| `damage` | Merma o producto dañado |
+| `transfer` | Traslado entre sucursales |
 | `initial` | Stock inicial al crear el producto |
-| `sale_reversal` | Reversión al editar/cancelar un sale_item |
 
 ### ai_insights.type
 | Valor | Descripción |
@@ -132,12 +141,15 @@
 | `ruc_extranjero` | RUC o tax ID extranjero | Alfanumérico, longitud flexible |
 
 ### ad_campaigns.platform
+> Verificado contra la restricción `CHECK` el 18-ago-2026.
+> La base **rechaza** `otro`: hoy no es posible registrar campañas de una red
+> distinta a las tres listadas. Ver PENDING.md.
+
 | Valor | Red publicitaria |
 |---|---|
 | `meta` | Meta Ads (Facebook / Instagram) |
 | `google` | Google Ads |
 | `tiktok` | TikTok Ads |
-| `otro` | Otra red o canal offline |
 
 ### import_logs.status
 | Valor | Descripción |

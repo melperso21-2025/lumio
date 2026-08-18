@@ -149,6 +149,98 @@ function normalizeSupplierAccountType(
   }
 }
 
+/**
+ * Valida un valor contra el conjunto que acepta la restricción CHECK de su
+ * columna, admitiendo sinónimos frecuentes en español. Lanza un error
+ * descriptivo cuando no corresponde, de modo que la validación previa lo
+ * detecte antes de escribir en la base.
+ *
+ * Los conjuntos de abajo fueron verificados contra la base de datos; no
+ * modificarlos sin comprobar la restricción correspondiente.
+ */
+function normalizeEnum(
+  raw: unknown,
+  campo: string,
+  mapa: Record<string, string>,
+  opciones: { requerido?: boolean; porDefecto?: string } = {}
+): string | null {
+  const s = raw == null ? '' : String(raw).toLowerCase().trim()
+  if (s === '') {
+    if (opciones.requerido) throw new Error(`"${campo}" es obligatorio`)
+    return opciones.porDefecto ?? null
+  }
+  const valor = mapa[s]
+  if (!valor) {
+    const validos = [...new Set(Object.values(mapa))].join(', ')
+    throw new Error(
+      `${campo} inválido: "${String(raw).trim()}". Valores aceptados: ${validos}`
+    )
+  }
+  return valor
+}
+
+// ad_campaigns.platform → CHECK acepta: meta, google, tiktok
+const MAPA_PLATAFORMA: Record<string, string> = {
+  meta: 'meta', 'meta ads': 'meta', facebook: 'meta', 'facebook ads': 'meta', instagram: 'meta',
+  google: 'google', 'google ads': 'google', adwords: 'google',
+  tiktok: 'tiktok', 'tiktok ads': 'tiktok',
+}
+
+// products.product_type → CHECK acepta: product, service
+const MAPA_TIPO_PRODUCTO: Record<string, string> = {
+  product: 'product', producto: 'product', bien: 'product',
+  service: 'service', servicio: 'service',
+}
+
+// products.unit_type → CHECK acepta: unit, weight, volume, length, area
+const MAPA_TIPO_UNIDAD: Record<string, string> = {
+  unit: 'unit', unidad: 'unit', unidades: 'unit',
+  weight: 'weight', peso: 'weight',
+  volume: 'volume', volumen: 'volume',
+  length: 'length', longitud: 'length', largo: 'length',
+  area: 'area', superficie: 'area',
+}
+
+// customers.id_type / suppliers.id_type → CHECK acepta:
+// cedula, ruc, pasaporte, ruc_extranjero
+const MAPA_TIPO_DOCUMENTO: Record<string, string> = {
+  cedula: 'cedula', 'cédula': 'cedula', ci: 'cedula',
+  ruc: 'ruc',
+  pasaporte: 'pasaporte', passport: 'pasaporte',
+  ruc_extranjero: 'ruc_extranjero', 'ruc extranjero': 'ruc_extranjero',
+}
+
+/**
+ * Normaliza el tipo de cuenta bancaria al valor que exige la restricción
+ * `bank_accounts_account_type_check`: 'checking' | 'savings' | 'cash' | 'other'.
+ * Acepta sinónimos en español porque son los que el usuario escribe en la
+ * plantilla, y devuelve error explícito si el valor no corresponde a ninguno,
+ * de modo que la validación previa lo detecte antes de escribir en la base.
+ */
+function normalizeBankAccountType(
+  raw: unknown
+): { account_type: string | null; error?: string } {
+  if (raw == null || String(raw).trim() === '') return { account_type: null }
+  const s = String(raw).toLowerCase().trim()
+
+  if (['checking', 'corriente', 'cuenta corriente', 'cheque', 'cheking'].includes(s)) {
+    return { account_type: 'checking' }
+  }
+  if (['savings', 'ahorro', 'ahorros', 'cuenta de ahorros'].includes(s)) {
+    return { account_type: 'savings' }
+  }
+  if (['cash', 'caja', 'caja chica', 'efectivo'].includes(s)) {
+    return { account_type: 'cash' }
+  }
+  if (['other', 'otra', 'otro'].includes(s)) {
+    return { account_type: 'other' }
+  }
+  return {
+    account_type: null,
+    error: `tipo_cuenta inválido: "${String(raw).trim()}". Valores aceptados: corriente, ahorros, caja chica u otra.`,
+  }
+}
+
 function normalizeSupplierBankAccount(raw: unknown): string | undefined {
   if (raw == null) return undefined
   const s = String(raw).trim()
@@ -194,7 +286,7 @@ export async function validateAndTransform(
         name:       is_company ? (row['nombre_empresa']?.trim() || undefined) : undefined,
         first_name: is_company ? undefined : (row['nombre']?.trim()   || undefined),
         last_name:  is_company ? undefined : (row['apellido']?.trim() || undefined),
-        id_type:    row['documento_tipo']?.trim()?.toLowerCase(),
+        id_type:    normalizeEnum(row['documento_tipo'], 'documento_tipo', MAPA_TIPO_DOCUMENTO) ?? undefined,
         tax_id:     row['documento_numero']?.trim(),
         celular:    row['celular']?.trim(),
         telefono:   row['telefono']?.trim(),
@@ -315,7 +407,9 @@ export async function validateAndTransform(
       const category_id= catName ? ctx.categoriesMap[catName] ?? null : null
       if (catName && !category_id) warnings.push(`Categoría "${row['categoria_nombre']}" no encontrada`)
 
-      const product_type = row['tipo_producto']?.trim() || 'product'
+      const product_type = normalizeEnum(
+        row['tipo_producto'], 'tipo_producto', MAPA_TIPO_PRODUCTO, { porDefecto: 'product' }
+      )
       const isService    = product_type === 'service'
 
       return {
@@ -328,7 +422,9 @@ export async function validateAndTransform(
           supplier_id,
           category_id,
           product_type,
-          unit_type:       isService ? null : (row['tipo_unidad']?.trim() || 'unit'),
+          unit_type:       isService
+            ? null
+            : normalizeEnum(row['tipo_unidad'], 'tipo_unidad', MAPA_TIPO_UNIDAD, { porDefecto: 'unit' }),
           unit_label:      isService ? null : (row['unidad']?.trim() || 'unidad'),
           current_stock:   isService ? 0 : (parseNum(row['stock_inicial']) ?? 0),
           min_stock_alert: isService ? 0 : (parseNum(row['stock_minimo']) ?? 0),
@@ -353,7 +449,7 @@ export async function validateAndTransform(
         email:     row['email']?.trim(),
         mobile:    row['celular']?.trim(),
         phone:     row['telefono']?.trim(),
-        id_type:   row['tipo_id']?.trim().toLowerCase(),
+        id_type:   normalizeEnum(row['tipo_id'], 'tipo_id', MAPA_TIPO_DOCUMENTO) ?? undefined,
         tax_id:    row['numero_id']?.trim(),
         customer_type: row['tipo_cliente']?.trim(),
         label:     row['etiqueta']?.trim(),
@@ -419,11 +515,13 @@ export async function validateAndTransform(
       if (accountNum && ctx.existingBankAcctNums.has(accountNum)) {
         warnings.push(`Cuenta "${accountNum}" ya existe`)
       }
+      const bankTypeNorm = normalizeBankAccountType(row['tipo_cuenta'])
+      if (bankTypeNorm.error) throw new Error(bankTypeNorm.error)
       return {
         data: {
           company_id:      ctx.companyId,
           bank_name,
-          account_type:    row['tipo_cuenta']?.trim() || null,
+          account_type:    bankTypeNorm.account_type,
           account_number:  accountNum || null,
           initial_balance: parseNum(row['saldo_inicial']) ?? 0,
           current_balance: parseNum(row['saldo_inicial']) ?? 0,
@@ -509,8 +607,9 @@ export async function validateAndTransform(
 
     // ── ad_campaigns ────────────────────────────────────────────────────
     case 'ad_campaigns': {
-      const platform = row['plataforma']?.trim().toLowerCase()
-      if (!platform) throw new Error('"plataforma" es obligatorio')
+      const platform = normalizeEnum(
+        row['plataforma'], 'plataforma', MAPA_PLATAFORMA, { requerido: true }
+      )
 
       const campaign_date = parseDate(row['fecha_campana'])
       if (!campaign_date) throw new Error('"fecha_campana" inválida')

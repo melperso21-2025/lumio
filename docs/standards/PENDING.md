@@ -25,6 +25,25 @@
 
 ---
 
+## Modelo de datos
+
+- [ ] **`ad_campaigns.platform` no admite `otro`**
+  - La restricción `CHECK` acepta únicamente `meta`, `google` y `tiktok`
+  - No se puede registrar inversión en una red distinta (LinkedIn, radio,
+    prensa) ni canales offline
+  - El diccionario de datos documentaba `otro` como válido; corregido el
+    18-ago-2026 tras verificar la restricción contra la base
+  - Fix: migración que amplíe el `CHECK` a `otro`, y agregar el valor al
+    formulario de campañas y al mapa `MAPA_PLATAFORMA` de `rowProcessor.ts`
+
+- [ ] **`suppliers.account_type` admite menos valores que `bank_accounts`**
+  - Proveedores: solo `savings` y `checking`
+  - Cuentas bancarias: `checking`, `savings`, `cash`, `other`
+  - Inconsistencia entre dos columnas con el mismo nombre y propósito
+  - Fix: unificar ambos conjuntos en una migración
+
+---
+
 ## Seguridad — deuda técnica
 
 - [ ] **S5 (trigger CxC)**: `tg_create_ar_from_sale` solo se dispara en `AFTER UPDATE`, no en `AFTER INSERT`
