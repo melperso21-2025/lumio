@@ -288,6 +288,11 @@ function updateContext(
         ctx.existingBankAcctNums.add(String(data.account_number))
       }
       break
+    case 'bank_transaction_categories':
+      // Permite que las transacciones de la misma importación referencien
+      // una categoría creada en este mismo lote.
+      if (data.name) ctx.bankTxCategoriesMap[String(data.name).toLowerCase()] = insertedId
+      break
     case 'sales': {
       const email = String(ctx.customersMapByEmail[String(data.customer_id ?? '')] ?? '')
       const date  = String(data.sale_date ?? '')

@@ -210,6 +210,13 @@ const MAPA_TIPO_DOCUMENTO: Record<string, string> = {
   ruc_extranjero: 'ruc_extranjero', 'ruc extranjero': 'ruc_extranjero',
 }
 
+// bank_transaction_categories.type → CHECK acepta: income, expense, both
+const MAPA_TIPO_CATEGORIA: Record<string, string> = {
+  income: 'income', ingreso: 'income', ingresos: 'income',
+  expense: 'expense', egreso: 'expense', egresos: 'expense', gasto: 'expense', gastos: 'expense',
+  both: 'both', ambos: 'both', ambas: 'both', todos: 'both',
+}
+
 /**
  * Normaliza el tipo de cuenta bancaria al valor que exige la restricción
  * `bank_accounts_account_type_check`: 'checking' | 'savings' | 'cash' | 'other'.
@@ -526,6 +533,27 @@ export async function validateAndTransform(
           initial_balance: parseNum(row['saldo_inicial']) ?? 0,
           current_balance: parseNum(row['saldo_inicial']) ?? 0,
           is_active:       true,
+        },
+        warnings,
+      }
+    }
+
+    // ── bank_transaction_categories ─────────────────────────────────────
+    case 'bank_transaction_categories': {
+      const name = row['nombre']?.trim()
+      if (!name) throw new Error('El campo "nombre" es obligatorio')
+
+      // UNIQUE (company_id, name) en la base: avisar antes de que falle
+      if (ctx.bankTxCategoriesMap[name.toLowerCase()]) {
+        warnings.push(`La categoría "${name}" ya existe y se omitirá`)
+      }
+
+      return {
+        data: {
+          company_id: ctx.companyId,
+          name,
+          type: normalizeEnum(row['tipo'], 'tipo', MAPA_TIPO_CATEGORIA, { porDefecto: 'both' }),
+          is_active: true,
         },
         warnings,
       }

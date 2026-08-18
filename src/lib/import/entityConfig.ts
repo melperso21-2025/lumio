@@ -38,6 +38,7 @@ export type EntityType =
   | 'products'
   | 'customers'
   | 'bank_accounts'
+  | 'bank_transaction_categories'
   | 'bank_transactions'
   | 'ad_campaigns'
   | 'sales'
@@ -205,13 +206,27 @@ export const ENTITY_DEFS: Record<EntityType, EntityDef> = {
     ],
   },
 
+  bank_transaction_categories: {
+    key: 'bank_transaction_categories',
+    label: 'Categorías de transacciones',
+    table: 'bank_transaction_categories',
+    description: 'Categorías para clasificar ingresos y egresos bancarios.',
+    dependencies: [],
+    dedupFields: ['name'],
+    fields: [
+      { key: 'name', label: 'nombre', required: true,  type: 'text', example: 'marketing' },
+      { key: 'type', label: 'tipo',   required: false, type: 'text', example: 'expense',
+        hint: 'income|expense|both. Por defecto: both' },
+    ],
+  },
+
   bank_transactions: {
     key: 'bank_transactions',
     label: 'Transacciones bancarias',
     table: 'bank_transactions',
     description: 'Movimientos de ingresos y egresos bancarios.',
-    dependencies: ['bank_accounts'],
-    refEntities: ['bank_accounts'],
+    dependencies: ['bank_accounts', 'bank_transaction_categories'],
+    refEntities: ['bank_accounts', 'bank_transaction_categories'],
     fields: [
       { key: 'account_number', label: 'numero_cuenta', required: true,  type: 'text',   example: '2200123456', hint: 'Número de cuenta existente' },
       { key: 'type',           label: 'tipo',          required: true,  type: 'text',   example: 'income', hint: 'income|expense' },
@@ -315,6 +330,7 @@ export const ENTITY_ORDER: EntityType[] = [
   'products',
   'customers',
   'bank_accounts',
+  'bank_transaction_categories',
   'bank_transactions',
   'ad_campaigns',
   'sales',
@@ -346,12 +362,19 @@ export const ALLOWED_VALUES: Record<string, { label: string; values: string[] }[
     { label: 'telefono',   values: ['Convencional 6-9 dígitos (ej: 022341234) — opcional'] },
     { label: 'numero_id',  values: ['Cédula: 10 dígitos con módulo 10', 'RUC: 13 dígitos', 'Pasaporte: 6-20 alfanuméricos'] },
   ],
+  bank_transaction_categories: [
+    { label: 'tipo', values: ['income (solo ingresos)', 'expense (solo egresos)', 'both (ambos)'] },
+    { label: 'nombre', values: ['Debe ser único dentro de tu empresa'] },
+  ],
   bank_transactions: [
     { label: 'tipo', values: ['income', 'expense'] },
     { label: 'es_fijo', values: ['true', 'false'] },
+    { label: 'categoria', values: ['Debe existir en tu catálogo (ver hoja IDs de referencia)'] },
   ],
+  // Verificado contra la restricción CHECK el 18-ago-2026: la base solo
+  // acepta estos tres valores. No agregar otros sin migrar el CHECK.
   ad_campaigns: [
-    { label: 'plataforma', values: ['meta', 'google', 'tiktok', 'youtube', 'linkedin', 'other'] },
+    { label: 'plataforma', values: ['meta', 'google', 'tiktok'] },
   ],
   sales: [
     { label: 'estado', values: ['closed', 'review', 'contact', 'cancelled'] },

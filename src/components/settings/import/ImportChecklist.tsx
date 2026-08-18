@@ -6,7 +6,7 @@ import { ENTITY_DEFS, ENTITY_ORDER, type EntityType } from '@/lib/import/entityC
 const GROUPS: { label: string; entities: EntityType[] }[] = [
   {
     label: 'Catálogos base',
-    entities: ['suppliers', 'product_categories', 'sales_channels', 'branches', 'customer_types', 'customer_labels', 'bank_accounts'],
+    entities: ['suppliers', 'product_categories', 'sales_channels', 'branches', 'customer_types', 'customer_labels', 'bank_accounts', 'bank_transaction_categories'],
   },
   {
     label: 'Datos principales',
