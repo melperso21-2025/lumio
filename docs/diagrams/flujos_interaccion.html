@@ -1,0 +1,220 @@
+<title>lumio — Flujos de Interacción</title>
+<style>
+:root{--bg:#080810;--bg2:#0D0D1A;--card:#12121F;--border:#1e1e35;--text:#E8E8F0;--muted:#7070A0;}
+@media(prefers-color-scheme:light){:root{--bg:#f4f4f8;--bg2:#e8e8f0;--card:#fff;--border:#d0d0e0;--text:#12121F;--muted:#6060a0;}}
+:root[data-theme="light"]{--bg:#f4f4f8;--bg2:#e8e8f0;--card:#fff;--border:#d0d0e0;--text:#12121F;--muted:#6060a0;}
+:root[data-theme="dark"]{--bg:#080810;--bg2:#0D0D1A;--card:#12121F;--border:#1e1e35;--text:#E8E8F0;--muted:#7070A0;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',system-ui,sans-serif;}
+.wrap{padding:16px;overflow-x:auto;}
+svg{max-width:100%;height:auto;}
+</style>
+<div class="wrap">
+<svg viewBox="0 0 920 780" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="a" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#4a4a7a"/></marker>
+    <marker id="ag" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#059669"/></marker>
+    <marker id="ao" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#F5C842"/></marker>
+    <marker id="ap" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#8B5CF6"/></marker>
+    <marker id="ab" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#3B82F6"/></marker>
+    <marker id="ar" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#DC2626"/></marker>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#F5C842"/><stop offset="100%" style="stop-color:#F09A1A"/>
+    </linearGradient>
+  </defs>
+  <rect width="920" height="780" fill="#080810"/>
+  <rect x="0" y="0" width="920" height="48" fill="#0D0D1A"/>
+  <text x="20" y="18" font-family="'Syne',sans-serif" font-weight="800" font-size="14" fill="url(#g)">lumio</text>
+  <text x="20" y="36" font-size="11" fill="#7070A0">Diagrama de Interacción entre Flujos principales</text>
+
+  <!-- FLOW 1: QUICKSALE -->
+  <rect x="16" y="62" width="424" height="196" rx="10" fill="#0D0D1A" stroke="#059669" stroke-width="1"/>
+  <rect x="16" y="62" width="424" height="22" rx="10" fill="#059669" fill-opacity="0.15"/>
+  <text x="28" y="77" font-size="10" fill="#059669" font-weight="700" letter-spacing="0.5">① QUICKSALE — Venta y descuento de inventario</text>
+  <rect x="28" y="90" width="80" height="40" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="68" y="108" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">Usuario</text>
+  <text x="68" y="120" text-anchor="middle" font-size="8" fill="#7070A0">llena form</text>
+  <line x1="108" y1="110" x2="124" y2="110" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="124" y="90" width="80" height="40" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="164" y="108" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">sale</text>
+  <text x="164" y="120" text-anchor="middle" font-size="8" fill="#7070A0">INSERT</text>
+  <line x1="204" y1="110" x2="220" y2="110" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="220" y="90" width="80" height="40" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="260" y="108" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">sale_items</text>
+  <text x="260" y="120" text-anchor="middle" font-size="8" fill="#7070A0">INSERT líneas</text>
+  <line x1="300" y1="110" x2="316" y2="110" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="316" y="90" width="110" height="40" rx="6" fill="#12121F" stroke="#059669"/>
+  <text x="371" y="103" text-anchor="middle" font-size="8" fill="#6ee7b7" font-weight="600">AUTO: tg_sync_inventory</text>
+  <text x="371" y="114" text-anchor="middle" font-size="8" fill="#7070A0">inventory_movements</text>
+  <text x="371" y="124" text-anchor="middle" font-size="8" fill="#7070A0">(out / sale)</text>
+  <line x1="371" y1="130" x2="371" y2="148" stroke="#059669" stroke-width="1.5" marker-end="url(#ag)"/>
+  <rect x="316" y="148" width="110" height="32" rx="6" fill="#12121F" stroke="#059669"/>
+  <text x="371" y="161" text-anchor="middle" font-size="8" fill="#6ee7b7" font-weight="600">tg_sync_stock</text>
+  <text x="371" y="172" text-anchor="middle" font-size="8" fill="#7070A0">products.current_stock -=</text>
+  <line x1="260" y1="130" x2="260" y2="148" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="220" y="148" width="80" height="32" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="260" y="161" text-anchor="middle" font-size="8" fill="#E8E8F0" font-weight="600">tg_recalculate</text>
+  <text x="260" y="172" text-anchor="middle" font-size="8" fill="#7070A0">sales totales</text>
+  <line x1="164" y1="130" x2="164" y2="148" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="124" y="148" width="80" height="32" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="164" y="161" text-anchor="middle" font-size="8" fill="#E8E8F0" font-weight="600">tg_ltv</text>
+  <text x="164" y="172" text-anchor="middle" font-size="8" fill="#7070A0">customers.total</text>
+  <line x1="164" y1="180" x2="164" y2="218" stroke="#F5C842" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#ao)"/>
+  <rect x="100" y="218" width="128" height="28" rx="6" fill="#12121F" stroke="#F5C842"/>
+  <text x="164" y="230" text-anchor="middle" font-size="8" fill="#F5C842" font-weight="600">Si crédito: tg_create_ar</text>
+  <text x="164" y="240" text-anchor="middle" font-size="8" fill="#7070A0">accounts_receivable</text>
+
+  <!-- FLOW 2: COMPRAS -->
+  <rect x="456" y="62" width="448" height="196" rx="10" fill="#0D0D1A" stroke="#3B82F6" stroke-width="1"/>
+  <rect x="456" y="62" width="448" height="22" rx="10" fill="#3B82F6" fill-opacity="0.12"/>
+  <text x="468" y="77" font-size="10" fill="#3B82F6" font-weight="700" letter-spacing="0.5">② COMPRAS — Ingreso de stock y CxP</text>
+  <rect x="468" y="90" width="80" height="40" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="508" y="108" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">Usuario</text>
+  <text x="508" y="120" text-anchor="middle" font-size="8" fill="#7070A0">registra compra</text>
+  <line x1="548" y1="110" x2="564" y2="110" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="564" y="90" width="80" height="40" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="604" y="108" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">purchases</text>
+  <text x="604" y="120" text-anchor="middle" font-size="8" fill="#7070A0">INSERT</text>
+  <line x1="644" y1="110" x2="660" y2="110" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="660" y="90" width="88" height="40" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="704" y="108" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">purchase_items</text>
+  <text x="704" y="120" text-anchor="middle" font-size="8" fill="#7070A0">INSERT líneas</text>
+  <line x1="748" y1="110" x2="764" y2="110" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="764" y="90" width="126" height="40" rx="6" fill="#12121F" stroke="#3B82F6"/>
+  <text x="827" y="103" text-anchor="middle" font-size="8" fill="#93c5fd" font-weight="600">AUTO: tg_sync_inventory</text>
+  <text x="827" y="114" text-anchor="middle" font-size="8" fill="#7070A0">inventory_movements</text>
+  <text x="827" y="124" text-anchor="middle" font-size="8" fill="#7070A0">(in / purchase)</text>
+  <line x1="827" y1="130" x2="827" y2="148" stroke="#3B82F6" stroke-width="1.5" marker-end="url(#ab)"/>
+  <rect x="764" y="148" width="126" height="32" rx="6" fill="#12121F" stroke="#3B82F6"/>
+  <text x="827" y="161" text-anchor="middle" font-size="8" fill="#93c5fd" font-weight="600">tg_sync_stock</text>
+  <text x="827" y="172" text-anchor="middle" font-size="8" fill="#7070A0">products.current_stock +=</text>
+  <line x1="704" y1="130" x2="704" y2="148" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="660" y="148" width="88" height="32" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="704" y="161" text-anchor="middle" font-size="8" fill="#E8E8F0" font-weight="600">tg_recalculate</text>
+  <text x="704" y="172" text-anchor="middle" font-size="8" fill="#7070A0">purchases totales</text>
+  <line x1="604" y1="130" x2="604" y2="218" stroke="#F5C842" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#ao)"/>
+  <rect x="540" y="218" width="128" height="28" rx="6" fill="#12121F" stroke="#F5C842"/>
+  <text x="604" y="230" text-anchor="middle" font-size="8" fill="#F5C842" font-weight="600">Si crédito: tg_create_ap</text>
+  <text x="604" y="240" text-anchor="middle" font-size="8" fill="#7070A0">accounts_payable</text>
+
+  <!-- FLOW 3: AI INSIGHTS -->
+  <rect x="16" y="272" width="424" height="200" rx="10" fill="#0D0D1A" stroke="#8B5CF6" stroke-width="1"/>
+  <rect x="16" y="272" width="424" height="22" rx="10" fill="#8B5CF6" fill-opacity="0.12"/>
+  <text x="28" y="287" font-size="10" fill="#a78bfa" font-weight="700" letter-spacing="0.5">③ AI INSIGHTS — Análisis semanal con Claude</text>
+  <rect x="28" y="302" width="80" height="36" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="68" y="318" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">Pulse Admin</text>
+  <text x="68" y="330" text-anchor="middle" font-size="8" fill="#7070A0">o cron semanal</text>
+  <line x1="108" y1="320" x2="124" y2="320" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="124" y="302" width="96" height="36" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="172" y="318" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">weekly_snapshots</text>
+  <text x="172" y="330" text-anchor="middle" font-size="8" fill="#7070A0">leer KPIs semana</text>
+  <line x1="220" y1="320" x2="236" y2="320" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="236" y="302" width="96" height="36" rx="6" fill="#12121F" stroke="#8B5CF6"/>
+  <text x="284" y="315" text-anchor="middle" font-size="9" fill="#a78bfa" font-weight="600">Claude API</text>
+  <text x="284" y="326" text-anchor="middle" font-size="8" fill="#7070A0">claude-sonnet-4-7</text>
+  <text x="284" y="337" text-anchor="middle" font-size="8" fill="#7070A0">prompt + contexto</text>
+  <line x1="332" y1="320" x2="348" y2="320" stroke="#8B5CF6" stroke-width="1.5" marker-end="url(#ap)"/>
+  <rect x="348" y="302" width="80" height="36" rx="6" fill="#12121F" stroke="#8B5CF6"/>
+  <text x="388" y="318" text-anchor="middle" font-size="9" fill="#a78bfa" font-weight="600">ai_insights</text>
+  <text x="388" y="330" text-anchor="middle" font-size="8" fill="#7070A0">INSERT content</text>
+  <text x="28" y="364" font-size="8" fill="#4a4a7a" font-weight="600">Flujo de solicitud (usuario):</text>
+  <rect x="28" y="372" width="80" height="32" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="68" y="385" text-anchor="middle" font-size="8" fill="#E8E8F0">Usuario pide</text>
+  <text x="68" y="396" text-anchor="middle" font-size="8" fill="#7070A0">regeneración</text>
+  <line x1="108" y1="388" x2="124" y2="388" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="124" y="372" width="96" height="32" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="172" y="385" text-anchor="middle" font-size="8" fill="#E8E8F0">insight_requests</text>
+  <text x="172" y="396" text-anchor="middle" font-size="8" fill="#7070A0">status: pending</text>
+  <line x1="220" y1="388" x2="236" y2="388" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="236" y="372" width="80" height="32" rx="6" fill="#12121F" stroke="#F5C842"/>
+  <text x="276" y="385" text-anchor="middle" font-size="8" fill="#F5C842">Pulse Admin</text>
+  <text x="276" y="396" text-anchor="middle" font-size="8" fill="#7070A0">aprueba</text>
+  <line x1="316" y1="388" x2="332" y2="388" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="332" y="372" width="96" height="32" rx="6" fill="#12121F" stroke="#8B5CF6"/>
+  <text x="380" y="385" text-anchor="middle" font-size="8" fill="#a78bfa">Genera insight</text>
+  <text x="380" y="396" text-anchor="middle" font-size="8" fill="#7070A0">status: done</text>
+  <rect x="28" y="420" width="410" height="40" rx="6" fill="#080810" stroke="#1e1e35"/>
+  <text x="38" y="434" font-size="8" fill="#4a4a7a">Cuota mensual de IA:</text>
+  <text x="38" y="450" font-size="8" fill="#7070A0">trial=0 · basic=5 · standard=20 · pro=999 · Contador en companies.ai_monthly_used</text>
+
+  <!-- FLOW 4: IMPORTACIÓN -->
+  <rect x="456" y="272" width="448" height="200" rx="10" fill="#0D0D1A" stroke="#F09A1A" stroke-width="1"/>
+  <rect x="456" y="272" width="448" height="22" rx="10" fill="#F09A1A" fill-opacity="0.12"/>
+  <text x="468" y="287" font-size="10" fill="#F09A1A" font-weight="700" letter-spacing="0.5">④ IMPORTACIÓN MASIVA — Excel + rollback</text>
+  <rect x="468" y="302" width="80" height="36" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="508" y="318" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">Admin sube</text>
+  <text x="508" y="330" text-anchor="middle" font-size="8" fill="#7070A0">archivo Excel</text>
+  <line x1="548" y1="320" x2="564" y2="320" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="564" y="302" width="80" height="36" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="604" y="315" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">SheetJS</text>
+  <text x="604" y="326" text-anchor="middle" font-size="8" fill="#7070A0">parsea columnas</text>
+  <text x="604" y="337" text-anchor="middle" font-size="8" fill="#7070A0">mapeo flexible</text>
+  <line x1="644" y1="320" x2="660" y2="320" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="660" y="302" width="80" height="36" rx="6" fill="#12121F" stroke="#F09A1A"/>
+  <text x="700" y="318" text-anchor="middle" font-size="9" fill="#fbbf24" font-weight="600">dry-run</text>
+  <text x="700" y="330" text-anchor="middle" font-size="8" fill="#7070A0">validación sin</text>
+  <text x="700" y="340" text-anchor="middle" font-size="8" fill="#7070A0">guardar</text>
+  <line x1="740" y1="320" x2="756" y2="320" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="756" y="302" width="134" height="36" rx="6" fill="#12121F" stroke="#059669"/>
+  <text x="823" y="318" text-anchor="middle" font-size="9" fill="#6ee7b7" font-weight="600">INSERT + import_log</text>
+  <text x="823" y="330" text-anchor="middle" font-size="8" fill="#7070A0">imported_ids guardados</text>
+  <text x="823" y="340" text-anchor="middle" font-size="8" fill="#7070A0">para rollback</text>
+  <text x="468" y="364" font-size="8" fill="#4a4a7a" font-weight="600">Rollback (admin):</text>
+  <rect x="468" y="372" width="80" height="32" rx="6" fill="#12121F" stroke="#DC2626"/>
+  <text x="508" y="386" text-anchor="middle" font-size="8" fill="#f87171">Admin</text>
+  <text x="508" y="397" text-anchor="middle" font-size="8" fill="#7070A0">click rollback</text>
+  <line x1="548" y1="388" x2="564" y2="388" stroke="#DC2626" stroke-width="1.5" marker-end="url(#ar)"/>
+  <rect x="564" y="372" width="96" height="32" rx="6" fill="#12121F" stroke="#DC2626"/>
+  <text x="612" y="386" text-anchor="middle" font-size="8" fill="#f87171">/api/import/rollback</text>
+  <text x="612" y="397" text-anchor="middle" font-size="8" fill="#7070A0">lee imported_ids</text>
+  <line x1="660" y1="388" x2="676" y2="388" stroke="#DC2626" stroke-width="1.5" marker-end="url(#ar)"/>
+  <rect x="676" y="372" width="214" height="32" rx="6" fill="#12121F" stroke="#DC2626"/>
+  <text x="783" y="386" text-anchor="middle" font-size="8" fill="#f87171">DELETE registros + recalcula stock</text>
+  <text x="783" y="397" text-anchor="middle" font-size="8" fill="#7070A0">import_log.status = 'rolled_back'</text>
+
+  <!-- FLOW 5: CRON -->
+  <rect x="16" y="488" width="880" height="130" rx="10" fill="#0D0D1A" stroke="#F5C842" stroke-width="1"/>
+  <rect x="16" y="488" width="880" height="22" rx="10" fill="#F5C842" fill-opacity="0.10"/>
+  <text x="28" y="503" font-size="10" fill="#F5C842" font-weight="700" letter-spacing="0.5">⑤ CRON SEMANAL — Snapshots + alertas de stock</text>
+  <rect x="28" y="518" width="90" height="36" rx="6" fill="#12121F" stroke="#F5C842"/>
+  <text x="73" y="534" text-anchor="middle" font-size="9" fill="#F5C842" font-weight="600">Vercel Cron</text>
+  <text x="73" y="546" text-anchor="middle" font-size="8" fill="#7070A0">lunes 06:00 UTC</text>
+  <line x1="118" y1="536" x2="134" y2="536" stroke="#F5C842" stroke-width="1.5" marker-end="url(#ao)"/>
+  <rect x="134" y="518" width="100" height="36" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="184" y="531" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">/api/cron</text>
+  <text x="184" y="542" text-anchor="middle" font-size="8" fill="#7070A0">/weekly-snapshot</text>
+  <text x="184" y="553" text-anchor="middle" font-size="8" fill="#7070A0">Bearer CRON_SECRET</text>
+  <line x1="234" y1="536" x2="250" y2="536" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="250" y="518" width="130" height="36" rx="6" fill="#12121F" stroke="#059669"/>
+  <text x="315" y="531" text-anchor="middle" font-size="9" fill="#6ee7b7" font-weight="600">calculate_weekly_snapshot</text>
+  <text x="315" y="542" text-anchor="middle" font-size="8" fill="#7070A0">RPC PostgreSQL</text>
+  <text x="315" y="553" text-anchor="middle" font-size="8" fill="#7070A0">por cada empresa</text>
+  <line x1="380" y1="536" x2="396" y2="536" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="396" y="518" width="100" height="36" rx="6" fill="#12121F" stroke="#2a2a45"/>
+  <text x="446" y="534" text-anchor="middle" font-size="9" fill="#E8E8F0" font-weight="600">weekly_snapshots</text>
+  <text x="446" y="546" text-anchor="middle" font-size="8" fill="#7070A0">UPSERT (week, year)</text>
+  <line x1="184" y1="554" x2="184" y2="572" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="134" y="572" width="100" height="32" rx="6" fill="#12121F" stroke="#DC2626"/>
+  <text x="184" y="586" text-anchor="middle" font-size="9" fill="#f87171" font-weight="600">/cron/stock-alert</text>
+  <text x="184" y="597" text-anchor="middle" font-size="8" fill="#7070A0">productos bajo mínimo</text>
+  <line x1="234" y1="588" x2="250" y2="588" stroke="#DC2626" stroke-width="1.5" marker-end="url(#ar)"/>
+  <rect x="250" y="572" width="100" height="32" rx="6" fill="#12121F" stroke="#3B82F6"/>
+  <text x="300" y="586" text-anchor="middle" font-size="9" fill="#93c5fd" font-weight="600">Resend Email</text>
+  <text x="300" y="597" text-anchor="middle" font-size="8" fill="#7070A0">alerta al admin</text>
+  <line x1="496" y1="536" x2="512" y2="536" stroke="#4a4a7a" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="512" y="518" width="370" height="36" rx="6" fill="#080810" stroke="#1e1e35"/>
+  <text x="697" y="534" text-anchor="middle" font-size="9" fill="#7070A0">Dashboard KPIs · AI Insights usa weekly_snapshots como fuente</text>
+  <text x="697" y="546" text-anchor="middle" font-size="8" fill="#4a4a7a">Semana ISO: isoWeekFromString(date).week — nunca calcular manualmente</text>
+
+  <!-- LEGEND -->
+  <rect x="16" y="634" width="880" height="34" rx="6" fill="#0D0D1A" stroke="#1e1e35"/>
+  <text x="32" y="648" font-size="8" fill="#4a4a7a" font-weight="600">TRIGGER AUTO</text>
+  <rect x="104" y="638" width="28" height="8" rx="2" fill="#059669" fill-opacity="0.3" stroke="#059669"/>
+  <text x="136" y="648" font-size="8" fill="#6ee7b7">Automático BD</text>
+  <text x="240" y="648" font-size="8" fill="#a78bfa">Llama Claude API</text>
+  <text x="320" y="648" font-size="8" fill="#F5C842">Solo si crédito</text>
+  <text x="400" y="648" font-size="8" fill="#f87171">Reversión / Rollback</text>
+  <text x="490" y="648" font-size="8" fill="#7070A0">RLS activo en todas las operaciones · company_id en cada fila</text>
+  <text x="32" y="660" font-size="8" fill="#4a4a7a">Triggers: SECURITY DEFINER SET search_path = public · Soft-delete: UPDATE deleted_at = NOW()</text>
+</svg>
+</div>
