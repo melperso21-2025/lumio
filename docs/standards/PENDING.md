@@ -7,10 +7,15 @@
 
 ## Entorno / Infraestructura
 
-- [ ] **Vercel producción**: agregar variable `INTERNAL_API_SECRET`
-  - Protege el endpoint `/api/auth/verify-session` de llamadas externas
-  - Mismo valor que se use en `.env.local`
-  - Sin esta variable el endpoint acepta cualquier request en producción
+- [ ] **Vercel (Preview y Production)**: agregar variable `INTERNAL_API_SECRET`
+  - Secreto compartido entre `middleware.ts` y `/api/auth/verify-session`
+  - Mismo valor en `.env.local` y en ambos entornos de Vercel
+  - Corrección de la nota anterior: sin la variable el endpoint **rechaza
+    todo** con 403 (falla del lado seguro), no lo contrario. El middleware
+    trata el 403 como respuesta no-ok y omite la validación, de modo que la
+    sesión única queda inactiva pero nadie queda bloqueado.
+  - Requiere redespliegue: el middleware corre en Edge y las variables se
+    resuelven en tiempo de construcción
 
 - [ ] **Vercel producción**: agregar variables de Upstash Redis
   - `UPSTASH_REDIS_REST_URL`

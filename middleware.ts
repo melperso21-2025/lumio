@@ -126,6 +126,9 @@ export async function middleware(request: NextRequest) {
       const verifyUrl = new URL('/api/auth/verify-session', request.url)
       const verifyRes = await fetch(verifyUrl.toString(), {
         headers: {
+          // Secreto compartido: sin esta cabecera la ruta responde 403 y la
+          // verificacion de sesion unica queda inactiva.
+          'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '',
           'x-user-id': user.id,
           'x-session-token': sessionToken,
         },
