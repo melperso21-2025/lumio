@@ -178,10 +178,12 @@ export default function InventoryOverview({
   }), [physicalProducts, serviceCount, low_stock_count, frozen_capital, movementsIn, movementsOut, restockProducts])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    // El envoltorio de page.tsx ya aporta el margen exterior (14px 16px);
+    // aquí solo se separan los bloques entre sí, igual que en SalesOverview.
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
       {/* ── Sección fija: KPIs + alertas ── */}
-      <div style={{ flexShrink: 0, padding: '12px 16px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
 
         {/* KPIs + botón IA */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: 8, alignItems: 'stretch' }}>
@@ -257,8 +259,8 @@ export default function InventoryOverview({
       </div>
 
       {/* ── Catálogo ── */}
-      <div style={{ padding: '0 0 14px' }}>
-        <div style={{ borderRadius: 12, background: 'var(--card)', border: '1px solid var(--border)', padding: '12px 16px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+      <div>
+        <div style={{ borderRadius: 12, background: 'var(--card)', border: '1px solid var(--border)', padding: '14px 16px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexShrink: 0 }}>
             <div>
               <h2 className="font-syne font-bold" style={{ fontSize: 14, color: 'var(--text)', margin: 0 }}>
