@@ -28,6 +28,10 @@ interface InventoryOverviewProps {
   movementsOut: number
   prevMovementsIn: number
   prevMovementsOut: number
+  /** product_id → unidades vendidas en el período (solo salidas por venta) */
+  unitsSoldByProduct: Record<string, number>
+  /** días que abarca el período seleccionado, para calcular el ritmo diario */
+  periodDays: number
   from: string
   to: string
   prevFrom: string
@@ -44,6 +48,8 @@ export default function InventoryOverview({
   movementsOut,
   prevMovementsIn,
   prevMovementsOut,
+  unitsSoldByProduct,
+  periodDays,
   from,
   to,
 }: InventoryOverviewProps) {
@@ -285,6 +291,8 @@ export default function InventoryOverview({
               suppliers={suppliers}
               categoriesMap={categoriesMap}
               userRole={userRole}
+              unitsSoldByProduct={unitsSoldByProduct}
+              periodDays={periodDays}
               filterText={filterText}
               filterCategory={filterCategory}
               filterType={filterType}

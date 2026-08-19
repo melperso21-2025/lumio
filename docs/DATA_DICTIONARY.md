@@ -203,10 +203,23 @@ subtotal = quantity * unit_cost
 ```
 
 ### Días de inventario
+
+Se calcula en dos niveles distintos, con fórmulas diferentes:
+
+**Global (empresa)** — en `calculate_weekly_snapshot()`, guardado en
+`weekly_snapshots.inventory_days` y mostrado en el Dashboard:
 ```
-inventory_days = inventory_value / (cost_of_goods_sold / days_in_period)
+inventory_days = valor_total_del_stock / (costo_de_ventas / días_del_período)
 ```
-Calculado en `calculate_weekly_snapshot()`.
+
+**Por producto** — calculado en la vista de Inventario, columna «Días stock»:
+```
+días_stock = stock_actual / (unidades_vendidas_en_el_período / días_del_período)
+```
+Solo considera movimientos de inventario con `type='out'` y `reason='sale'`:
+un ajuste de conteo o una merma no representan demanda. Devuelve vacío para
+servicios y para productos sin ventas en el período, donde no existe un ritmo
+del cual derivar la cobertura.
 
 ### Semana ISO
 Siempre usar `isoWeekFromString(date).week` — no calcular manualmente con `Math.ceil`.

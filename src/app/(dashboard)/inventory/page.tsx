@@ -114,7 +114,8 @@ export default async function InventoryPage({
       .order('name'),
     supabase
       .from('inventory_movements')
-      .select('type, quantity')
+      // product_id y reason se usan para calcular los días de stock por producto
+      .select('type, quantity, product_id, reason')
       .eq('company_id', companyId)
       .gte('movement_date', from)
       .lte('movement_date', to)
@@ -151,6 +152,21 @@ export default async function InventoryPage({
     .filter((m) => m.type === 'out')
     .reduce((s, m) => s + (m.quantity ?? 0), 0)
 
+  // ── Días de stock por producto ────────────────────────────────────────────
+  // Unidades vendidas en el período por producto. Se toman solo las salidas
+  // con razón 'sale': un ajuste de conteo o una merma no representan demanda
+  // y distorsionarían el ritmo de venta.
+  const unitsSoldByProduct: Record<string, number> = {}
+  for (const m of movements) {
+    if (m.type !== 'out' || m.reason !== 'sale' || !m.product_id) continue
+    unitsSoldByProduct[m.product_id] =
+      (unitsSoldByProduct[m.product_id] ?? 0) + Number(m.quantity ?? 0)
+  }
+  const periodDays = Math.max(
+    1,
+    Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000)
+  )
+
   return (
     <>
       <Topbar
@@ -171,6 +187,8 @@ export default async function InventoryPage({
           movementsOut={movementsOut}
           prevMovementsIn={prevMovementsIn}
           prevMovementsOut={prevMovementsOut}
+          unitsSoldByProduct={unitsSoldByProduct}
+          periodDays={periodDays}
           from={from}
           to={to}
           prevFrom={prevFrom}

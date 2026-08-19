@@ -82,7 +82,27 @@ const EXPIRY_BADGE: Record<ExpiryLevel, { bg: string; color: string }> = {
 type SortKey =
   | 'name' | 'category_name' | 'product_type' | 'unit_label'
   | 'sale_price' | 'unit_cost' | 'current_stock'
-  | 'min_stock_alert' | 'expiry_date'
+  | 'min_stock_alert' | 'expiry_date' | 'days_of_stock'
+
+/**
+ * Días que alcanza el stock actual al ritmo de venta del período.
+ *   días = stock actual ÷ (unidades vendidas ÷ días del período)
+ *
+ * Devuelve null cuando no se puede calcular: servicios (no llevan stock) y
+ * productos sin ventas en el período, donde no hay ritmo del cual derivar
+ * una cobertura. Un producto con ventas y stock cero devuelve 0 (agotado).
+ */
+function calcDaysOfStock(
+  p: ProductWithCategory,
+  unitsSold: number,
+  periodDays: number
+): number | null {
+  if (p.product_type === 'service') return null
+  if (!unitsSold || unitsSold <= 0) return null
+  const dailyRate = unitsSold / Math.max(1, periodDays)
+  if (dailyRate <= 0) return null
+  return (p.current_stock ?? 0) / dailyRate
+}
 
 function getSortValue(p: ProductWithCategory, key: SortKey): string | number {
   switch (key) {
@@ -104,6 +124,7 @@ const COLUMNS: { key: SortKey; label: string; align: 'left' | 'right' }[] = [
   { key: 'product_type',  label: 'Tipo',         align: 'left'  },
   { key: 'unit_label',    label: 'Unidad',       align: 'left'  },
   { key: 'current_stock', label: 'Stock',        align: 'right' },
+  { key: 'days_of_stock', label: 'Días stock',   align: 'right' },
   { key: 'min_stock_alert',label: 'Mín.',        align: 'right' },
   { key: 'expiry_date',   label: 'Caducidad',    align: 'left'  },
   { key: 'sale_price',    label: 'Precio',       align: 'right' },
@@ -223,6 +244,10 @@ interface InventoryTableProps {
   suppliers: Supplier[]
   categoriesMap: Record<string, string>
   userRole: string
+  /** product_id → unidades vendidas en el período (solo salidas por venta) */
+  unitsSoldByProduct: Record<string, number>
+  /** días que abarca el período seleccionado */
+  periodDays: number
   filterText: string
   filterCategory: string
   filterType: string
@@ -245,6 +270,8 @@ export default function InventoryTable({
   suppliers,
   categoriesMap,
   userRole,
+  unitsSoldByProduct,
+  periodDays,
   filterText,
   filterCategory,
   filterType,
@@ -301,6 +328,21 @@ export default function InventoryTable({
   }, [products, categoriesMap, filterText, filterCategory, filterType, filterStock, filterPerishable])
 
   const sortedProducts = useMemo(() => {
+    // 'days_of_stock' es un valor calculado, no una columna del producto.
+    // Los productos sin cobertura calculable van siempre al final, en ambos
+    // sentidos del orden, para que ordenar por urgencia sea útil.
+    if (sortBy === 'days_of_stock') {
+      const dias = (p: ProductWithCategory) =>
+        calcDaysOfStock(p, unitsSoldByProduct[p.id] ?? 0, periodDays)
+      return [...filteredProducts].sort((a, b) => {
+        const da = dias(a)
+        const dbv = dias(b)
+        if (da === null && dbv === null) return 0
+        if (da === null) return 1
+        if (dbv === null) return -1
+        return sortAsc ? da - dbv : dbv - da
+      })
+    }
     return [...filteredProducts].sort((a, b) => {
       const va = getSortValue(a, sortBy)
       const vb = getSortValue(b, sortBy)
@@ -310,7 +352,7 @@ export default function InventoryTable({
           : (va as number) - (vb as number)
       return sortAsc ? cmp : -cmp
     })
-  }, [filteredProducts, sortBy, sortAsc])
+  }, [filteredProducts, sortBy, sortAsc, unitsSoldByProduct, periodDays])
 
   const totalPages = Math.ceil(sortedProducts.length / PAGE_SIZE)
   const paginated  = sortedProducts.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
@@ -508,6 +550,37 @@ export default function InventoryTable({
                           {stockBadge.label} {stock.toLocaleString('es-EC', { maximumFractionDigits: 3 })} {unitLbl}
                         </span>
                       )}
+                    </td>
+
+                    {/* Días de stock */}
+                    <td style={{ padding: '7px 10px', textAlign: 'right' }}>
+                      {(() => {
+                        const dias = calcDaysOfStock(p, unitsSoldByProduct[p.id] ?? 0, periodDays)
+                        if (dias === null) {
+                          return (
+                            <span
+                              style={{ color: 'var(--muted)', fontSize: 12 }}
+                              title={isService ? 'Los servicios no llevan stock' : 'Sin ventas en el período: no hay ritmo para calcular la cobertura'}
+                            >
+                              —
+                            </span>
+                          )
+                        }
+                        // Umbrales alineados con el rango óptimo de 20 a 45 días
+                        const color =
+                          dias < 7  ? 'var(--red)'
+                          : dias < 20 ? 'var(--orange)'
+                          : dias > 90 ? 'var(--muted)'
+                          : 'var(--text)'
+                        return (
+                          <span
+                            style={{ fontSize: 12, fontWeight: dias < 20 ? 700 : 400, color }}
+                            title={`${Math.round(unitsSoldByProduct[p.id] ?? 0).toLocaleString('es-EC')} unidades vendidas en ${periodDays} días`}
+                          >
+                            {dias < 1 ? '0' : Math.round(dias).toLocaleString('es-EC')} d
+                          </span>
+                        )
+                      })()}
                     </td>
 
                     {/* Mín */}
